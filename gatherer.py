@@ -26,18 +26,17 @@
 from ConfigParser import RawConfigParser, NoOptionError
 from trollsift import Parser
 from datetime import timedelta, datetime
-from pyresample import utils
 from trollduction.collectors import trigger
 from trollduction.collectors import region_collector
 import time
 import logging
 import os.path
 from posttroll import message, publisher
+from mpop.projector import get_area_def
 
 logger = logging.getLogger(__name__)
 
 config = RawConfigParser()
-config.read("gatherer.cfg")
 pub = None
 
 
@@ -102,7 +101,10 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument("-v", "--verbose", help="print debug messages too",
                         action="store_true")
+    parser.add_argument("config", help="config file to be used")
     opts = parser.parse_args()
+
+    config.read(opts.config)
 
     if opts.log:
         import logging.handlers
@@ -130,9 +132,9 @@ if __name__ == '__main__':
 
     pub = publisher.NoisyPublisher("eumetcast_poller")
 
-    # TODO: get this from the product config file
-    regions = [
-        utils.load_area('/home/a001673/usr/src/satprod/etc/areas.def', 'euron1')]
+    # TODO: get this from the product config files
+    regions = [get_area_def(region)
+               for region in config.get("default", "regions").split()]
 
     for section in config.sections():
         if section == "default":
