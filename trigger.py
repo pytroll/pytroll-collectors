@@ -169,8 +169,13 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
             self.stop()
             self.join()
 
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver
+try:
+    from watchdog.events import FileSystemEventHandler
+    from watchdog.observers.polling import PollingObserver
+except ImportError:
+    FileSystemEventHandler = None
+    PollingObserver = None
+
 import time
 from fnmatch import fnmatch
 import os.path
