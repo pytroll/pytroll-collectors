@@ -28,7 +28,10 @@ from pyinotify import (ProcessEvent, Notifier, WatchManager,
                        IN_CLOSE_WRITE, IN_MOVED_TO)
 import logging
 from datetime import datetime
+from fnmatch import fnmatch
+import os.path
 from posttroll.subscriber import NSSubscriber
+
 LOG = logging.getLogger(__name__)
 
 
@@ -172,77 +175,72 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
-except ImportError:
-    FileSystemEventHandler = object
-    PollingObserver = object
 
-import time
-from fnmatch import fnmatch
-import os.path
+    class WatchDogTrigger(FileSystemEventHandler, FileTrigger):
 
-
-class WatchDogTrigger(FileSystemEventHandler, FileTrigger):
-
-    """File trigger, acting upon inotify events.
-    """
-
-    def __init__(self, collectors, terminator, decoder, patterns):
-        FileSystemEventHandler.__init__(self)
-        FileTrigger.__init__(self, collectors, terminator, decoder)
-        self.input_dirs = []
-        for pattern in patterns:
-            self.input_dirs.append(os.path.dirname(pattern))
-        self.patterns = patterns
-
-        self.new_file = Event()
-        self.observer = None
-
-    def on_created(self, event):
-        """On creating a file.
+        """File trigger, acting upon inotify events.
         """
-        for pattern in self.patterns:
-            if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (created): " + event.src_path)
-                self.add_file(event.src_path)
-                return
 
-    def start(self):
-        self.observer = PollingObserver()
+        def __init__(self, collectors, terminator, decoder, patterns):
+            FileSystemEventHandler.__init__(self)
+            FileTrigger.__init__(self, collectors, terminator, decoder)
+            self.input_dirs = []
+            for pattern in patterns:
+                self.input_dirs.append(os.path.dirname(pattern))
+            self.patterns = patterns
+
+            self.new_file = Event()
+            self.observer = None
+
+        def on_created(self, event):
+            """On creating a file.
+            """
+            for pattern in self.patterns:
+                if fnmatch(event.src_path, pattern):
+                    LOG.debug("New file detected (created): " + event.src_path)
+                    self.add_file(event.src_path)
+                    return
+
+        def start(self):
+            self.observer = PollingObserver()
+
+            # add watches
+            for idir in self.input_dirs:
+                self.observer.schedule(self, idir)
+            self.observer.start()
+
+            FileTrigger.start(self)
+            LOG.debug("Started polling")
+
+        def stop(self):
+            self.observer.stop()
+            FileTrigger.stop(self)
+            self.observer.join()
+            self.join()
+
+        # def loop(self):
+        #     """The main function.
+        #     """
+        #     self.start()
+        #     try:
+        #         observer = PollingObserver()
 
         # add watches
-        for idir in self.input_dirs:
-            self.observer.schedule(self, idir)
-        self.observer.start()
+        #         for idir in self.input_dirs:
+        #             observer.schedule(self, idir)
+        #         observer.start()
+        #         LOG.debug("Started")
+        # loop forever
+        #         while self._running:
+        #             time.sleep(1)
+        #     finally:
+        #         observer.stop()
+        #         observer.join()
+        #         self.stop()
+        #         self.join()
 
-        FileTrigger.start(self)
-        LOG.debug("Started polling")
-
-    def stop(self):
-        self.observer.stop()
-        FileTrigger.stop(self)
-        self.observer.join()
-        self.join()
-
-    # def loop(self):
-    #     """The main function.
-    #     """
-    #     self.start()
-    #     try:
-    #         observer = PollingObserver()
-
-    # add watches
-    #         for idir in self.input_dirs:
-    #             observer.schedule(self, idir)
-    #         observer.start()
-    #         LOG.debug("Started")
-    # loop forever
-    #         while self._running:
-    #             time.sleep(1)
-    #     finally:
-    #         observer.stop()
-    #         observer.join()
-    #         self.stop()
-    #         self.join()
+except ImportError:
+    WatchDogTrigger = None
 
 
 class MessageProcessor(Thread):
