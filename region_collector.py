@@ -43,7 +43,8 @@ LOG = logging.getLogger(__name__)
 PLOT = False
 
 tle_names = {"metop a": "metop-a",
-             "metop b": "metop-b"}
+             "metop b": "metop-b",
+             "suomi-npp": "suomi npp"}
 
 
 def corners(platform, start_time, end_time):
@@ -118,17 +119,19 @@ class RegionCollector:
 
         # Check if input data is being waited for
 
-        platform = granule_metadata['platform']
+        platform = granule_metadata['platform_name']
         fullname = platform
         if 'number' in granule_metadata:
             number = granule_metadata['number']
             fullname = tle_names[fullname + " " + number]
+        else:
+            fullname = tle_names[fullname.lower()]
         start_time = granule_metadata['start_time']
         end_time = granule_metadata['end_time']
 
         for ptime in self.planned_granule_times:
             if abs(start_time - ptime) < timedelta(seconds=3):
-                self.granule_times.add(start_time)
+                self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
                 LOG.info("Added %s (%s) granule to area %s",
                          platform,

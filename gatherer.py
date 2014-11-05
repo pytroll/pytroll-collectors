@@ -81,13 +81,35 @@ def get_metadata(fname):
 def terminator(metadata):
     """Dummy terminator function.
     """
-    mda = metadata[0]
+    sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
+
+    mda = metadata[0].copy()
 
     subject = "/".join(("",
                         mda["format"],
-                        mda["level"]))
+                        mda["data_processing_level"],
+                        ''))
+    # TODO: build a collection with some metadata, strip out the datasets.
+
+    mda['end_time'] = sorted_mda[-1]['end_time']
+
+    mda['collection'] = []
+
+    for meta in sorted_mda:
+        new_mda = {}
+        for key in ['dataset', 'uri', 'uid']:
+            if key in meta:
+                new_mda[key] = meta[key]
+            new_mda['start_time'] = meta['start_time']
+            new_mda['end_time'] = meta['end_time']
+        mda['collection'].append(new_mda)
+
+    for key in ['dataset', 'uri', 'uid']:
+        if key in mda:
+            del mda[key]
+
     msg = message.Message(subject, "collection",
-                          sorted(metadata, key=lambda x: x["start_time"]))
+                          mda)
     logger.info("sending %s", str(msg))
     pub.send(str(msg))
 
@@ -139,8 +161,7 @@ if __name__ == '__main__':
     for section in config.sections():
         if section == "default":
             continue
-        pattern = config.get(section, "pattern")
-        parser = Parser(pattern)
+
         timeliness = timedelta(minutes=config.getint(section, "timeliness"))
         try:
             duration = timedelta(seconds=config.getfloat(section, "duration"))
@@ -149,8 +170,17 @@ if __name__ == '__main__':
         collectors = [region_collector.RegionCollector(
             region, timeliness, duration) for region in regions]
 
-        granule_trigger = trigger.WatchDogTrigger(collectors, terminator,
-                                                  decoder, [parser.globify()])
+        try:
+            pattern = config.get(section, "pattern")
+            parser = Parser(pattern)
+
+            granule_trigger = trigger.WatchDogTrigger(collectors, terminator,
+                                                      decoder, [parser.globify()])
+        except NoOptionError:
+            granule_trigger = trigger.PostTrollTrigger(
+                collectors, terminator,
+                config.get(section, 'service').split(','),
+                config.get(section, 'topics').split(','))
         granule_triggers.append(granule_trigger)
 
     pub.start()
