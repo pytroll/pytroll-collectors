@@ -173,8 +173,8 @@ try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
 except ImportError:
-    FileSystemEventHandler = None
-    PollingObserver = None
+    FileSystemEventHandler = object
+    PollingObserver = object
 
 import time
 from fnmatch import fnmatch
