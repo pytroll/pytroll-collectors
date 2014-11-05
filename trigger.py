@@ -28,7 +28,7 @@ from pyinotify import (ProcessEvent, Notifier, WatchManager,
                        IN_CLOSE_WRITE, IN_MOVED_TO)
 import logging
 from datetime import datetime
-
+from posttroll.subscriber import NSSubscriber
 LOG = logging.getLogger(__name__)
 
 
@@ -218,30 +218,79 @@ class WatchDogTrigger(FileSystemEventHandler, FileTrigger):
         self.observer.join()
         self.join()
 
-    def loop(self):
-        """The main function.
-        """
-        self.start()
+    # def loop(self):
+    #     """The main function.
+    #     """
+    #     self.start()
+    #     try:
+    #         observer = PollingObserver()
+
+    # add watches
+    #         for idir in self.input_dirs:
+    #             observer.schedule(self, idir)
+    #         observer.start()
+    #         LOG.debug("Started")
+    # loop forever
+    #         while self._running:
+    #             time.sleep(1)
+    #     finally:
+    #         observer.stop()
+    #         observer.join()
+    #         self.stop()
+    #         self.join()
+
+
+class MessageProcessor(Thread):
+
+    """Process Messages
+    """
+
+    def __init__(self, services, topics):
+        Thread.__init__(self)
+        self.nssub = NSSubscriber(services, topics, True)
+        self.sub = None
+        self.loop = True
+
+    def start(self):
+        self.sub = self.nssub.start()
+        Thread.start(self)
+
+    def process_message(self, msg):
+        del msg
+        raise NotImplementedError("process_message is not implemented!")
+
+    def run(self):
         try:
-            observer = PollingObserver()
-
-            # add watches
-            for idir in self.input_dirs:
-                observer.schedule(self, idir)
-            observer.start()
-            LOG.debug("Started")
-            # loop forever
-            while self._running:
-                time.sleep(1)
+            for msg in self.sub.recv(2):
+                if not self.loop:
+                    break
+                if msg is None:
+                    continue
+                self.process_message(msg)
         finally:
-            observer.stop()
-            observer.join()
             self.stop()
-            self.join()
+
+    def stop(self):
+        self.nssub.stop()
+        self.loop = False
 
 
-class PostTrollTrigger():
+class PostTrollTrigger(MessageProcessor, FileTrigger):
 
     """Get posttroll messages.
     """
-    pass
+
+    def __init__(self, collectors, terminator, services, topics):
+        MessageProcessor.__init__(self, services, topics)
+        FileTrigger.__init__(self, collectors, terminator, self.decode_message)
+
+    @staticmethod
+    def decode_message(message):
+        return message.data
+
+    def stop(self):
+        MessageProcessor.stop(self)
+        FileTrigger.stop(self)
+
+    def process_message(self, msg):
+        self.add_file(msg)
