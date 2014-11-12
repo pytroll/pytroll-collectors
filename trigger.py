@@ -32,11 +32,13 @@ from fnmatch import fnmatch
 import os.path
 from posttroll.subscriber import NSSubscriber
 
+
 LOG = logging.getLogger(__name__)
 
 
 def total_seconds(td):
-    return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10 ** 6
+    return ((td.microseconds +
+             (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
 
 
 class Trigger:
@@ -94,7 +96,6 @@ class FileTrigger(Trigger, Thread):
         # - then the new timeouts are computed
         # - if a timeout occurs during the wait, the wait is interrupted and
         #   the timeout is handled.
-
         while self._running:
             timeouts = [(collector, collector.timeout)
                         for collector in self.collectors
@@ -106,6 +107,9 @@ class FileTrigger(Trigger, Thread):
                     LOG.warning("Timeout detected, terminating collector")
                     self.terminator(next_timeout[0].finish())
                 else:
+                    LOG.debug("Waiting %s seconds until timeout",
+                              str(total_seconds(next_timeout[1] -
+                                                datetime.utcnow())))
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()
@@ -278,22 +282,24 @@ class MessageProcessor(Thread):
         self.loop = False
 
 
-class PostTrollTrigger(MessageProcessor, FileTrigger):
+class PostTrollTrigger(FileTrigger):
 
     """Get posttroll messages.
     """
 
     def __init__(self, collectors, terminator, services, topics):
-        MessageProcessor.__init__(self, services, topics)
+        self.mp = MessageProcessor(services, topics)
+        self.mp.process_message = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message)
+
+    def start(self):
+        FileTrigger.start(self)
+        self.mp.start()
 
     @staticmethod
     def decode_message(message):
         return message.data
 
     def stop(self):
-        MessageProcessor.stop(self)
+        self.mp.stop()
         FileTrigger.stop(self)
-
-    def process_message(self, msg):
-        self.add_file(msg)
