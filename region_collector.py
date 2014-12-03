@@ -44,7 +44,8 @@ PLOT = False
 
 tle_names = {"metop a": "metop-a",
              "metop b": "metop-b",
-             "suomi-npp": "suomi npp"}
+             "suomi-npp": "suomi npp",
+             "noaa-19": "noaa19"}
 
 
 def corners(platform, start_time, end_time):
@@ -123,9 +124,11 @@ class RegionCollector:
         fullname = platform
         if 'number' in granule_metadata:
             number = granule_metadata['number']
-            fullname = tle_names[fullname + " " + number]
+            fullname = tle_names.get(fullname + " " + number,
+                                     fullname + " " + number)
         else:
-            fullname = tle_names[fullname.lower()]
+            fullname = tle_names.get(fullname.lower(),
+                                     fullname.lower())
         start_time = granule_metadata['start_time']
         end_time = granule_metadata['end_time']
 
@@ -156,7 +159,6 @@ class RegionCollector:
 
         # If file is within region, make pass prediction to know what to wait
         # for
-
         if granule_area.overlaps(self.region):
             self.granule_times.add(start_time)
             self.granules.append(granule_metadata)
@@ -195,7 +197,9 @@ class RegionCollector:
                                 + self.granule_duration
                                 + self.timeliness)
                 LOG.info("Planned timeout: " + self.timeout.isoformat())
-
+        else:
+            LOG.debug("Granule %s is not overlapping %s",
+                      granule_metadata["uri"], self.region.name)
         # If last granule return swath and cleanup
         if (self.granule_times and
                 (self.granule_times == self.planned_granule_times)):

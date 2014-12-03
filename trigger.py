@@ -179,13 +179,17 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
+    from watchdog.observers import Observer
 
     class WatchDogTrigger(FileSystemEventHandler, FileTrigger):
 
         """File trigger, acting upon inotify events.
         """
 
-        def __init__(self, collectors, terminator, decoder, patterns):
+        cases = {"PollingObserver": PollingObserver,
+                 "Observer": Observer}
+
+        def __init__(self, collectors, terminator, decoder, patterns, observer_class_name):
             FileSystemEventHandler.__init__(self)
             FileTrigger.__init__(self, collectors, terminator, decoder)
             self.input_dirs = []
@@ -194,19 +198,24 @@ try:
             self.patterns = patterns
 
             self.new_file = Event()
-            self.observer = None
+            self.observer = self.cases.get(observer_class_name, Observer)()
 
         def on_created(self, event):
             """On creating a file.
             """
-            for pattern in self.patterns:
-                if fnmatch(event.src_path, pattern):
-                    LOG.debug("New file detected (created): " + event.src_path)
-                    self.add_file(event.src_path)
-                    return
+            try:
+                for pattern in self.patterns:
+                    if fnmatch(event.src_path, pattern):
+                        LOG.debug(
+                            "New file detected (created): " + event.src_path)
+                        self.add_file(event.src_path)
+                        LOG.debug("Done adding")
+                        return
+            except:
+                LOG.exception(
+                    "Something wrong happened in the event processing!")
 
         def start(self):
-            self.observer = PollingObserver()
 
             # add watches
             for idir in self.input_dirs:
@@ -221,27 +230,6 @@ try:
             FileTrigger.stop(self)
             self.observer.join()
             self.join()
-
-        # def loop(self):
-        #     """The main function.
-        #     """
-        #     self.start()
-        #     try:
-        #         observer = PollingObserver()
-
-        # add watches
-        #         for idir in self.input_dirs:
-        #             observer.schedule(self, idir)
-        #         observer.start()
-        #         LOG.debug("Started")
-        # loop forever
-        #         while self._running:
-        #             time.sleep(1)
-        #     finally:
-        #         observer.stop()
-        #         observer.join()
-        #         self.stop()
-        #         self.join()
 
 except ImportError:
     WatchDogTrigger = None
