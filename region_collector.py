@@ -198,8 +198,20 @@ class RegionCollector:
                                 + self.timeliness)
                 LOG.info("Planned timeout: " + self.timeout.isoformat())
         else:
-            LOG.debug("Granule %s is not overlapping %s",
-                      granule_metadata["uri"], self.region.name)
+            try:
+                LOG.debug("Granule %s is not overlapping %s",
+                          granule_metadata["uri"], self.region.name)
+            except KeyError:
+                try:
+                    LOG.debug("Granule with start and end times = " +
+                              str(granule_metadata["start_time"]) + " " +
+                              str(granule_metadata["end_time"]) +
+                              "is not overlapping " + str(self.region.name))
+                except KeyError:
+                    LOG.debug("Failed printing debug info...")
+                    LOG.debug("Keys in granule_metadata = " +
+                              str(granule_metadata.keys()))
+
         # If last granule return swath and cleanup
         if (self.granule_times and
                 (self.granule_times == self.planned_granule_times)):
