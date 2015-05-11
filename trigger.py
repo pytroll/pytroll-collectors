@@ -41,24 +41,25 @@ def total_seconds(td):
              (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
 
 
-class Trigger:
-
+class Trigger(object):
     """Abstract trigger class.
     """
 
-    def __init__(self, collectors, terminator):
+    def __init__(self, collectors, terminator, publish_topic=None):
         self.collectors = collectors
         self.terminator = terminator
+        self.publish_topic = publish_topic
 
     def _do(self, metadata):
         """Execute the collectors and terminator.
         """
         if not metadata:
+            LOG.warning("No metadata")
             return
         for collector in self.collectors:
             res = collector(metadata)
             if res:
-                return self.terminator(res)
+                return self.terminator(res, publish_topic=self.publish_topic)
 
 
 from threading import Thread, Event
@@ -69,9 +70,10 @@ class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events.
     """
 
-    def __init__(self, collectors, terminator, decoder):
+    def __init__(self, collectors, terminator, decoder, publish_topic=None):
         Thread.__init__(self)
-        Trigger.__init__(self, collectors, terminator)
+        Trigger.__init__(self, collectors, terminator,
+                         publish_topic=publish_topic)
         self.decoder = decoder
         self._running = True
         self.new_file = Event()
@@ -105,7 +107,8 @@ class FileTrigger(Trigger, Thread):
                 next_timeout = min(timeouts, key=(lambda(x): x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
                     LOG.warning("Timeout detected, terminating collector")
-                    self.terminator(next_timeout[0].finish())
+                    self.terminator(next_timeout[0].finish(),
+                                    publish_topic=self.publish_topic)
                 else:
                     LOG.debug("Waiting %s seconds until timeout",
                               str(total_seconds(next_timeout[1] -
@@ -129,9 +132,11 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
     """File trigger, acting upon inotify events.
     """
 
-    def __init__(self, collectors, terminator, decoder, patterns):
+    def __init__(self, collectors, terminator, decoder, patterns,
+                 publish_topic=None):
         ProcessEvent.__init__(self)
-        FileTrigger.__init__(self, collectors, terminator, decoder)
+        FileTrigger.__init__(self, collectors, terminator, decoder,
+                             publish_topic=publish_topic)
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))
@@ -189,9 +194,11 @@ try:
         cases = {"PollingObserver": PollingObserver,
                  "Observer": Observer}
 
-        def __init__(self, collectors, terminator, decoder, patterns, observer_class_name):
+        def __init__(self, collectors, terminator, decoder, patterns,
+                     observer_class_name, publish_topic=None):
             FileSystemEventHandler.__init__(self)
-            FileTrigger.__init__(self, collectors, terminator, decoder)
+            FileTrigger.__init__(self, collectors, terminator, decoder,
+                                 publish_topic=publish_topic)
             self.input_dirs = []
             for pattern in patterns:
                 self.input_dirs.append(os.path.dirname(pattern))
@@ -232,6 +239,7 @@ try:
             self.join()
 
 except ImportError:
+    LOG.error("Watchdog import failed!")
     WatchDogTrigger = None
 
 
@@ -275,10 +283,12 @@ class PostTrollTrigger(FileTrigger):
     """Get posttroll messages.
     """
 
-    def __init__(self, collectors, terminator, services, topics):
+    def __init__(self, collectors, terminator, services, topics,
+                 publish_topic=None):
         self.mp = MessageProcessor(services, topics)
         self.mp.process_message = self.add_file
-        FileTrigger.__init__(self, collectors, terminator, self.decode_message)
+        FileTrigger.__init__(self, collectors, terminator, self.decode_message,
+                             publish_topic=publish_topic)
 
     def start(self):
         FileTrigger.start(self)
