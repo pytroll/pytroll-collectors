@@ -7,6 +7,7 @@
 
 #   Kristian Rune Larsen <krl@dmi.dk>
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+"""Region collector.
 """
 
 import os
@@ -35,7 +36,7 @@ LOG = logging.getLogger(__name__)
 
 PLOT = False
 
-class RegionCollector:
+class RegionCollector(object):
 
     """This is the region collector. It collects granules that overlap on a
     region of interest and return the collection of granules when it's done.
@@ -62,7 +63,7 @@ class RegionCollector:
         """ 
             Parameters:
 
-                granule_metadata : metadata 
+                granule_metadata : metadata
 
         """
 
@@ -72,6 +73,8 @@ class RegionCollector:
 
         start_time = granule_metadata['start_time']
         end_time = granule_metadata['end_time']
+
+        granule_metadata['collection_area_id'] = self.region.area_id
 
         for ptime in self.planned_granule_times:
             if abs(start_time - ptime) < timedelta(seconds=3):
@@ -135,8 +138,8 @@ class RegionCollector:
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info(
-                    "Planned granules: " + str(sorted(self.planned_granule_times)))
+                LOG.info("Planned granules: " + \
+                         str(sorted(self.planned_granule_times)))
                 self.timeout = (max(self.planned_granule_times)
                                 + self.granule_duration
                                 + self.timeliness)
@@ -164,19 +167,25 @@ class RegionCollector:
             return self.finish()
 
     def cleanup(self):
+        '''Clear members.
+        '''
         self.granule_times = set()
         self.granules = []
         self.planned_granule_times = set()
         self.timeout = None
 
     def finish(self):
+        '''Finish collection, add area ID to metadata, cleanup and return
+        granule metadata.
+        '''
         granules = self.granules
         self.cleanup()
         return granules
 
 
 def read_granule_metadata(filename):
-    """ """
+    """Read granule metadata.
+    """
     import json
     with open(filename) as jfp:
         metadata = json.load(jfp)[0]
