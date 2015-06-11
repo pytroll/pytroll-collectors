@@ -35,7 +35,7 @@ LOG = logging.getLogger(__name__)
 
 PLOT = False
 
-class RegionCollector:
+class RegionCollector(object):
 
     """This is the region collector. It collects granules that overlap on a
     region of interest and return the collection of granules when it's done.
@@ -137,9 +137,9 @@ class RegionCollector:
 
                 LOG.info(
                     "Planned granules: " + str(sorted(self.planned_granule_times)))
-                self.timeout = (max(self.planned_granule_times)
-                                + self.granule_duration
-                                + self.timeliness)
+                self.timeout = (max(self.planned_granule_times) + \
+                                self.granule_duration + \
+                                self.timeliness)
                 LOG.info("Planned timeout: " + self.timeout.isoformat())
         else:
             try:
