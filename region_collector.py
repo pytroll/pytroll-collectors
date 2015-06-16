@@ -86,7 +86,7 @@ class RegionCollector(object):
                          self.region.area_id)
                 # If last granule return swath and cleanup
                 if self.granule_times == self.planned_granule_times:
-                    LOG.info("Collection finished for area: " +
+                    LOG.info("Collection finished for area: %s",
                              str(self.region.area_id))
                     return self.finish()
                 else:
@@ -96,7 +96,7 @@ class RegionCollector(object):
 
         if self.granule_duration is None:
             self.granule_duration = end_time - start_time
-            LOG.debug("Estimated granule duration to " +
+            LOG.debug("Estimated granule duration to %s",
                       str(self.granule_duration))
 
         granule_pass = Pass(platform, start_time, end_time,
@@ -116,8 +116,8 @@ class RegionCollector(object):
                          platform,
                          str(start_time),
                          self.region.area_id)
-                LOG.debug(
-                    "Predicting granules covering " + self.region.area_id)
+                LOG.debug("Predicting granules covering %s",
+                          self.region.area_id)
                 gr_time = start_time
                 while True:
                     gr_time += self.granule_duration
@@ -138,31 +138,32 @@ class RegionCollector(object):
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info("Planned granules: " + \
+                LOG.info("Planned granules: %s",
                          str(sorted(self.planned_granule_times)))
                 self.timeout = (max(self.planned_granule_times)
                                 + self.granule_duration
                                 + self.timeliness)
-                LOG.info("Planned timeout: " + self.timeout.isoformat())
+                LOG.info("Planned timeout: %s", self.timeout.isoformat())
         else:
             try:
                 LOG.debug("Granule %s is not overlapping %s",
                           granule_metadata["uri"], self.region.name)
             except KeyError:
                 try:
-                    LOG.debug("Granule with start and end times = " +
-                              str(granule_metadata["start_time"]) + " " +
-                              str(granule_metadata["end_time"]) +
-                              "is not overlapping " + str(self.region.name))
+                    LOG.debug("Granule with start and end times = %s  %s  "
+                              "is not overlapping %s",
+                              str(granule_metadata["start_time"]),
+                              str(granule_metadata["end_time"]),
+                              str(self.region.name))
                 except KeyError:
                     LOG.debug("Failed printing debug info...")
-                    LOG.debug("Keys in granule_metadata = " +
+                    LOG.debug("Keys in granule_metadata = %s",
                               str(granule_metadata.keys()))
 
         # If last granule return swath and cleanup
         if (self.granule_times and
                 (self.granule_times == self.planned_granule_times)):
-            LOG.debug("Collection finished for area: " +
+            LOG.debug("Collection finished for area: %s",
                       str(self.region.area_id))
             return self.finish()
 

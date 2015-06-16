@@ -147,7 +147,8 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         """
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (close write): " + event.pathname)
+                LOG.debug("New file detected (close write): %s",
+                          event.pathname)
                 self.add_file(event.pathname)
 
     def process_IN_MOVED_TO(self, event):
@@ -155,7 +156,8 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         """
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (moved to): " + event.pathname)
+                LOG.debug("New file detected (moved to): %s",
+                          event.pathname)
                 self.add_file(event.pathname)
 
     def loop(self):
@@ -212,8 +214,8 @@ try:
             try:
                 for pattern in self.patterns:
                     if fnmatch(event.src_path, pattern):
-                        LOG.debug(
-                            "New file detected (created): " + event.src_path)
+                        LOG.debug("New file detected (created): %s",
+                                  event.src_path)
                         self.add_file(event.src_path)
                         LOG.debug("Done adding")
                         return
