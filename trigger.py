@@ -252,7 +252,7 @@ try:
             self.input_dirs = []
             for pattern in patterns:
                 self.input_dirs.append(os.path.dirname(pattern))
-                LOG.debug("watching %s", os.path.dirname(pattern))
+                LOG.debug("watching " + str(os.path.dirname(pattern)))
             self.patterns = patterns
 
             self.new_file = Event()
