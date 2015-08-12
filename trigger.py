@@ -7,6 +7,7 @@
 
 #   Kristian Rune Larsen <krl@dmi.dk>
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,9 +37,11 @@ from posttroll.subscriber import NSSubscriber
 LOG = logging.getLogger(__name__)
 
 
-def total_seconds(td):
-    return ((td.microseconds +
-             (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
+def total_seconds(tdef):
+    """Calculate total time in seconds.
+    """
+    return ((tdef.microseconds +
+             (tdef.seconds + tdef.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
 
 
 class Trigger(object):
@@ -149,7 +152,8 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         """
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (close write): " + event.pathname)
+                LOG.debug("New file detected (close write): %s",
+                          event.pathname)
                 self.add_file(event.pathname)
 
     def process_IN_MOVED_TO(self, event):
@@ -157,7 +161,8 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         """
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (moved to): " + event.pathname)
+                LOG.debug("New file detected (moved to): %s",
+                          event.pathname)
                 self.add_file(event.pathname)
 
     def loop(self):
@@ -214,17 +219,19 @@ try:
             try:
                 for pattern in self.patterns:
                     if fnmatch(event.src_path, pattern):
-                        LOG.debug(
-                            "New file detected (created): " + event.src_path)
+                        LOG.debug("New file detected (created): %s",
+                                  event.src_path)
                         self.add_file(event.src_path)
                         LOG.debug("Done adding")
                         return
-            except:
+            except Exception as e:
                 LOG.exception(
-                    "Something wrong happened in the event processing!")
+                    "Something wrong happened in the event processing: %s",
+                    e.message)
 
         def start(self):
-
+            """Start trigger.
+            """
             # add watches
             for idir in self.input_dirs:
                 self.observer.schedule(self, idir)
@@ -334,11 +341,15 @@ class AbstractMessageProcessor(Thread):
         self.sub = self.nssub.start()
         Thread.start(self)
 
-    def process(self, msg):
+    def process_message(self, msg):
+        """Process the message.
+        """
         del msg
         raise NotImplementedError("process_message is not implemented!")
 
     def run(self):
+        """Run the trigger.
+        """
         try:
             for msg in self.sub.recv(2):
                 if not self.loop:
@@ -350,6 +361,8 @@ class AbstractMessageProcessor(Thread):
             self.stop()
 
     def stop(self):
+        """Stop the trigger.
+        """
         self.nssub.stop()
         self.loop = False
 
@@ -362,19 +375,25 @@ class PostTrollTrigger(FileTrigger):
     def __init__(self, collectors, terminator, services, topics,
                  publish_topic=None):
 
-        self.mp = AbstractMessageProcessor(services, topics)
-        self.mp.process = self.add_file
+        self.msgproc = AbstractMessageProcessor(services, topics)
+        self.msgproc.process_message = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
                              publish_topic=publish_topic)
 
     def start(self):
+        """Start the posttroll trigger.
+        """
         FileTrigger.start(self)
-        self.mp.start()
+        self.msgproc.start()
 
     @staticmethod
     def decode_message(message):
+        """Retrun the message data.
+        """
         return message.data
 
     def stop(self):
-        self.mp.stop()
+        """Stop the posttroll trigger.
+        """
+        self.msgproc.stop()
         FileTrigger.stop(self)
