@@ -45,6 +45,7 @@ def total_seconds(tdef):
 
 
 class Trigger(object):
+
     """Abstract trigger class.
     """
 
@@ -69,8 +70,10 @@ from threading import Thread, Event
 
 
 class FileTrigger(Trigger, Thread):
+
     """File trigger, acting upon inotify events.
     """
+
     def __init__(self, collectors, terminator, decoder, publish_topic=None):
         Thread.__init__(self)
         Trigger.__init__(self, collectors, terminator,
@@ -129,8 +132,10 @@ class FileTrigger(Trigger, Thread):
 
 
 class InotifyTrigger(ProcessEvent, FileTrigger):
+
     """File trigger, acting upon inotify events.
     """
+
     def __init__(self, collectors, terminator, decoder, patterns,
                  publish_topic=None):
         ProcessEvent.__init__(self)
@@ -187,7 +192,7 @@ try:
     from watchdog.observers.polling import PollingObserver
     from watchdog.observers import Observer
 
-    class WatchDogTrigger(FileSystemEventHandler, FileTrigger):
+    class WatchDogTriggerOld(FileSystemEventHandler, FileTrigger):
 
         """File trigger, acting upon inotify events.
         """
@@ -241,12 +246,87 @@ try:
             self.observer.join()
             self.join()
 
+    class AbstractWatchDogProcessor(FileSystemEventHandler):
+
+        """File trigger, acting upon file system events.
+        """
+
+        cases = {"PollingObserver": PollingObserver,
+                 "Observer": Observer}
+
+        def __init__(self, patterns, observer_class_name="Observer"):
+            FileSystemEventHandler.__init__(self)
+            self.input_dirs = []
+            for pattern in patterns:
+                self.input_dirs.append(os.path.dirname(pattern))
+                LOG.debug("watching %s", os.path.dirname(pattern))
+            self.patterns = patterns
+
+            self.new_file = Event()
+            self.observer = self.cases.get(observer_class_name, Observer)()
+
+        def on_created(self, event):
+            """On creating a file.
+            """
+            try:
+                for pattern in self.patterns:
+                    if fnmatch(event.src_path, pattern):
+                        LOG.debug(
+                            "New file detected (created): " + event.src_path)
+                        self.process(event.src_path)
+                        LOG.debug("Done processing file")
+                        return
+            except:
+                LOG.exception(
+                    "Something wrong happened in the event processing!")
+
+        def process(self, pathname):
+            raise NotImplementedError
+
+        def start(self):
+
+            # add watches
+            for idir in self.input_dirs:
+                self.observer.schedule(self, idir)
+            self.observer.start()
+
+            LOG.debug("Started watching filesystem")
+
+        def stop(self):
+            self.observer.stop()
+            self.observer.join()
+
+    class WatchDogTrigger(FileTrigger):
+
+        """File trigger, acting upon filesystem events.
+        """
+
+        def __init__(self, collectors, terminator, decoder,
+                     patterns, observer_class_name):
+            self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
+            FileTrigger.__init__(self, collectors, terminator, decoder)
+            self.wdp.process = self.add_file
+
+        def start(self):
+
+            # add watches
+            self.wdp.start()
+
+            FileTrigger.start(self)
+            LOG.debug("Started polling")
+
+        def stop(self):
+            FileTrigger.stop(self)
+            self.wdp.stop()
+            self.join()
+
+
 except ImportError:
     LOG.error("Watchdog import failed!")
     WatchDogTrigger = None
 
 
-class MessageProcessor(Thread):
+class AbstractMessageProcessor(Thread):
 
     """Process Messages
     """
@@ -276,7 +356,7 @@ class MessageProcessor(Thread):
                     break
                 if msg is None:
                     continue
-                self.process_message(msg)
+                self.process(msg)
         finally:
             self.stop()
 
