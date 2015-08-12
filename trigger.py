@@ -302,9 +302,10 @@ try:
         """
 
         def __init__(self, collectors, terminator, decoder,
-                     patterns, observer_class_name):
+                     patterns, observer_class_name, publish_topic=None):
             self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
-            FileTrigger.__init__(self, collectors, terminator, decoder)
+            FileTrigger.__init__(self, collectors, terminator, decoder,
+                                 publish_topic=publish_topic)
             self.wdp.process = self.add_file
 
         def start(self):
