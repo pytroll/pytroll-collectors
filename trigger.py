@@ -342,11 +342,11 @@ class AbstractMessageProcessor(Thread):
         self.sub = self.nssub.start()
         Thread.start(self)
 
-    def process_message(self, msg):
+    def process(self, msg):
         """Process the message.
         """
         del msg
-        raise NotImplementedError("process_message is not implemented!")
+        raise NotImplementedError("process is not implemented!")
 
     def run(self):
         """Run the trigger.
@@ -377,7 +377,7 @@ class PostTrollTrigger(FileTrigger):
                  publish_topic=None):
 
         self.msgproc = AbstractMessageProcessor(services, topics)
-        self.msgproc.process_message = self.add_file
+        self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
                              publish_topic=publish_topic)
 
