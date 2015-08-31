@@ -163,7 +163,10 @@ class RegionCollector(object):
 
         # If last granule return swath and cleanup
         if (self.granule_times and
-                (self.granule_times == self.planned_granule_times)):
+            (self.granule_times == self.planned_granule_times)):
+            # len(self.granule_times) > 0 and
+            # max(self.granule_times) >= self.planned_granule_times):
+            #                             self.granule_duration)):
             LOG.debug("Collection finished for area: %s",
                       str(self.region.area_id))
             return self.finish()

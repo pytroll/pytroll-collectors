@@ -287,7 +287,7 @@ try:
             raise NotImplementedError
 
         def start(self):
-
+            """Start processor"""
             # add watches
             for idir in self.input_dirs:
                 self.observer.schedule(self, idir)
@@ -296,6 +296,7 @@ try:
             LOG.debug("Started watching filesystem")
 
         def stop(self):
+            """Stop processor"""
             self.observer.stop()
             self.observer.join()
 
@@ -390,9 +391,8 @@ class PostTrollTrigger(FileTrigger):
 
     @staticmethod
     def decode_message(message):
-        """Retrun the message data.
+        """Return the message data.
         """
-        LOG.debug("mda in decode_message: %s", str(message))
         return message.data
 
     def stop(self):
