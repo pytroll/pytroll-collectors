@@ -111,6 +111,9 @@ class FileTrigger(Trigger, Thread):
                 next_timeout = min(timeouts, key=(lambda(x): x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
                     LOG.warning("Timeout detected, terminating collector")
+                    LOG.debug("Area: %s, timeout: %s",
+                              next_timeout[0].region.area,
+                              str(next_timeout[1]))
                     self.terminator(next_timeout[0].finish(),
                                     publish_topic=self.publish_topic)
                 else:
@@ -356,7 +359,7 @@ class AbstractMessageProcessor(Thread):
                     break
                 if msg is None:
                     continue
-                self.process(msg)
+                self.process_message(msg)
         finally:
             self.stop()
 
@@ -374,7 +377,7 @@ class PostTrollTrigger(FileTrigger):
 
     def __init__(self, collectors, terminator, services, topics,
                  publish_topic=None):
-        self.msgproc = MessageProcessor(services, topics)
+        self.msgproc = AbstractMessageProcessor(services, topics)
         self.msgproc.process_message = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
                              publish_topic=publish_topic)
@@ -389,6 +392,7 @@ class PostTrollTrigger(FileTrigger):
     def decode_message(message):
         """Retrun the message data.
         """
+        LOG.debug("mda in decode_message: %s", str(message))
         return message.data
 
     def stop(self):
