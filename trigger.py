@@ -61,7 +61,7 @@ class Trigger(object):
             LOG.warning("No metadata")
             return
         for collector in self.collectors:
-            res = collector(metadata)
+            res = collector(metadata.copy())
             if res:
                 return self.terminator(res, publish_topic=self.publish_topic)
 
