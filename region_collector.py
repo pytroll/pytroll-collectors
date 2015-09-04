@@ -90,6 +90,13 @@ class RegionCollector(object):
                              str(self.region.area_id))
                     return self.finish()
                 else:
+                    new_timeout = (max(set(self.planned_granule_times) - set(self.granule_times)) +
+                                   self.granule_duration +
+                                   self.timeliness)
+                    if new_timeout < self.timeout:
+                        self.timeout = new_timeout
+                        LOG.info("Adjusted timeout: %s", self.timeout.isoformat())
+
                     return
 
         # Get corners from input data
