@@ -112,7 +112,7 @@ class FileTrigger(Trigger, Thread):
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
                     LOG.warning("Timeout detected, terminating collector")
                     LOG.debug("Area: %s, timeout: %s",
-                              next_timeout[0].region.area,
+                              next_timeout[0].region,
                               str(next_timeout[1]))
                     self.terminator(next_timeout[0].finish(),
                                     publish_topic=self.publish_topic)
