@@ -178,7 +178,7 @@ class RegionCollector(object):
                       str(self.region.area_id))
             return self.finish()
 
-     def is_swath_complete(self):
+    def is_swath_complete(self):
         '''Check if the swath is complete'''
         if self.granule_times:
             if self.granule_times == self.planned_granule_times:
