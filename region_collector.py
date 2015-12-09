@@ -74,10 +74,12 @@ class RegionCollector(object):
         start_time = granule_metadata['start_time']
         end_time = granule_metadata['end_time']
 
+        LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
 
         for ptime in self.planned_granule_times:
-            if abs(start_time - ptime) < timedelta(seconds=3):
+            if abs(start_time - ptime) < timedelta(seconds=3) and \
+               ptime not in self.granule_times:
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
                 LOG.info("Added %s (%s) granule to area %s",
@@ -85,7 +87,8 @@ class RegionCollector(object):
                          str(start_time),
                          self.region.area_id)
                 # If last granule return swath and cleanup
-                if self.granule_times == self.planned_granule_times:
+                # if self.granule_times == self.planned_granule_times:
+                if self.is_swath_complete():
                     LOG.info("Collection finished for area: %s",
                              str(self.region.area_id))
                     return self.finish()
@@ -145,12 +148,13 @@ class RegionCollector(object):
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info("Planned granules: %s",
+                LOG.info("Planned granules for %s: %s", self.region.name,
                          str(sorted(self.planned_granule_times)))
                 self.timeout = (max(self.planned_granule_times) +
                                 self.granule_duration +
                                 self.timeliness)
-                LOG.info("Planned timeout: %s", self.timeout.isoformat())
+                LOG.info("Planned timeout for %s: %s", self.region.name,
+                         self.timeout.isoformat())
 
         else:
             try:
@@ -169,14 +173,31 @@ class RegionCollector(object):
                               str(granule_metadata.keys()))
 
         # If last granule return swath and cleanup
-        if (self.granule_times and
-            (self.granule_times == self.planned_granule_times)):
-            # len(self.granule_times) > 0 and
-            # max(self.granule_times) >= self.planned_granule_times):
-            #                             self.granule_duration)):
+        if self.is_swath_complete():
             LOG.debug("Collection finished for area: %s",
                       str(self.region.area_id))
             return self.finish()
+
+     def is_swath_complete(self):
+        '''Check if the swath is complete'''
+        if self.granule_times:
+            if self.granule_times == self.planned_granule_times:
+                return True
+            try:
+                new_timeout = (max(set(self.planned_granule_times) -
+                                   set(self.granule_times)) +
+                               self.granule_duration +
+                               self.timeliness)
+            except ValueError:
+                LOG.error("Calculation of new timeout failed, "
+                          "keeping previous timeout.")
+                return False
+            if new_timeout < self.timeout:
+                self.timeout = new_timeout
+                LOG.info("Adjusted timeout: %s", self.timeout.isoformat())
+
+        return False
+
 
     def cleanup(self):
         '''Clear members.
