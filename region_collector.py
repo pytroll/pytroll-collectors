@@ -191,7 +191,7 @@ class RegionCollector(object):
     def is_swath_complete(self):
         '''Check if the swath is complete'''
         if self.granule_times:
-            if self.planned_granule_times.issubset(self.granule_times)
+            if self.planned_granule_times.issubset(self.granule_times):
                 return True
             try:
                 new_timeout = (max(self.planned_granule_times -
