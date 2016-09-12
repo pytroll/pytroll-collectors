@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014 Martin Raspaud
+# Copyright (c) 2014, 2016 Martin Raspaud
 
 # Author(s):
 
@@ -98,7 +98,8 @@ if __name__ == '__main__':
                     except NoOptionError:
                         min_length = 0
                     if mda["end_time"] - mda["start_time"] < timedelta(minutes=min_length):
-                        logger.info('Pass too short, skipping: %s to %s', str(mda["start_time"]), str(mda["end_time"]))
+                        logger.info('Pass too short, skipping: %s to %s', str(
+                            mda["start_time"]), str(mda["end_time"]))
                         continue
                     fname = compose(pattern, mda)
                     mda["uri"] = fname
