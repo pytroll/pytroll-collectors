@@ -1,0 +1,83 @@
+# This config is used in Trollstalker.
+
+[noaa_hrpt]
+
+# posttroll message topic that provides information on new files
+# This could follow the pytroll standard: 
+# https://github.com/mraspaud/pytroll/wiki/Metadata
+topic=/HRPT/l1b/dev/mystation
+
+# input directory that trollstalker watches
+directory=/path/to/satellite/data/
+
+# filepattern of the input files for trollstalker
+# uses the trollsift syntax:
+# http://trollsift.readthedocs.org/en/latest/index.html
+filepattern={path}hrpt_{platform_name}_{start_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b
+
+# instrument names for mpop
+instruments=avhrr/3,mhs,amsu-b,amsu-a,hirs/3,hirs/4
+
+# logging config for trollstalker. Comment out to log to console instead.
+stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
+
+# logging level, if stalker_log_config is not set above. Possible values are:
+#  DEBUG, INFO, WARNING, ERROR, CRITICAL
+loglevel=DEBUG
+
+# inotify events that trigger trollstalker to send messages
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+
+# port to send the posttroll messages to, optional so use "0" to take a random
+# free port.
+posttroll_port=0
+
+# nameserver hosts to register publisher
+# WARNING: 
+# if nameservers option is set, address broadcasting via multicasting is not used any longer.
+# The corresponding nameserver has to be started with command line option "--no-multicast".
+#nameservers=localhost
+
+# use an alias to convert from platform in the filename to OSCAR naming
+alias_platform_name = noaa18:NOAA-18|noaa19:NOAA-19
+
+# Keep 10 last events in history, and process only if the new event
+# isn't in this history.  If option not given, or set to zero (0), all
+# matching events will be processed
+history=10
+
+[hrit]
+topic=/HRIT/topic/or/something/
+directory=/path/to/satellite/data/
+filepattern={path}H-000-{platform_name}__-{platform_name}________-_________-EPI______-{start_time:%Y%m%d%H%M}-__
+instruments=seviri
+stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
+loglevel=DEBUG
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+posttroll_port=0
+alias_platform_name = MSG2:Meteosat-9|MSG3:Meteosat-10
+
+
+[himawari8]
+topic=/H8/topic/or/something/
+directory=/path/to/satellite/data/
+filepattern = {path}IMG_{platform_name:4s}{channel:3s}_{time:%Y%m%d%H%M}_{segment}
+
+# define new variable "platform_name" because it is not included in the filepattern
+var_platform_name = himawari8
+
+# define new datetime variable aligned/ceiled to 15 minutes intervals 
+# (Himawari filename timestampes are not constant for a timeslot)
+var_h8_gather_time={time:%Y%m%d%H%M|align(15)}
+
+# override start_time and end_time because default values are derived from {time} in 
+# filepattern and that is not constant for all files of a timeslot
+# "end_time" should be 1 interval after start_time (3rd parameter of align function)
+var_start_time = {time:%Y%m%d%H%M%S|align(15)}
+var_end_time = {time:%Y%m%d%H%M%S|align(15,0,1)}
+
+instruments = ahi
+stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
+loglevel=DEBUG
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+posttroll_port=0

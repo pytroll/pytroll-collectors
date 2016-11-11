@@ -1,0 +1,123 @@
+[default]
+regions = euron1 afghanistan afhorn
+
+[local_viirs]
+pattern = /san1/pps/import/PPS_data/source/npp_????????_????_?????/SV{channel:3s}_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_cspp_dev.h5
+format = SDR
+type = HDF5
+level = 1B
+platform_name = Suomi-NPP
+sensor = viirs
+timeliness = 30
+duration = 85.4
+publish_topic = 
+
+[ears_viirs]
+pattern = /data/prod/satellit/ears/viirs/SVMC_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_eum_ops.h5.bz2
+format = SDR_compact
+type = HDF5
+level = 1B
+platform_name = Suomi-NPP
+sensor = viirs
+timeliness = 30
+duration = 85.4
+# NOTE: be sure to have EARSSuomi-NPP.cfg in PPP_CONFIG_DIR
+variant = EARS
+publish_topic = 
+
+[ears_noaa18_avhrr]
+pattern = /data/prod/satellit/ears/avhrr/avhrr_{start_time:%Y%m%d_%H%M%S}_noaa18.hrp.bz2
+format = HRPT
+type = binary
+level = 0
+duration = 60
+platform_name = NOAA-18
+sensor = avhrr/3
+timeliness = 15
+# NOTE: be sure to have EARSNOAA-18.cfg in PPP_CONFIG_DIR
+variant = EARS
+publish_topic = 
+
+[ears_noaa19_avhrr]
+pattern = /data/prod/satellit/ears/avhrr/avhrr_{start_time:%Y%m%d_%H%M%S}_noaa18.hrp.bz2
+format = HRPT
+type = binary
+level = 0
+duration = 60
+platform_name = NOAA-18
+sensor = avhrr/3
+timeliness = 15
+# NOTE: be sure to have EARSNOAA-19.cfg in PPP_CONFIG_DIR
+variant = EARS
+publish_topic = 
+
+[ears_metop-b]
+pattern = /data/prod/satellit/ears/avhrr/AVHR_HRP_{data_processing_level:2s}_M01_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z.bz2
+format = EPS
+type = binary
+platform_name = Metop-B
+sensor = avhrr/3
+timeliness = 15
+level = 0
+# NOTE: be sure to have EARSMetop-B.cfg in PPP_CONFIG_DIR
+variant = EARS
+publish_topic = 
+
+[ears_metop-a]
+pattern = /data/prod/satellit/ears/avhrr/AVHR_HRP_{data_processing_level:2s}_M02_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z.bz2
+format = EPS
+type = binary
+platform_name = Metop-A
+sensor = avhrr/3
+timeliness = 15
+level = 0
+# NOTE: be sure to have EARSMetop-A.cfg in PPP_CONFIG_DIR
+variant = EARS
+publish_topic = /EARS/Metop-B
+
+[gds_metop-b]
+pattern = /data/prod/satellit/metop2/AVHR_xxx_{data_processing_level:2s}_M01_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
+format = EPS
+type = binary
+platform_name = Metop-B
+sensor = avhrr/3
+timeliness = 100
+# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
+variant = GDS
+orbit_type = polar
+publish_topic = /GDS/Metop-B
+
+[gds_metop-a]
+pattern = /data/prod/satellit/metop2/AVHR_xxx_{level:2s}_M02_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
+format = EPS
+type = PDS
+platform_name = Metop-A
+sensor = avhrr/3
+timeliness = 100
+# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
+variant = GDS
+publish_topic = /GDS/Metop-A
+
+[EARS_terra]
+pattern = /data/prod/satellit/modis/lvl1/thin_MOD021KM.A{start_time:%Y%j.%H%M}.005.{proc_time:%Y%j%H%M%S}.NRT.hdf
+format = EOS_thinned
+type = HDF4
+level = 1B
+platform_name = EOS-Terra
+sensor = modis
+timeliness = 180
+duration = 300
+# NOTE: be sure to have EARSEOS-Terra.cfg in PPP_CONFIG_DIR
+variant = EARS
+
+[EARS_aqua]
+pattern = /data/prod/satellit/modis/lvl1/thin_MYD021KM.A{start_time:%Y%j.%H%M}.005.{proc_time:%Y%j%H%M%S}.NRT.hdf
+format = EOS_thinned
+type = HDF4
+level = 1B
+platform_name = EOS-Aqua
+sensor = modis
+timeliness = 180
+duration = 300
+# NOTE: be sure to have EARSEOS-Aqua.cfg in PPP_CONFIG_DIR
+variant = EARS
