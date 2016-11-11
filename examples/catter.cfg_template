@@ -1,0 +1,15 @@
+[noaa 19/0]
+subject=HRPT/0
+cat=bz2
+pattern=/tmp/avhrr_{start_time:%Y%m%d_%H%M%S}_{platform:4s}{number:2s}.hrp
+
+[metop-a/0]
+subject=EPS/0
+cat=bz2
+pattern=AVHR_HRP_00_M02_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
+
+[metop-b/0]
+subject=EPS/0
+cat=bz2
+pattern=AVHR_HRP_00_M01_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
+

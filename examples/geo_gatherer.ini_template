@@ -1,0 +1,62 @@
+[msg]
+pattern = H-000-{orig_platform_name:_<6s}-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-__
+critical_files = :PRO,:EPI
+wanted_files = VIS006:6-8,VIS008:6-8,IR_016:6-8,IR_039:6-8,WV_062:6-8,WV_073:6-8,IR_087:6-8,IR_097:6-8,IR_108:6-8,IR_120:6-8,IR_134:6-8,HRV:22-24
+all_files = VIS006:1-8,VIS008:1-8,IR_016:1-8,IR_039:1-8,WV_062:1-8,WV_073:1-8,IR_087:1-8,IR_097:1-8,IR_108:1-8,IR_120:1-8,IR_134:1-8,HRV:1-24
+topics = /foo/bar
+publish_topic = /pub/foo/bar
+timeout = 10
+
+[rss]
+pattern = H-000-{orig_platform_name:_<6s}-{orig_platform_name:4s}_RSS____-{channel_name:_<9s}-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-__
+critical_files = :PRO,:EPI
+wanted_files = VIS006:6-8,VIS008:6-8,IR_016:6-8,IR_039:6-8,WV_062:6-8,WV_073:6-8,IR_087:6-8,IR_097:6-8,IR_108:6-8,IR_120:6-8,IR_134:6-8,HRV:22-24
+all_files = VIS006:6-8,VIS008:6-8,IR_016:6-8,IR_039:6-8,WV_062:6-8,WV_073:6-8,IR_087:6-8,IR_097:6-8,IR_108:6-8,IR_120:6-8,IR_134:6-8,HRV:16-24
+topics = /foo/bar
+publish_topic = /pub/foo/bar
+timeout = 10
+
+[mtsat2]
+pattern = L-000-{foo:6s}-{orig_platform_name:6s}______-{channel_name:4s}_{location}-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-__
+critical_files = 00_7:PRO,03_8:PRO,06_8:PRO,10_8:PRO,12_0:PRO
+wanted_files = 00_7:1-6,03_8:1-6,06_8:1-6,10_8:1-6,12_0:1-6
+all_files = 00_7:1-6,03_8:1-6,06_8:1-6,10_8:1-6,12_0:1-6
+topics = /foo/bar
+publish_topic = /foo/bar/pub
+timeout = 10
+
+[met7]
+pattern = L-000-{foo:6s}-{orig_platform_name:6s}______-{channel_name:4s}_{location}-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-__
+critical_files = 00_7:PRO,03_8:PRO,06_8:PRO,10_8:PRO,12_0:PRO
+wanted_files = 00_7:1-6,03_8:1-6,06_8:1-6,10_8:1-6,12_0:1-6
+all_files = 00_7:1-6,03_8:1-6,06_8:1-6,10_8:1-6,12_0:1-6
+topics = /foo/bar
+publish_topic = /foo/bar/pub
+timeout = 10
+
+[goes_east]
+pattern = L-000-{foo:6s}-{orig_platform_name:6s}______-{channel_name:4s}_{location}-PRO______-{nominal_time:%Y%m%d%H%M}-__
+critical_files = 00_7:PRO,03_9:PRO,06_6:PRO,10_7:PRO
+wanted_files = 00_7:1-7,03_9:1-7,06_6:1-7,10_7:1-6
+all_files = 00_7:1-7,03_9:1-7,06_6:1-7,10_7:1-6
+topics = /foo/bar
+publish_topic = /foo/bar/pub
+timeout = 10
+
+[goes_west]
+pattern = L-000-{foo:6s}-{orig_platform_name:6s}______-{channel_name:4s}_{location}-PRO______-{nominal_time:%Y%m%d%H%M}-__
+critical_files = 00_7:PRO,03_9:PRO,06_6:PRO,10_7:PRO
+wanted_files = 00_7:1-7,03_9:1-7,06_6:1-7,10_7:1-6
+all_files = 00_7:1-7,03_9:1-7,06_6:1-7,10_7:1-6
+topics = /foo/bar
+publish_topic = /foo/bar/pub
+timeout = 10
+
+[pps]
+pattern = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{orig_platform_name}+{segment}_C_EUMS_{nominal_time:%Y%m%d%H%M%S}_{orbit_number:5d}.nc
+critical_files = :CTTH,:CT,:CMA
+wanted_files = :CTTH,:CT,:CMA
+all_files = :CTTH,:CT,:CMA
+topics = /stalker/foo
+publish_topic = /geo_gatherer/foo
+timeliness = 20

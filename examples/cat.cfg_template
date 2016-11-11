@@ -1,0 +1,10 @@
+[kai_cat]
+topic=/EPS/0/
+command=kai -i {input_files} -o {output_file}
+output_file_pattern=/san1/polar_in/ears/metop/avhrr_{platform_name}_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}.eps
+
+[hrpt_cat]
+topic=/HRPT/0/
+command=cat {input_files}
+stdout={output_file}
+output_file_pattern=/san1/polar_in/ears/hrpt/avhrr_{platform_name}_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}.hrp
