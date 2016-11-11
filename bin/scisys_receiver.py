@@ -27,7 +27,7 @@ satellite, format, start_time, end_time, filename, uri, type, orbit_number, [ins
 
 """
 import logging
-from trollduction.scisys import receive_from_zmq
+from pytroll_collectors.scisys import receive_from_zmq
 
 if __name__ == '__main__':
 

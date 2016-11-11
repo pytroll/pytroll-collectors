@@ -31,7 +31,7 @@ import os
 import socket
 import unittest
 
-from trollduction.scisys import MessageReceiver, TwoMetMessage
+from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
 
 if os.environ.get('TRAVIS', False) == 'true':
     # gethostbyname doesn't work on travis nodes

@@ -27,8 +27,8 @@
 from ConfigParser import RawConfigParser, NoOptionError
 from trollsift import Parser, compose
 from datetime import timedelta, datetime
-from trollduction.collectors import trigger
-from trollduction.collectors import region_collector
+from pytroll_collectors import trigger
+from pytrtroll_collectors import region_collector
 import time
 import logging
 import logging.handlers
@@ -245,7 +245,8 @@ def main():
     if opts.config_item:
         for section in opts.config_item:
             if section not in CONFIG.sections():
-                LOGGER.warning("No config item called %s found in config file.", section)
+                LOGGER.warning(
+                    "No config item called %s found in config file.", section)
         for section in CONFIG.sections():
             if section not in opts.config_item:
                 CONFIG.remove_section(section)

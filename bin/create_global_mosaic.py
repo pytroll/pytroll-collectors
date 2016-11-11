@@ -9,7 +9,7 @@ import logging
 import logging.config
 import logging.handlers
 
-from trollduction.global_mosaic import WorldCompositeDaemon
+from pytroll_collectors.global_mosaic import WorldCompositeDaemon
 
 
 def main():

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from trollduction import helper_functions
+from pytroll_collectors import helper_functions
 
 # Copyright (c) 2013, 2014, 2015
 
@@ -168,7 +168,7 @@ class EventHandler(ProcessEvent):
                 info = self.info.copy()
                 for key in info:
                     if key in self.aliases:
-                        self.info['orig_'+key] = self.info[key]
+                        self.info['orig_' + key] = self.info[key]
                         self.info[key] = self.aliases[key][str(self.info[key])]
 
             # add start_time and end_time if not present
@@ -194,7 +194,8 @@ class EventHandler(ProcessEvent):
                                         self.info["end_time"].time())
                 del self.info["end_date"]
             if "end_time" not in self.info and self.granule_length > 0:
-                self.info["end_time"] = base_time + dt.timedelta(seconds=self.granule_length)
+                self.info["end_time"] = base_time + \
+                    dt.timedelta(seconds=self.granule_length)
 
             if "end_time" in self.info:
                 while self.info["start_time"] > self.info["end_time"]:

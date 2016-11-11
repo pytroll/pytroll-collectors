@@ -44,7 +44,7 @@ from urlparse import SplitResult, urlsplit, urlunsplit
 
 from posttroll.message import Message
 from posttroll.publisher import Publish
-from trollduction.producer import is_uri_on_server
+from pytroll_collectors.helper_functions import is_uri_on_server
 
 LOGGER = logging.getLogger(__name__)
 

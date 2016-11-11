@@ -31,7 +31,7 @@ from mpop.imageo.geo_image import GeoImage
 from posttroll import message
 from posttroll.ns import NameServer
 
-import trollduction.global_mosaic as gm
+import pytroll_collectors.global_mosaic as gm
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 

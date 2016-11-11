@@ -42,7 +42,7 @@ import datetime as dt
 LOGGER = logging.getLogger(__name__)
 
 
-from trollduction.collectors.trigger import AbstractWatchDogProcessor
+from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
 
 class FilePublisher(AbstractWatchDogProcessor):
@@ -59,7 +59,8 @@ class FilePublisher(AbstractWatchDogProcessor):
 
         self.topic = self.config["topic"]
         self.tbus_orbit = self.config.get("tbus_orbit", False)
-        LOGGER.debug("Looking for: %s", str([parser.globify() for parser in self.parsers]))
+        LOGGER.debug("Looking for: %s", str(
+            [parser.globify() for parser in self.parsers]))
         AbstractWatchDogProcessor.__init__(self,
                                            [parser.globify()
                                             for parser in self.parsers],
@@ -239,6 +240,6 @@ def main():
         notifier.stop()
 
 if __name__ == "__main__":
-    #LOGGER = logging.getLogger("trollstalker")
+    # LOGGER = logging.getLogger("trollstalker")
     LOGGER = logging.getLogger("trollstalker")
     main()
