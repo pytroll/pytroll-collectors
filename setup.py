@@ -59,6 +59,6 @@ setup(name="pytroll_collectors",
                         'trollsift', 'netifaces',
                         'pytroll-schedule', 'pyresample',
                         'pillow', ],
-      tests_require=['mock', ],
+      tests_require=['mock', 'scipy'],
       test_suite='pytroll_collectors.tests.suite',
       )
