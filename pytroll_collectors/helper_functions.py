@@ -109,7 +109,12 @@ def align_time(input_val, steps=dt.timedelta(minutes=5),
     Useful to equalize small time differences in name of files
     belonging to the same timeslot
     """
-    stepss = steps.total_seconds()
+    try:
+        stepss = steps.total_seconds()
+    # Python 2.6 compatibility hack
+    except AttributError:
+        stepss = steps.days * 86400. + \
+            steps.seconds + steps.microseconds * 1e-6
     val = input_val - offset
     vals = (val - val.min).seconds
     result = val - dt.timedelta(seconds=(vals - (vals // stepss) * stepss))
