@@ -13,5 +13,5 @@ install:
   - pip install .
   - pip install mock
   - pip install coveralls
-script: coverage run --source=pytroll-collectors setup.py test
+script: coverage run --source=pytroll_collectors setup.py test
 after_success: coveralls
