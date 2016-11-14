@@ -7,12 +7,12 @@ matrix:
     - python: '2.6'
 before_install:
  - sudo apt-get install python-scipy
+ - pip install pykdtree
  - pip install https://github.com/pytroll/posttroll/archive/develop.tar.gz
  - pip install https://github.com/pytroll/mpop/archive/pre-master.tar.gz
 install:
   - pip install .
   - pip install mock
   - pip install coveralls
-# script: coverage run --source=pytroll_collectors setup.py test
-script: "python setup.py test"
+script: coverage run --source=pytroll_collectors setup.py test
 after_success: coveralls
