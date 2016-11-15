@@ -1,3 +1,4 @@
+sudo: false
 language: python
 python:
   - '2.6'
@@ -5,11 +6,23 @@ python:
 matrix:
   allow_failures:
     - python: '2.6'
+cache: apt
+addons:
+  apt:
+    packages:
+      - libatlas-dev
+      - libatlas-base-dev
+      - liblapack-dev
+      - gfortran
 before_install:
- - pip install --only-binary=numpy,scipy numpy scipy
- - pip install pykdtree
- - pip install https://github.com/pytroll/posttroll/archive/develop.tar.gz
- - pip install https://github.com/pytroll/mpop/archive/pre-master.tar.gz
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - conda update --yes conda
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy coverage
+  - pip install pykdtree
+  - pip install https://github.com/pytroll/posttroll/archive/develop.tar.gz
+  - pip install https://github.com/pytroll/mpop/archive/pre-master.tar.gz
 install:
   - pip install .
   - pip install mock
