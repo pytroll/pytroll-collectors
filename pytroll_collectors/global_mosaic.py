@@ -172,7 +172,7 @@ class WorldCompositeDaemon(object):
             # Get new messages from the listener
             msg = None
             try:
-                msg = self._listener.queue.get(True, 1)
+                msg = self._listener.output_queue.get(True, 1)
             except KeyboardInterrupt:
                 self._listener.stop()
                 return
