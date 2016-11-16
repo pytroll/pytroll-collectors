@@ -297,6 +297,8 @@ class SegmentGatherer(object):
             # Check listener for new messages
             msg = None
             try:
+                msg = self._listener.output_queue.get(True, 1)
+            except AttributeError:
                 msg = self._listener.queue.get(True, 1)
             except KeyboardInterrupt:
                 self.stop()
