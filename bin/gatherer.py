@@ -28,7 +28,7 @@ from ConfigParser import RawConfigParser, NoOptionError
 from trollsift import Parser, compose
 from datetime import timedelta, datetime
 from pytroll_collectors import trigger
-from pytrtroll_collectors import region_collector
+from pytroll_collectors import region_collector
 import time
 import logging
 import logging.handlers
