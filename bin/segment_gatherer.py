@@ -43,6 +43,7 @@ SLOT_READY_BUT_WAIT_FOR_MORE = 2
 SLOT_OBSOLETE_TIMEOUT = 3
 
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
+REMOVE_TAGS = {'path', 'segment'}
 
 
 class SegmentGatherer(object):
@@ -67,7 +68,10 @@ class SegmentGatherer(object):
         self._subject = config.get(section, "publish_topic")
         self._pattern = config.get(section, 'pattern')
         self._parser = Parser(self._pattern)
-
+        try:
+            self._time_tolerance = config.getint(section, "time_tolerance")
+        except NoOptionError:
+            self._time_tolerance = 30
         try:
             self._timeliness = dt.timedelta(seconds=config.getint(section,
                                                                   "timeliness"))
@@ -105,6 +109,7 @@ class SegmentGatherer(object):
         metadata.update(mda)
 
         time_slot = str(metadata[self.time_name])
+        self.logger.debug("Adding new slot: %s", time_slot)
         self.slots[time_slot] = {}
         self.slots[time_slot]['metadata'] = metadata.copy()
 
@@ -194,6 +199,10 @@ class SegmentGatherer(object):
                 self.logger.warning("Missing files: %s",
                                     ', '.join(missing_files))
 
+        # Remove tags that are not necessary for datasets
+        for tag in REMOVE_TAGS:
+            del data['metadata'][tag]
+
         msg = message.Message(self._subject, "dataset", data['metadata'])
         self.logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
@@ -212,10 +221,10 @@ class SegmentGatherer(object):
 
         time_slot = str(slot['metadata'][self.time_name])
 
-        wanted_and_critical_files = \
-            slot['wanted_files'].union(slot['critical_files'])
-        num_wanted_and_critical_files_received = \
-            len(wanted_and_critical_files & slot['received_files'])
+        wanted_and_critical_files = slot[
+            'wanted_files'].union(slot['critical_files'])
+        num_wanted_and_critical_files_received = len(
+            wanted_and_critical_files & slot['received_files'])
 
         self.logger.debug("Got %s wanted or critical files in slot %s.",
                           num_wanted_and_critical_files_received,
@@ -333,7 +342,7 @@ class SegmentGatherer(object):
                 metadata[key] = msg.data[key]
         metadata.update(mda)
 
-        time_slot = str(metadata[self.time_name])
+        time_slot = self._find_time_slot(metadata[self.time_name])
 
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
@@ -375,6 +384,18 @@ class SegmentGatherer(object):
 
         # Add to received files
         slot['received_files'].add(mask)
+
+    def _find_time_slot(self, time_obj):
+        """Find time slot and return the slot as a string.  If no slots are
+        close enough, return *str(time_obj)*"""
+        for slot in self.slots:
+            time_slot = self.slots[slot]['metadata'][self.time_name]
+            time_diff = time_obj - time_slot
+            if abs(time_diff.total_seconds()) < self._time_tolerance:
+                self.logger.debug("Found existing time slot, using that")
+                return str(time_slot)
+
+        return str(time_obj)
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys=['ignore']):
