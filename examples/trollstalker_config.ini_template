@@ -81,3 +81,56 @@ stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
 loglevel=DEBUG
 event_names=IN_CLOSE_WRITE,IN_MOVED_TO
 posttroll_port=0
+
+
+[avhrrl0]
+topic=/new/file/yay
+# /HRPT/L1b/dev/hki
+directory=/home/lahtinep/data/satellite/polar/hrpt
+publish_port=
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+loglevel=DEBUG
+stalker_log_config=/home/lahtinep/Software/pytroll/config_files/stalker_logging.ini
+filepattern={path}AVHR_HRP_00_{platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
+instruments=avhrr-3
+alias_platform_name=M01:Metop-B|M02:Metop-A|noaa15:NOAA-15|noaa16:NOAA-16|noaa18:NOAA-18|noaa19:NOAA-19|metop01:Metop-B
+history=0
+
+[amsual0]
+topic=/new/file/yay
+# /HRPT/L1b/dev/hki
+directory=/home/lahtinep/data/satellite/polar/hrpt
+publish_port=
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+loglevel=DEBUG
+stalker_log_config=/home/lahtinep/Software/pytroll/config_files/stalker_logging.ini
+filepattern={path}AMSA_HRP_00_{platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
+instruments=amsu-a
+alias_platform_name=M01:Metop-B|M02:Metop-A|noaa15:NOAA-15|noaa16:NOAA-16|noaa18:NOAA-18|noaa19:NOAA-19|metop01:Metop-B
+history=0
+
+[mhsl0]
+topic=/new/file/yay
+# /HRPT/L1b/dev/hki
+directory=/home/lahtinep/data/satellite/polar/hrpt
+publish_port=
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+loglevel=DEBUG
+stalker_log_config=/home/lahtinep/Software/pytroll/config_files/stalker_logging.ini
+filepattern={path}MHSx_HRP_00_{platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
+instruments=mhs
+alias_platform_name=M01:Metop-B|M02:Metop-A|noaa15:NOAA-15|noaa16:NOAA-16|noaa18:NOAA-18|noaa19:NOAA-19|metop01:Metop-B
+history=0
+
+[hirsl0]
+topic=/new/file/yay
+# /HRPT/L1b/dev/hki
+directory=/home/lahtinep/data/satellite/polar/hrpt
+publish_port=
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+loglevel=DEBUG
+stalker_log_config=/home/lahtinep/Software/pytroll/config_files/stalker_logging.ini
+filepattern={path}HIRS_HRP_00_{platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
+instruments=hirs
+alias_platform_name=M01:Metop-B|M02:Metop-A|noaa15:NOAA-15|noaa16:NOAA-16|noaa18:NOAA-18|noaa19:NOAA-19|metop01:Metop-B
+history=0
