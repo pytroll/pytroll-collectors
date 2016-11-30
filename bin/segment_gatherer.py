@@ -42,7 +42,7 @@ SLOT_READY = 1
 SLOT_READY_BUT_WAIT_FOR_MORE = 2
 SLOT_OBSOLETE_TIMEOUT = 3
 
-DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment")
+DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 
 
 class SegmentGatherer(object):
@@ -358,6 +358,13 @@ class SegmentGatherer(object):
         # Add uid and uri
         slot['metadata']['dataset'].append({'uri': msg.data['uri'],
                                             'uid': msg.data['uid']})
+
+        # Collect all sensors, not only the latest
+        for sensor in msg.data["sensor"]:
+            if "sensor" not in slot["metadata"]:
+                slot["metadata"]["sensor"] = []
+            if sensor not in slot["metadata"]["sensor"]:
+                slot["metadata"]["sensor"].append(sensor)
 
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
