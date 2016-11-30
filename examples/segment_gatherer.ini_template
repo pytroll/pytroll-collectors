@@ -56,3 +56,18 @@ topics = /foo/bar
 publish_topic = /pub/foo/bar
 timeliness = 300
 time_name = nominal_time
+
+[hrptl0]
+pattern = {segment:4s}_HRP_00_{orig_platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
+wanted_files = :AVHR,:AMSA,:HIRS,:MHSx
+all_files = :AVHR,:AMSA,:HIRS,:MHSx
+critical_files = :AVHR,:AMSA,:HIRS,:MHSx
+topics = /new/file/yay
+publish_topic = /data/for/aapp
+timeliness = 20
+time_name = start_time
+# Allowed time tolerance in seconds in the "time_name" for segments to be
+# included in the same time slot.  Default: 0
+time_tolerance = 30
+# Here all the time fields are varying
+variable_tags = start_time,end_time,processing_time
