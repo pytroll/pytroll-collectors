@@ -372,6 +372,8 @@ class SegmentGatherer(object):
                                             'uid': msg.data['uid']})
 
         # Collect all sensors, not only the latest
+        if type(msg.data["sensor"]) not in (tuple, list set):
+            msg.data["sensor"] = [msg.data["sensor"]]
         for sensor in msg.data["sensor"]:
             if "sensor" not in slot["metadata"]:
                 slot["metadata"]["sensor"] = []
