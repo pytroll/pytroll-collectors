@@ -201,7 +201,10 @@ class SegmentGatherer(object):
 
         # Remove tags that are not necessary for datasets
         for tag in REMOVE_TAGS:
-            del data['metadata'][tag]
+            try:
+                del data['metadata'][tag]
+            except KeyError:
+                pass
 
         msg = message.Message(self._subject, "dataset", data['metadata'])
         self.logger.info("Sending: %s", str(msg))
