@@ -74,6 +74,17 @@ class RegionCollector(object):
         start_time = granule_metadata['start_time']
         end_time = granule_metadata['end_time']
 
+        if start_time > end_time:
+            old_end_time = end_time
+            end_date = start_time.date()
+            if end_time.time() < start_time.time():
+                end_date += timedelta(days=1)
+            end_time = datetime.combine(end_date, end_time.time())
+            LOG.debug('Adjusted end time from %s to %s.',
+                      old_end_time, end_time)
+
+        granule_metadata['end_time'] = end_time
+
         LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
 
