@@ -100,7 +100,6 @@ class SegmentGatherer(object):
         """Init wanted, all and critical files"""
         # Init metadata struct
         metadata = mda.copy()
-
         metadata['dataset'] = []
 
         time_slot = str(metadata[self.time_name])
