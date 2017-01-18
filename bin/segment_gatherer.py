@@ -96,7 +96,7 @@ class SegmentGatherer(object):
         if time_slot in self.slots:
             del self.slots[time_slot]
 
-    def _init_data(self, msg, mda):
+    def _init_data(self, mda):
         """Init wanted, all and critical files"""
         # Init metadata struct
         metadata = {}
@@ -341,16 +341,22 @@ class SegmentGatherer(object):
             return
 
         metadata = {}
-        metadata.update(mda)
+
+        # Use values parsed from the filename as basis
+        for key in mda:
+            if key not in DO_NOT_COPY_KEYS:
+                metadata[key] = mda[key]
+
+        # Update with data given in the message
         for key in msg.data:
             if key not in DO_NOT_COPY_KEYS:
                 metadata[key] = msg.data[key]
-        
+
         time_slot = self._find_time_slot(metadata[self.time_name])
 
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
-            self._init_data(msg, mda)
+            self._init_data(metadata)
 
         slot = self.slots[time_slot]
 
