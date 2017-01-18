@@ -104,9 +104,6 @@ class SegmentGatherer(object):
         # Use also metadata parsed from the filenames
         metadata.update(mda)
 
-        for key in msg.data:
-            if key not in DO_NOT_COPY_KEYS:
-                metadata[key] = msg.data[key]
         metadata['dataset'] = []
 
         time_slot = str(metadata[self.time_name])
