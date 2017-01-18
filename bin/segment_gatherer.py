@@ -99,10 +99,7 @@ class SegmentGatherer(object):
     def _init_data(self, mda):
         """Init wanted, all and critical files"""
         # Init metadata struct
-        metadata = {}
-
-        # Use also metadata parsed from the filenames
-        metadata.update(mda)
+        metadata = mda.copy()
 
         metadata['dataset'] = []
 
