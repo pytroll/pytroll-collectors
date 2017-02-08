@@ -87,6 +87,14 @@ class TestImageScaler(unittest.TestCase):
         self.assertEqual(res.size[0], 100)
         self.assertEqual(res.size[1], 100)
 
+    def test_resize_image(self):
+        res = sca.resize_image(self.img_rgb, (30, 30))
+        self.assertEqual(res.size[0], 30)
+        self.assertEqual(res.size[1], 30)
+        res = sca.resize_image(self.img_rgb, (300, 300))
+        self.assertEqual(res.size[0], 300)
+        self.assertEqual(res.size[1], 300)
+
 
 def suite():
     """The suite for test_global_mosaic
