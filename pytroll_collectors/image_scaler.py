@@ -36,12 +36,38 @@ from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
 from mpop.projector import get_area_def
-from mpop.imageo.geo_image import GeoImage
+
+try:
+    from mpop.imageo.geo_image import GeoImage
+except ImportError:
+    GeoImage = None
+
+GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
 
 
 class ImageScaler(object):
 
     '''Class for scaling images to defined sizes.'''
+
+    # Config options for the current received message
+    out_dir = ''
+    update_current = False
+    is_backup = False
+    subject = None
+    crops = []
+    sizes = []
+    tags = []
+    timeliness = 10
+    latest_composite_image = None
+    areaname = None
+    in_pattern = None
+    fileparts = {}
+    out_pattern = None
+    text = None
+    text_settings = None
+    area_def = None
+    overlay_config = None
+    filepath = None
 
     def __init__(self, config):
         self.config = config
@@ -57,6 +83,193 @@ class ImageScaler(object):
             self._loop = False
             if self.listener is not None:
                 self.listener.stop()
+
+    def _update_current_config(self):
+        """Update the current config to class attributes."""
+        try:
+            self.out_dir = self.config.get(self.subject, 'out_dir')
+        except NoOptionError:
+            logging.debug("No config for %s", self.subject)
+            pass  # continue
+
+        try:
+            self.update_current = self.config.getboolean(self.subject,
+                                                         'update_current')
+        except NoOptionError:
+            logging.debug("No option 'update_current' given, "
+                          "default to False")
+            self.update_current = False
+
+        try:
+            self.is_backup = self.config.getboolean(self.subject,
+                                                    'only_backup')
+        except NoOptionError:
+            logging.debug("No option 'only_backup' given, "
+                          "default to False")
+            self.is_backup = False
+
+            # Collect crop information
+            self.crops = []
+            try:
+                crop_conf = self.config.get(self.subject, 'crops').split(',')
+            except NoOptionError:
+                pass
+
+            for crop in crop_conf:
+                if 'x' in crop and '+' in crop:
+                    # Crop strings are formated like this:
+                    # <x_size>x<y_size>+<x_start>+<y_start>
+                    # eg. 1000x300+103+200
+                    # Origin (0, 0) is at top-left
+                    parts = crop.split('+')
+                    crop = tuple(map(int, parts[1:]) +
+                                 map(int, parts[0].split('x')))
+
+                    self.crops.append(crop)
+                else:
+                    self.crops.append(None)
+
+            # Read the requested sizes from configuration section
+            # named like the message topic
+            self.sizes = []
+            for size in self.config.get(self.subject, 'sizes').split(','):
+                self.sizes.append(map(int, size.split('x')))
+
+            self.tags = [tag for tag in self.config.get(self.subject,
+                                                        'tags').split(',')]
+            # get timeliness from config, if available
+            try:
+                self.timeliness = self.config.getint(self.subject,
+                                                     'timeliness')
+            except NoOptionError:
+                logging.debug("No timeliness given, using default of 10 min")
+                self.timeliness = 10
+
+            try:
+                self.latest_composite_image = \
+                    self.config.get(self.subject, "latest_composite_image")
+            except NoOptionError:
+                self.latest_composite_image = None
+
+            # get areaname from config
+            self.areaname = self.config.get(self.subject, 'areaname')
+
+            # get the input file pattern and replace areaname
+            in_pattern = self.config.get(self.subject, 'in_pattern')
+            self.in_pattern = in_pattern.replace('{areaname}', self.areaname)
+
+            # parse filename parts from the incoming file
+            try:
+                fileparts = parse(self.in_pattern,
+                                  os.path.basename(self.filepath))
+            except ValueError:
+                logging.info("Filepattern doesn't match, skipping.")
+                pass  # continue
+            self.fileparts['areaname'] = self.areaname
+
+            try:
+                use_platform_name_hack = \
+                    self.config.getboolean(self.subject,
+                                           'use_platform_name_hack')
+            except NoOptionError:
+                # return
+                use_platform_name_hack = False
+
+            if use_platform_name_hack:
+                # remove "-" from platform names
+                self.fileparts['platform_name'] = \
+                    self.fileparts['platform_name'].replace('-', '')
+
+            # Check if there's a composite_stack to be updated
+
+            # form the output filename
+            out_pattern = self.config.get(self.subject, 'out_pattern')
+            self.out_pattern = os.path.join(self.out_dir, out_pattern)
+
+            # Read overlay text settings
+            try:
+                text = self.config.get(self.subject, 'text')
+                self.text = compose(text, fileparts)
+                self.text_settings = _get_text_settings(self.config,
+                                                        self.subject)
+            except NoOptionError:
+                self.text = None
+
+            # area definition for geoimages and overlays
+            try:
+                self.area_def = get_area_def(self.config.get(self.subject,
+                                                             'areaname'))
+            except NoOptionError:
+                self.area_def = None
+            try:
+                self.overlay_config = self.config.get(self.subject,
+                                                      'overlay_config')
+            except NoOptionError:
+                self.overlay_config = None
+            # area_def = (area_def.proj4_string, area_def.area_extent)
+
+    def add_overlays(self, img):
+        """Add overlays to image.  Add to cache, if not already there."""
+        if self.overlay_config is None:
+            return img
+
+        if self.subject not in self._overlays:
+            logging.debug("Adding overlay to cache")
+            self._overlays[self.subject] = \
+                self._cw.add_overlay_from_config(self.overlay_config,
+                                                 self.area_def)
+        else:
+            logging.debug("Using overlay from cache")
+
+        return add_overlays(img,  self._overlays[self.subject])
+
+    def _check_existing(self, start_time):
+        """Check if there's an existing product that should be updated"""
+
+        # check if something silmiar has already been made:
+        # checks for: platform_name, areaname and
+        # start_time +- timeliness minutes
+        check_start_time = start_time - \
+            dt.timedelta(minutes=self.timeliness)
+        check_dict = self.fileparts.copy()
+        check_dict["tag"] = self.tags[0]
+        if self.is_backup:
+            check_dict["platform_name"] = '*'
+            check_dict["sat_loc"] = '*'
+        check_dict["composite"] = '*'
+
+        first_overpass = True
+        update_fname_parts = None
+        for i in range(2 * self.timeliness + 1):
+            check_dict['time'] = check_start_time + dt.timedelta(minutes=i)
+            glob_pattern = compose(os.path.join(self.out_dir,
+                                                self.out_pattern),
+                                   check_dict)
+            glob_fnames = glob.glob(glob_pattern)
+            if len(glob_fnames) > 0:
+                first_overpass = False
+                logging.debug("Found files: %s", str(glob_fnames))
+                try:
+                    update_fname_parts = parse(self.out_pattern,
+                                               glob_fnames[0])
+                    update_fname_parts["composite"] = \
+                        self.fileparts["composite"]
+                    if not self.is_backup:
+                        try:
+                            update_fname_parts["platform_name"] = \
+                                self.fileparts["platform_name"]
+                        except KeyError:
+                            pass
+                    break
+                except ValueError:
+                    logging.debug("Parsing failed for update_fname_parts.")
+                    logging.debug("out_pattern: %s, basename: %s",
+                                  self.out_pattern, glob_fnames[0])
+                    update_fname_parts = {}
+
+        if self.is_backup and not first_overpass:
+            logging.info("File already exists, no backuping needed.")
+            return None
 
     def run(self):
         '''Start waiting for messages.
@@ -77,241 +290,132 @@ class ImageScaler(object):
 
             logging.info("New message with topic %s", msg.subject)
 
-            filepath = urlparse(msg.data["uri"]).path
+            self.subject = msg.subject
+            self.filepath = urlparse(msg.data["uri"]).path
 
-            try:
-                out_dir = self.config.get(msg.subject, 'out_dir')
-            except NoOptionError:
-                logging.debug("No config for %s", msg.subject)
+            self._update_current_config()
+
+            existing_fname_parts = self._check_existing(msg.data["start_time"])
+            if existing_fname_parts is None:
                 continue
-
-            try:
-                update_current = self.config.getboolean(msg.subject,
-                                                        'update_current')
-            except NoOptionError:
-                logging.debug("No option 'update_current' given, "
-                              "default to False")
-                update_current = False
-
-            try:
-                is_backup = self.config.getboolean(msg.subject,
-                                                   'only_backup')
-            except NoOptionError:
-                logging.debug("No option 'only_backup' given, "
-                              "default to False")
-                is_backup = False
-
-            # Collect crop information
-            crops = []
-            try:
-                crop_conf = self.config.get(msg.subject, 'crops').split(',')
-            except NoOptionError:
-                pass
-
-            for crop in crop_conf:
-                if 'x' in crop and '+' in crop:
-                    # Crop strings are formated like this:
-                    # <x_size>x<y_size>+<x_start>+<y_start>
-                    # eg. 1000x300+103+200
-                    # Origin (0, 0) is at top-left
-                    parts = crop.split('+')
-                    crop = tuple(map(int, parts[1:]) +
-                                 map(int, parts[0].split('x')))
-
-                    crops.append(crop)
-                else:
-                    crops.append(None)
-
-            # Read the requested sizes from configuration section
-            # named like the message topic
-            sizes = []
-            for size in self.config.get(msg.subject, 'sizes').split(','):
-                sizes.append(map(int, size.split('x')))
-
-            tags = [tag for tag in self.config.get(msg.subject,
-                                                   'tags').split(',')]
-            # get timeliness from config, if available
-            try:
-                timeliness = self.config.getint(msg.subject, 'timeliness')
-            except NoOptionError:
-                logging.debug("No timeliness given, using default of 10 min")
-                timeliness = 10
-
-            try:
-                latest_composite_image = \
-                    self.config.get(msg.subject, "latest_composite_image")
-            except NoOptionError:
-                latest_composite_image = None
-
-            # get areaname from config
-            areaname = self.config.get(msg.subject, 'areaname')
-
-            # get the input file pattern and replace areaname
-            in_pattern = self.config.get(msg.subject, 'in_pattern')
-            in_pattern = in_pattern.replace('{areaname}', areaname)
-            # parse filename parts from the incoming file
-            try:
-                fileparts = parse(in_pattern, os.path.basename(filepath))
-            except ValueError:
-                logging.info("Filepattern doesn't match, skipping.")
-                continue
-            fileparts['areaname'] = areaname
-
-            try:
-                use_hack = self.config.getboolean(msg.subject,
-                                                  'use_platform_name_hack')
-            except NoOptionError:
-                use_hack = False
-            if use_hack:
-                # remove "-" from platform names
-                fileparts['platform_name'] = fileparts[
-                    'platform_name'].replace('-', '')
-
-            # Check if there's a composite_stack to be updated
-
-            # form the output filename
-            out_pattern = self.config.get(msg.subject, 'out_pattern')
-            out_pattern = os.path.join(out_dir, out_pattern)
-
-            # Read overlay text settings
-            try:
-                text = self.config.get(msg.subject, 'text')
-                text = compose(text, fileparts)
-                text_settings = _get_text_settings(self.config, msg.subject)
-            except NoOptionError:
-                text = None
-
-            # check if something silmiar has already been made:
-            # checks for: platform_name, areaname and
-            # start_time +- timeliness minutes
-            check_start_time = msg.data["start_time"] - \
-                dt.timedelta(minutes=timeliness)
-            check_dict = fileparts.copy()
-            check_dict["tag"] = tags[0]
-            if is_backup:
-                check_dict["platform_name"] = '*'
-                check_dict["sat_loc"] = '*'
-            check_dict["composite"] = '*'
-
-            first_overpass = True
-            update_fname_parts = None
-            for i in range(2 * timeliness + 1):
-                check_dict['time'] = check_start_time + dt.timedelta(minutes=i)
-                glob_pattern = compose(os.path.join(out_dir, out_pattern),
-                                       check_dict)
-                glob_fnames = glob.glob(glob_pattern)
-                if len(glob_fnames) > 0:
-                    first_overpass = False
-                    logging.debug("Found files: %s", str(glob_fnames))
-                    try:
-                        update_fname_parts = parse(out_pattern, glob_fnames[0])
-                        update_fname_parts[
-                            "composite"] = fileparts["composite"]
-                        if not is_backup:
-                            try:
-                                update_fname_parts[
-                                    "platform_name"] = fileparts["platform_name"]
-                            except KeyError:
-                                pass
-                        break
-                    except ValueError:
-                        logging.debug("Parsing failed for update_fname_parts.")
-                        logging.debug("out_pattern: %s, basename: %s",
-                                      out_pattern, glob_fnames[0])
-                        update_fname_parts = None
-
-            # if not first_overpass:
-            #     logging.info("Similar file already present, skipping.")
-            #     continue
-
-            if is_backup and not first_overpass:
-                logging.info("File already exists, no backuping needed.")
-                continue
-
-            # area definition for coastlines
-            area_def = get_area_def(self.config.get(msg.subject,
-                                                    'areaname'))
-            overlay_config = self.config.get(msg.subject, 'overlay_config')
-            # area_def = (area_def.proj4_string, area_def.area_extent)
 
             # Read the image
-            if msg.data["type"] == "PNG":
-                img = Image.open(filepath)
-                logging.info("Adding overlays")
+            img = read_image(self.filepath)
 
-                if msg.subject not in self._overlays:
-                    logging.debug("Generating overlay")
-                    self._overlays[msg.subject] = \
-                        self._cw.add_overlay_from_config(overlay_config,
-                                                         area_def)
+            # Add overlays, if any
+            img = self.add_overlays(img)
+
+            # Save image(s)
+            self.save_images(img)
+
+    def save_images(self, img, existing_fname_parts):
+        """Save image(s)"""
+        for i in range(len(self.sizes)):
+            img_wrk = None
+            self.fileparts['tag'] = self.tags[i]
+
+            # Crop the image
+            try:
+                if crops[i] is not None:
+                    img_wrk = img.crop(crops[i])
                 else:
-                    logging.debug("Using overlay from cache")
+                    img_wrk = img
+            except IndexError:
+                img_wrk = img
 
-                img.paste(self._overlays[msg.subject],
-                          mask=self._overlays[msg.subject])
+            # Resize the image
+            x_res, y_res = sizes[i]
 
-                for i in range(len(sizes)):
-                    img_wrk = None
-                    fileparts['tag'] = tags[i]
+            if img_wrk.size[0] == x_res and img_wrk.size[1] == y_res:
+                img_out = img_wrk
+            else:
+                img_out = img_wrk.resize((x_res, y_res))
 
-                    # Crop the image
-                    try:
-                        if crops[i] is not None:
-                            img_wrk = img.crop(crops[i])
-                        else:
-                            img_wrk = img
-                    except IndexError:
-                        img_wrk = img
+            fname = compose(out_pattern, fileparts)
+            if update_fname_parts is not None:
+                update_fname_parts['tag'] = tags[i]
+                if update_current:
+                    fname = compose(os.path.join(out_dir, out_pattern),
+                                    update_fname_parts)
+                    logging.info("Updating image %s with image %s",
+                                 fname, filepath)
+                    img_out = update_latest_composite_image(fname,
+                                                            img_out)
+                    if text is not None:
+                        img_out = add_text(
+                            img_out, text, text_settings)
+                    img_out.save(fname)
+                    logging.info("Saving image %s with resolution "
+                                 "%d x %d", fname, x_res, y_res)
+            else:
+                if text is not None:
+                    img_out = add_text(img_out, text, text_settings)
+                img_out.save(fname)
+                logging.info("Saving image %s with resolution "
+                             "%d x %d", fname, x_res, y_res)
 
-                    # Resize the image
-                    x_res, y_res = sizes[i]
+            # Update latest composite image, if given in config
+            if latest_composite_image:
+                try:
+                    fname = \
+                        compose(os.path.join(out_dir,
+                                             latest_composite_image),
+                                fileparts)
+                    img_out = update_latest_composite_image(fname,
+                                                            img_out)
+                    if text is not None:
+                        img_out = add_text(
+                            img_out, text, text_settings)
+                    img_out.save(fname)
+                    logging.info("Updated latest composite image %s",
+                                 fname)
+                except Exception as err:
+                    logging.error("Update of 'latest' %s failed: %s",
+                                  fname, str(err))
 
-                    if img_wrk.size[0] == x_res and img_wrk.size[1] == y_res:
-                        img_out = img_wrk
-                    else:
-                        img_out = img_wrk.resize((x_res, y_res))
 
-                    fname = compose(out_pattern, fileparts)
-                    if update_fname_parts is not None:
-                        update_fname_parts['tag'] = tags[i]
-                        if update_current:
-                            fname = compose(os.path.join(out_dir, out_pattern),
-                                            update_fname_parts)
-                            logging.info("Updating image %s with image %s",
-                                         fname, filepath)
-                            img_out = update_latest_composite_image(fname,
-                                                                    img_out)
-                            if text is not None:
-                                img_out = add_text(
-                                    img_out, text, text_settings)
-                            img_out.save(fname)
-                            logging.info("Saving image %s with resolution "
-                                         "%d x %d", fname, x_res, y_res)
-                    else:
-                        if text is not None:
-                            img_out = add_text(img_out, text, text_settings)
-                        img_out.save(fname)
-                        logging.info("Saving image %s with resolution "
-                                     "%d x %d", fname, x_res, y_res)
+def save_image(img, fname, adef=None, start_time=None, fill_value=None):
+    """Save image.  In case of tif convert first to Geoimage
+    """
+    if fname.lower().endswith(('.tif', '.tiff')):
+        img = _pil_to_geoimage(img, adef=adef, start_time=start_time,
+                               fill_value=fill_value)
+    img.save(fname)
 
-                    # Update latest composite image, if given in config
-                    if latest_composite_image:
-                        try:
-                            fname = \
-                                compose(os.path.join(out_dir,
-                                                     latest_composite_image),
-                                        fileparts)
-                            img_out = update_latest_composite_image(fname,
-                                                                    img_out)
-                            if text is not None:
-                                img_out = add_text(
-                                    img_out, text, text_settings)
-                            img_out.save(fname)
-                            logging.info("Updated latest composite image %s",
-                                         fname)
-                        except Exception as err:
-                            logging.error("Update of 'latest' %s failed: %s",
-                                          fname, str(err))
+
+def _pil_to_geoimage(img, adef, start_time, fill_value=None):
+    """Convert PIL image to GeoImage"""
+    # Get image mode, widht and height
+    mode = img.mode
+    width = img.width
+    height = img.height
+
+    # TODO: handle 16-bit images
+    max_val = 255.
+    # Convert to Numpy array
+    img = np.array(img.getdata()).astype(np.float32)
+    img = img.reshape((height, width, len(mode)))
+
+    chans = []
+    # TODO: handle P image mode
+    if mode == 'L':
+        chans.append(np.squeeze(img) / max_val)
+    else:
+        if mode.endswith('A'):
+            mask = img[:, :, -1]
+        else:
+            mask = False
+        for i in range(len(mode)):
+            chans.append(np.ma.masked_where(mask, img[:, :, i] / max_val))
+
+    return GeoImage(chans, adef, start_time, fill_value=fill_value,
+                    mode=mode, crange=_get_crange(len(mode)))
+
+
+def _get_crange(num):
+    """Get crange for interval (0, 1) for *num* image channels."""
+    tupl = (0., 1.)
+    return num * (tupl, )
 
 
 def _get_text_settings(config, subject):
@@ -499,3 +603,18 @@ def update_latest_composite_image(fname, new_img):
         old_img[mask] = new_img[mask]
 
     return Image.fromarray(old_img, mode=new_img_mode)
+
+
+def read_image(filepath):
+    """Read the image from *filepath* and return it as PIL image."""
+    return Image.open(filepath)
+
+
+def add_overlays(img, overlay):
+    """"""
+    logging.info("Adding overlays")
+
+    img.paste(self._overlays[msg.subject],
+              mask=self._overlays[msg.subject])
+
+    return img
