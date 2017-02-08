@@ -374,23 +374,25 @@ class ImageScaler(object):
                                   fname, str(err))
 
 
-def save_image(img, fname, adef=None, start_time=None, fill_value=None):
-    """Save image.  In case of tif convert first to Geoimage
+def save_image(img, fname, adef=None, time_slot=None, fill_value=None):
+    """Save image.  In case of area definition and start time are given,
+    and the image type is tif, convert first to Geoimage to save geotiff
     """
-    if fname.lower().endswith(('.tif', '.tiff')):
-        img = _pil_to_geoimage(img, adef=adef, start_time=start_time,
+    if (adef is not None and time_slot is not None and
+            fname.lower().endswith(('.tif', '.tiff'))):
+        img = _pil_to_geoimage(img, adef=adef, time_slot=time_slot,
                                fill_value=fill_value)
     img.save(fname)
 
 
-def _pil_to_geoimage(img, adef, start_time, fill_value=None):
+def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
     """Convert PIL image to GeoImage"""
     # Get image mode, widht and height
     mode = img.mode
     width = img.width
     height = img.height
 
-    # TODO: handle 16-bit images
+    # TODO: handle other than 8-bit images
     max_val = 255.
     # Convert to Numpy array
     img = np.array(img.getdata()).astype(np.float32)
@@ -408,7 +410,7 @@ def _pil_to_geoimage(img, adef, start_time, fill_value=None):
         for i in range(len(mode)):
             chans.append(np.ma.masked_where(mask, img[:, :, i] / max_val))
 
-    return GeoImage(chans, adef, start_time, fill_value=fill_value,
+    return GeoImage(chans, adef, time_slot, fill_value=fill_value,
                     mode=mode, crange=_get_crange(len(mode)))
 
 
@@ -420,53 +422,53 @@ def _get_crange(num):
 
 def _get_text_settings(config, subject):
     """Parse text settings from the config."""
-    stgs = {}
+    settings = {}
     try:
-        stgs['loc'] = config.get(subject, 'text_location')
+        settings['loc'] = config.get(subject, 'text_location')
     except NoOptionError:
-        stgs['loc'] = 'SW'
+        settings['loc'] = 'SW'
 
     try:
-        stgs['font_fname'] = config.get(subject, 'font')
+        settings['font_fname'] = config.get(subject, 'font')
     except NoOptionError:
-        stgs['font_fname'] = None
+        settings['font_fname'] = None
 
     try:
-        stgs['font_size'] = config.getint(subject, 'font_size')
+        settings['font_size'] = config.getint(subject, 'font_size')
     except NoOptionError:
-        stgs['font_size'] = 12
+        settings['font_size'] = 12
 
     try:
-        stgs['text_color'] = [int(x) for x in
-                              config.get(subject,
-                                         'text_color').split(',')]
+        settings['text_color'] = [int(x) for x in
+                                  config.get(subject,
+                                             'text_color').split(',')]
     except NoOptionError:
-        stgs['text_color'] = [0, 0, 0]
+        settings['text_color'] = [0, 0, 0]
 
     try:
-        stgs['bg_color'] = [int(x) for x in
-                            config.get(subject,
-                                       'text_bg_color').split(',')]
+        settings['bg_color'] = [int(x) for x in
+                                config.get(subject,
+                                           'text_bg_color').split(',')]
     except NoOptionError:
-        stgs['bg_color'] = [255, 255, 255]
+        settings['bg_color'] = [255, 255, 255]
 
     try:
-        stgs['x_marginal'] = config.getint(subject, 'x_marginal')
+        settings['x_marginal'] = config.getint(subject, 'x_marginal')
     except NoOptionError:
-        stgs['x_marginal'] = 10
+        settings['x_marginal'] = 10
 
     try:
-        stgs['y_marginal'] = config.getint(subject, 'y_marginal')
+        settings['y_marginal'] = config.getint(subject, 'y_marginal')
     except NoOptionError:
-        stgs['y_marginal'] = 3
+        settings['y_marginal'] = 3
 
     try:
-        stgs['bg_extra_width'] = config.getint(subject,
-                                               'bg_extra_width')
+        settings['bg_extra_width'] = config.getint(subject,
+                                                   'bg_extra_width')
     except (ValueError, NoOptionError):
-        stgs['bg_extra_width'] = None
+        settings['bg_extra_width'] = None
 
-    return stgs
+    return settings
 
 
 def add_text(img, text, settings):
