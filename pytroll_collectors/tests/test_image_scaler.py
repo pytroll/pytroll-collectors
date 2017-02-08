@@ -19,6 +19,9 @@
 
 import unittest
 import datetime as dt
+import tempfile
+import os
+import os.path
 
 import numpy as np
 from PIL import Image
@@ -68,6 +71,13 @@ class TestImageScaler(unittest.TestCase):
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_geoimage(self.img_rgba, None, None, fill_value=None)
         self.assertEqual(res.mode, 'RGBA')
+
+    def test_save_image(self):
+        out_dir = tempfile.gettempdir()
+        fname = os.path.join(out_dir, 'img.png')
+        sca.save_image(self.img_rgb, fname)
+        fname = os.path.join(out_dir, 'img.tif')
+        sca.save_image(self.img_rgb, fname)
 
 
 def suite():
