@@ -48,7 +48,6 @@ from ConfigParser import ConfigParser
 
 from pytroll_collectors.image_scaler import ImageScaler
 
-GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
 
 LOG_CONFIG = {'version': 1,
               'handlers': {
