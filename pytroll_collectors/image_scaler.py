@@ -333,29 +333,24 @@ class ImageScaler(object):
                 img_out = self._add_text(img, update_img=False)
                 # Compose filename
                 self.fileparts['tag'] = self.tags[i]
-
                 fname = compose(self.out_pattern, self.fileparts)
 
+            # Save image
             img_out.save(fname)
 
             # Update latest composite image, if given in config
             if self.latest_composite_image:
-                try:
-                    fname = \
-                        compose(os.path.join(out_dir,
-                                             latest_composite_image),
-                                fileparts)
-                    img = update_latest_composite_image(fname,
-                                                        img)
-                    if text is not None:
-                        img_out = add_text(
-                            img_out, text, text_settings)
-                    img_out.save(fname)
-                    logging.info("Updated latest composite image %s",
-                                 fname)
-                except Exception as err:
-                    logging.error("Update of 'latest' %s failed: %s",
-                                  fname, str(err))
+                fname = \
+                    compose(os.path.join(self.out_dir,
+                                         self.latest_composite_image),
+                            self.fileparts)
+                img = self._update_existing_img(img, self.tags[i],
+                                                fname=fname)
+                img = self._add_text(img, update_img=False)
+
+                img.save(fname)
+                logging.info("Updated latest composite image %s",
+                             fname)
 
     def _add_text(self, img, update_img=False):
         """Add text to the given image"""
@@ -369,12 +364,12 @@ class ImageScaler(object):
 
         return add_text(img, text, self.text_settings)
 
-    def _update_existing_img(self, img, tag):
+    def _update_existing_img(self, img, tag, fname=None):
         """Update existing image"""
-        self.existing_fname_parts['tag'] = tag
-
-        fname = compose(os.path.join(self.out_dir, self.out_pattern),
-                        self.existing_fname_parts)
+        if fname is None:
+            self.existing_fname_parts['tag'] = tag
+            fname = compose(os.path.join(self.out_dir, self.out_pattern),
+                            self.existing_fname_parts)
         logging.info("Updating image %s with image %s",
                      fname, self.filepath)
         img_out = update_existing_image(fname, img)
