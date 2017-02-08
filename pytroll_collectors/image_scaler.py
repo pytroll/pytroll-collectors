@@ -63,7 +63,7 @@ class ImageScaler(object):
     in_pattern = None
     fileparts = {}
     out_pattern = None
-    text = None
+    text_pattern = None
     text_settings = None
     area_def = None
     overlay_config = None
@@ -189,8 +189,7 @@ class ImageScaler(object):
 
             # Read overlay text settings
             try:
-                text = self.config.get(self.subject, 'text')
-                self.text = compose(text, fileparts)
+                self.text_pattern = self.config.get(self.subject, 'text')
                 self.text_settings = _get_text_settings(self.config,
                                                         self.subject)
             except NoOptionError:
@@ -311,7 +310,7 @@ class ImageScaler(object):
             img = self.add_overlays(img)
 
             # Save image(s)
-            self.save_images(img, existing_fname_parts)
+            self.save_images(img)
 
     def save_images(self, img):
         """Save image(s)"""
@@ -324,9 +323,12 @@ class ImageScaler(object):
             # Resize the image
             img = resize_image(img, self.sizes[i])
 
+            # Add text
+            img = self._add_text(img)
+
             # Update existing image if configured to do so
             if self.update_existing:
-                self._update_existing_img(img, self.tags[i])
+                img, fname = self._update_existing_img(img, self.tags[i])
             else:
                 # Compose filename
                 self.fileparts['tag'] = self.tags[i]
@@ -357,6 +359,18 @@ class ImageScaler(object):
                     logging.error("Update of 'latest' %s failed: %s",
                                   fname, str(err))
 
+    def _add_text(self, img, update_img=False):
+        """Add text to the given image"""
+        if self.text_pattern is None:
+            return img
+
+        if update_img:
+            text = compose(self.text_pattern, self.existing_fname_parts)
+        else:
+            text = compose(self.text_pattern, self.fileparts)
+
+        return add_text(img, text, self.text_settings)
+
     def _update_existing_img(self, img, tag):
         """Update existing image"""
         self.existing_fname_parts['tag'] = tag
@@ -368,11 +382,6 @@ class ImageScaler(object):
         img_out = update_existing_image(fname, img)
 
         return img_out
-#                if text is not None:
-#                    img_out = add_text(img_out, text, text_settings)
-#                img_out.save(fname)
-#                logging.info("Saving image %s with resolution "
-#                             "%d x %d", fname, x_res, y_res)
 
 
 def resize_image(img, size):
