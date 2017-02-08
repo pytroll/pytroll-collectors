@@ -323,32 +323,30 @@ class ImageScaler(object):
             # Resize the image
             img = resize_image(img, self.sizes[i])
 
-            # Add text
-            img = self._add_text(img)
-
             # Update existing image if configured to do so
             if self.update_existing:
                 img, fname = self._update_existing_img(img, self.tags[i])
+                # Add text
+                img_out = self._add_text(img, update_img=True)
             else:
+                # Add text
+                img_out = self._add_text(img, update_img=False)
                 # Compose filename
                 self.fileparts['tag'] = self.tags[i]
 
                 fname = compose(self.out_pattern, self.fileparts)
-                if text is not None:
-                    img_out = add_text(img_out, text, text_settings)
-                img_out.save(fname)
-                logging.info("Saving image %s with resolution "
-                             "%d x %d", fname, x_res, y_res)
+
+            img_out.save(fname)
 
             # Update latest composite image, if given in config
-            if latest_composite_image:
+            if self.latest_composite_image:
                 try:
                     fname = \
                         compose(os.path.join(out_dir,
                                              latest_composite_image),
                                 fileparts)
-                    img_out = update_latest_composite_image(fname,
-                                                            img_out)
+                    img = update_latest_composite_image(fname,
+                                                        img)
                     if text is not None:
                         img_out = add_text(
                             img_out, text, text_settings)
