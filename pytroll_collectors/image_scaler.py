@@ -310,6 +310,7 @@ class ImageScaler(object):
 
     def save_images(self, img, existing_fname_parts):
         """Save image(s)"""
+        # Loop through different image sizes
         for i in range(len(self.sizes)):
 
             # Crop the image
@@ -318,12 +319,7 @@ class ImageScaler(object):
             self.fileparts['tag'] = self.tags[i]
 
             # Resize the image
-            x_res, y_res = sizes[i]
-
-            if img_wrk.size[0] == x_res and img_wrk.size[1] == y_res:
-                img_out = img_wrk
-            else:
-                img_out = img_wrk.resize((x_res, y_res))
+            img = resize_image(img, self.sizes[i])
 
             fname = compose(out_pattern, fileparts)
             if update_fname_parts is not None:
@@ -366,6 +362,18 @@ class ImageScaler(object):
                 except Exception as err:
                     logging.error("Update of 'latest' %s failed: %s",
                                   fname, str(err))
+
+
+def resize_image(img, size):
+    """Resize given image to size (x_size, y_size)"""
+    x_res, y_res = size
+
+    if img.size[0] == x_res and img.size[1] == y_res:
+        img_out = img
+    else:
+        img_out = img.resize((x_res, y_res))
+
+    return img_out
 
 
 def crop_image(img, crop):
