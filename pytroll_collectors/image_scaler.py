@@ -51,7 +51,7 @@ class ImageScaler(object):
 
     # Config options for the current received message
     out_dir = ''
-    update_current = False
+    update_existing = False
     is_backup = False
     subject = None
     crops = []
@@ -68,6 +68,7 @@ class ImageScaler(object):
     area_def = None
     overlay_config = None
     filepath = None
+    existing_fname_parts = None
 
     def __init__(self, config):
         self.config = config
@@ -93,12 +94,12 @@ class ImageScaler(object):
             pass  # continue
 
         try:
-            self.update_current = self.config.getboolean(self.subject,
-                                                         'update_current')
+            self.update_existing = self.config.getboolean(self.subject,
+                                                          'update_existing')
         except NoOptionError:
-            logging.debug("No option 'update_current' given, "
+            logging.debug("No option 'update_existing' given, "
                           "default to False")
-            self.update_current = False
+            self.update_existing = False
 
         try:
             self.is_backup = self.config.getboolean(self.subject,
@@ -295,8 +296,12 @@ class ImageScaler(object):
 
             self._update_current_config()
 
-            existing_fname_parts = self._check_existing(msg.data["start_time"])
-            if existing_fname_parts is None:
+            self.existing_fname_parts = \
+                self._check_existing(msg.data["start_time"])
+
+            # There is already a matching image which isn't going to
+            # be updated
+            if self.existing_fname_parts is None:
                 continue
 
             # Read the image
@@ -306,9 +311,9 @@ class ImageScaler(object):
             img = self.add_overlays(img)
 
             # Save image(s)
-            self.save_images(img)
+            self.save_images(img, existing_fname_parts)
 
-    def save_images(self, img, existing_fname_parts):
+    def save_images(self, img):
         """Save image(s)"""
         # Loop through different image sizes
         for i in range(len(self.sizes)):
@@ -316,28 +321,17 @@ class ImageScaler(object):
             # Crop the image
             img = crop_image(img, self.crops[i])
 
-            self.fileparts['tag'] = self.tags[i]
-
             # Resize the image
             img = resize_image(img, self.sizes[i])
 
-            fname = compose(out_pattern, fileparts)
-            if update_fname_parts is not None:
-                update_fname_parts['tag'] = tags[i]
-                if update_current:
-                    fname = compose(os.path.join(out_dir, out_pattern),
-                                    update_fname_parts)
-                    logging.info("Updating image %s with image %s",
-                                 fname, filepath)
-                    img_out = update_latest_composite_image(fname,
-                                                            img_out)
-                    if text is not None:
-                        img_out = add_text(
-                            img_out, text, text_settings)
-                    img_out.save(fname)
-                    logging.info("Saving image %s with resolution "
-                                 "%d x %d", fname, x_res, y_res)
+            # Update existing image if configured to do so
+            if self.update_existing:
+                self._update_existing_img(img, self.tags[i])
             else:
+                # Compose filename
+                self.fileparts['tag'] = self.tags[i]
+
+                fname = compose(self.out_pattern, self.fileparts)
                 if text is not None:
                     img_out = add_text(img_out, text, text_settings)
                 img_out.save(fname)
@@ -362,6 +356,23 @@ class ImageScaler(object):
                 except Exception as err:
                     logging.error("Update of 'latest' %s failed: %s",
                                   fname, str(err))
+
+    def _update_existing_img(self, img, tag):
+        """Update existing image"""
+        self.existing_fname_parts['tag'] = tag
+
+        fname = compose(os.path.join(self.out_dir, self.out_pattern),
+                        self.existing_fname_parts)
+        logging.info("Updating image %s with image %s",
+                     fname, self.filepath)
+        img_out = update_existing_image(fname, img)
+
+        return img_out
+#                if text is not None:
+#                    img_out = add_text(img_out, text, text_settings)
+#                img_out.save(fname)
+#                logging.info("Saving image %s with resolution "
+#                             "%d x %d", fname, x_res, y_res)
 
 
 def resize_image(img, size):
@@ -599,7 +610,7 @@ def add_text(img, text, settings):
     return img
 
 
-def update_latest_composite_image(fname, new_img):
+def update_existing_image(fname, new_img):
     '''Read image from fname, if present, and update valid data (= not
     black) from img_in.  Return updated image as PIL image.
     '''
