@@ -79,6 +79,14 @@ class TestImageScaler(unittest.TestCase):
         fname = os.path.join(out_dir, 'img.tif')
         sca.save_image(self.img_rgb, fname)
 
+    def test_crop_image(self):
+        res = sca.crop_image(self.img_rgb, (3, 3, 7, 7))
+        self.assertEqual(res.size[0], 4)
+        self.assertEqual(res.size[1], 4)
+        res = sca.crop_image(self.img_rgb, (-3, -3, 700, 700))
+        self.assertEqual(res.size[0], 100)
+        self.assertEqual(res.size[1], 100)
+
 
 def suite():
     """The suite for test_global_mosaic
