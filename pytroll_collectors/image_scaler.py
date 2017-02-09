@@ -482,18 +482,18 @@ def _get_text_settings(config, subject):
         settings['font_size'] = 12
 
     try:
-        settings['text_color'] = [int(x) for x in
-                                  config.get(subject,
-                                             'text_color').split(',')]
+        settings['text_color'] = \
+            tuple([int(x) for x in config.get(subject,
+                                              'text_color').split(',')])
     except NoOptionError:
-        settings['text_color'] = [0, 0, 0]
+        settings['text_color'] = (0, 0, 0)
 
     try:
-        settings['bg_color'] = [int(x) for x in
-                                config.get(subject,
-                                           'text_bg_color').split(',')]
+        settings['bg_color'] = \
+            tuple([int(x) for x in config.get(subject,
+                                              'text_bg_color').split(',')])
     except NoOptionError:
-        settings['bg_color'] = [255, 255, 255]
+        settings['bg_color'] = (255, 255, 255)
 
     try:
         settings['x_marginal'] = config.getint(subject, 'x_marginal')
@@ -519,6 +519,12 @@ def add_text(img, text, settings):
 
     img = _adjust_img_mode_for_text(img, (settings['text_color'],
                                           settings['bg_color']))
+    if len(img.mode) < 3:
+        text_color = settings['text_color'][0]
+        bg_color = settings['bg_color'][0]
+    else:
+        text_color = settings['text_color']
+        bg_color = settings['bg_color']
 
     draw = ImageDraw.Draw(img)
     font = _get_font(settings['font_fname'], settings['font_size'])
@@ -531,9 +537,8 @@ def add_text(img, text, settings):
                                                     textsize, marginals,
                                                     bg_extra_width)
 
-    draw.rectangle(box_loc, fill=tuple(settings['bg_color']))
-    draw.text(text_loc, text, fill=tuple(settings['text_color']),
-              font=font)
+    draw.rectangle(box_loc, fill=bg_color)
+    draw.text(text_loc, text, fill=text_color, font=font)
 
     return img
 
@@ -611,14 +616,13 @@ def _text_in_south(img_shape, loc, textsize, marginals,
 
 def _adjust_img_mode_for_text(img, colors):
     """Adjust image mode to mach the text settings"""
-    # TODO: use the text *colors*, now converts only L to RGB and LA
-    # to RGBA
     if 'L' in img.mode:
-        mode = 'RGB'
-        if 'A' in img.mode:
-            mode += 'A'
-        logging.info("Converting to %s", mode)
-        img = img.convert(mode)
+        if _is_rgb_color(colors):
+            mode = 'RGB'
+            if 'A' in img.mode:
+                mode += 'A'
+            logging.info("Converting to %s", mode)
+            img = img.convert(mode)
     return img
 
 
