@@ -62,41 +62,45 @@ class TestImageScaler(unittest.TestCase):
         test_vals(res)
 
     def test_pil_to_geoimage(self):
-        res = sca._pil_to_geoimage(self.img_l, None, None, fill_value=None)
+        res = sca._pil_to_geoimage(self.img_l.copy(), None, None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'L')
         self.assertTrue(res.fill_value is None)
         self.assertTrue(res.time_slot is None)
         self.assertTrue(res.area is None)
         tslot = dt.datetime(2017, 2, 7, 12, 0)
-        res = sca._pil_to_geoimage(self.img_la, None, tslot, fill_value=0)
+        res = sca._pil_to_geoimage(self.img_la.copy(), None, tslot,
+                                   fill_value=0)
         self.assertEqual(res.mode, 'LA')
         self.assertTrue(res.fill_value[0] is 0)
         self.assertEqual(res.time_slot, tslot)
-        res = sca._pil_to_geoimage(self.img_rgb, None, None, fill_value=None)
+        res = sca._pil_to_geoimage(self.img_rgb.copy(), None, None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'RGB')
-        res = sca._pil_to_geoimage(self.img_rgba, None, None, fill_value=None)
+        res = sca._pil_to_geoimage(self.img_rgba.copy(), None, None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'RGBA')
 
     def test_save_image(self):
         out_dir = tempfile.gettempdir()
         fname = os.path.join(out_dir, 'img.png')
-        sca.save_image(self.img_rgb, fname)
+        sca.save_image(self.img_rgb.copy(), fname)
         fname = os.path.join(out_dir, 'img.tif')
-        sca.save_image(self.img_rgb, fname)
+        sca.save_image(self.img_rgb.copy(), fname)
 
     def test_crop_image(self):
-        res = sca.crop_image(self.img_rgb, (3, 3, 7, 7))
+        res = sca.crop_image(self.img_rgb.copy(), (3, 3, 7, 7))
         self.assertEqual(res.size[0], 4)
         self.assertEqual(res.size[1], 4)
-        res = sca.crop_image(self.img_rgb, (-3, -3, 700, 700))
+        res = sca.crop_image(self.img_rgb.copy(), (-3, -3, 700, 700))
         self.assertEqual(res.size[0], 100)
         self.assertEqual(res.size[1], 100)
 
     def test_resize_image(self):
-        res = sca.resize_image(self.img_rgb, (30, 30))
+        res = sca.resize_image(self.img_rgb.copy(), (30, 30))
         self.assertEqual(res.size[0], 30)
         self.assertEqual(res.size[1], 30)
-        res = sca.resize_image(self.img_rgb, (300, 300))
+        res = sca.resize_image(self.img_rgb.copy(), (300, 300))
         self.assertEqual(res.size[0], 300)
         self.assertEqual(res.size[1], 300)
 
@@ -127,24 +131,24 @@ class TestImageScaler(unittest.TestCase):
         text_settings['font_fname'] = os.path.join(os.path.dirname(__file__),
                                                    'data', 'DejaVuSerif.ttf')
         # Default text settings (black on white)
-        res = sca.add_text(self.img_l, 'PL', text_settings)
+        res = sca.add_text(self.img_l.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'L')
-        res = sca.add_text(self.img_la, 'PL', text_settings)
+        res = sca.add_text(self.img_la.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'LA')
-        res = sca.add_text(self.img_rgb, 'PL', text_settings)
+        res = sca.add_text(self.img_rgb.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGB')
-        res = sca.add_text(self.img_rgba, 'PL', text_settings)
+        res = sca.add_text(self.img_rgba.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGBA')
 
         # Black on blue
         text_settings['bg_color'] = (200, 200, 255)
-        res = sca.add_text(self.img_l, 'PL', text_settings)
+        res = sca.add_text(self.img_l.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGB')
-        res = sca.add_text(self.img_la, 'PL', text_settings)
+        res = sca.add_text(self.img_la.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGBA')
-        res = sca.add_text(self.img_rgb, 'PL', text_settings)
+        res = sca.add_text(self.img_rgb.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGB')
-        res = sca.add_text(self.img_rgba, 'PL', text_settings)
+        res = sca.add_text(self.img_rgba.copy(), 'PL', text_settings)
         self.assertTrue(res.mode == 'RGBA')
 
     def test_is_rgb_color(self):
@@ -219,8 +223,17 @@ class TestImageScaler(unittest.TestCase):
     def test_read_image(self):
         pass
 
-    def test_add_overlays(self):
-        pass
+    def test_add_image_as_overlay(self):
+        res = sca.add_image_as_overlay(self.img_l.copy(), self.img_rgba)
+        res = sca.add_image_as_overlay(self.img_la.copy(), self.img_rgba)
+        res = sca.add_image_as_overlay(self.img_rgb.copy(), self.img_rgba)
+        res = sca.add_image_as_overlay(self.img_rgba.copy(), self.img_rgba)
+        data = self.data.copy()
+        data[:, 10:20] = 255
+        overlay = Image.fromarray(np.dstack((data, data, data, data)),
+                                  mode='RGBA')
+        res = sca.add_image_as_overlay(self.img_rgb.copy(), overlay)
+        self.assertEqual(res.getdata(0)[10], 255)
 
 
 def suite():
