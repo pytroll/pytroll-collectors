@@ -201,6 +201,27 @@ class TestImageScaler(unittest.TestCase):
         self.assertLessEqual(box_loc[0], text_loc[0])
         self.assertGreaterEqual(box_loc[2], text_loc[0] + textsize[0])
 
+    def test_adjust_img_mode_for_text(self):
+        res = sca._adjust_img_mode_for_text(self.img_l, ((0, 0, 0), ))
+        self.assertTrue(res.mode == 'L')
+        res = sca._adjust_img_mode_for_text(self.img_l, ((1, 0, 0), ))
+        self.assertTrue(res.mode == 'RGB')
+        res = sca._adjust_img_mode_for_text(self.img_la, ((1, 0, 0), ))
+        self.assertTrue(res.mode == 'RGBA')
+        res = sca._adjust_img_mode_for_text(self.img_rgb, ((1, 0, 0), ))
+        self.assertTrue(res.mode == 'RGB')
+        res = sca._adjust_img_mode_for_text(self.img_rgba, ((1, 0, 0), ))
+        self.assertTrue(res.mode == 'RGBA')
+
+    def test_read_image(self):
+        pass
+
+    def test_read_image(self):
+        pass
+
+    def test_add_overlays(self):
+        pass
+
 
 def suite():
     """The suite for test_global_mosaic
