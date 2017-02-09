@@ -22,6 +22,7 @@ import datetime as dt
 import tempfile
 import os
 import os.path
+from ConfigParser import ConfigParser
 
 import numpy as np
 from PIL import Image
@@ -38,6 +39,10 @@ class TestImageScaler(unittest.TestCase):
     img_rgb = Image.fromarray(np.dstack((data, data, data)), mode='RGB')
     img_rgba = Image.fromarray(np.dstack((data, data, data, data)),
                                mode='RGBA')
+
+    config = ConfigParser()
+    config.read(os.path.join(os.path.dirname(__file__),
+                             'data', 'scale_images.ini'))
 
     def test_get_crange(self):
         def test_vals(res):
@@ -94,6 +99,30 @@ class TestImageScaler(unittest.TestCase):
         res = sca.resize_image(self.img_rgb, (300, 300))
         self.assertEqual(res.size[0], 300)
         self.assertEqual(res.size[1], 300)
+
+    def _get_text_settings(self):
+        # No text settings in config, should give default values
+        res = sca._get_text_settings(self.config, '/empty/text/settings')
+        self.assertTrue(res['loc'] == 'SW')
+        self.assertTrue(res['font_fname'] is None)
+        self.assertEqual(res['font_size'], 12)
+        for i in range(3):
+            self.assertEqual(res['text_color'][i], 0)
+            self.assertEqual(res['bg_color'][i], 255)
+        res = sca._get_text_settings(self.config, '/text/settings')
+        self.assertEqual(res['x_marginal'], 10)
+        self.assertEqual(res['y_marginal'], 3)
+        self.assertEqual(res['bg_extra_width'], 0)
+
+    def test_add_text(self):
+        text_settings = sca._get_text_settings(self.config, '/text/settings')
+        # Replace placeholder font path with a working one
+        text_settings['font_fname'] = os.path.join(os.path.dirname(__file__),
+                                                   'data', 'DejaVuSerif.ttf')
+        res = sca.add_text(self.img_l, 'A', text_settings)
+        self.assertTrue(res.mode == 'RGB')
+        res = sca.add_text(self.img_la, 'A', text_settings)
+        self.assertTrue(res.mode == 'RGBA')
 
 
 def suite():
