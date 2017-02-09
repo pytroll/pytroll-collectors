@@ -126,9 +126,25 @@ class TestImageScaler(unittest.TestCase):
         # Replace placeholder font path with one that certainly exists
         text_settings['font_fname'] = os.path.join(os.path.dirname(__file__),
                                                    'data', 'DejaVuSerif.ttf')
-        res = sca.add_text(self.img_l, 'A', text_settings)
+        # Default text settings (black on white)
+        res = sca.add_text(self.img_l, 'PL', text_settings)
+        self.assertTrue(res.mode == 'L')
+        res = sca.add_text(self.img_la, 'PL', text_settings)
+        self.assertTrue(res.mode == 'LA')
+        res = sca.add_text(self.img_rgb, 'PL', text_settings)
         self.assertTrue(res.mode == 'RGB')
-        res = sca.add_text(self.img_la, 'A', text_settings)
+        res = sca.add_text(self.img_rgba, 'PL', text_settings)
+        self.assertTrue(res.mode == 'RGBA')
+
+        # Black on blue
+        text_settings['bg_color'] = (200, 200, 255)
+        res = sca.add_text(self.img_l, 'PL', text_settings)
+        self.assertTrue(res.mode == 'RGB')
+        res = sca.add_text(self.img_la, 'PL', text_settings)
+        self.assertTrue(res.mode == 'RGBA')
+        res = sca.add_text(self.img_rgb, 'PL', text_settings)
+        self.assertTrue(res.mode == 'RGB')
+        res = sca.add_text(self.img_rgba, 'PL', text_settings)
         self.assertTrue(res.mode == 'RGBA')
 
     def test_is_rgb_color(self):
