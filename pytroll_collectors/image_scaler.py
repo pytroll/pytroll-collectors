@@ -328,6 +328,7 @@ class ImageScaler(object):
                 img, fname = self._update_existing_img(img, self.tags[i])
                 # Add text
                 img_out = self._add_text(img, update_img=True)
+            # In other case, save as a new image
             else:
                 # Add text
                 img_out = self._add_text(img, update_img=False)
@@ -339,18 +340,21 @@ class ImageScaler(object):
             img_out.save(fname)
 
             # Update static image, if given in config
-            if self.static_image_fname:
-                fname = \
-                    compose(os.path.join(self.out_dir,
-                                         self.static_image_fname),
-                            self.fileparts)
-                img = self._update_existing_img(img, self.tags[i],
-                                                fname=fname)
-                img = self._add_text(img, update_img=False)
+            self._update_static_img(img, tags[i])
 
-                img.save(fname)
-                logging.info("Updated latest composite image %s",
-                             fname)
+    def _update_static_img(self, img, tag):
+        """Update image with static filename"""
+        if self.static_image_fname is None:
+            return
+
+        fname = compose(os.path.join(self.out_dir,
+                                     self.static_image_fname),
+                        self.fileparts)
+        img = self._update_existing_img(img, tag, fname=fname)
+        img = self._add_text(img, update_img=False)
+
+        img.save(fname)
+        logging.info("Updated image with static filename: %s", fname)
 
     def _add_text(self, img, update_img=False):
         """Add text to the given image"""
