@@ -139,6 +139,52 @@ class TestImageScaler(unittest.TestCase):
         res = sca._is_rgb_color(((0, 0, 0), (1, 0, 0), ))
         self.assertTrue(res)
 
+    def test_get_text_and_box_locations(self):
+        shape = self.img_rgb.size
+        textsize = (18, 11)
+        marginals = (10, 3)
+        bg_extra_width = 4
+
+        text_loc, box_loc = \
+            sca._get_text_and_box_locations(shape, 'SW',
+                                            textsize, marginals,
+                                            bg_extra_width)
+
+        # Test only relevant things: x and y corners and that box is
+        # wider than text
+        self.assertEqual(text_loc[0], 10)
+        self.assertEqual(text_loc[1],
+                         shape[1] - textsize[1] - 2 * marginals[1])
+        self.assertLessEqual(box_loc[0], text_loc[0])
+        self.assertEqual(box_loc[1], text_loc[1])
+        self.assertGreaterEqual(box_loc[2], text_loc[0] + textsize[0])
+        self.assertEqual(box_loc[3], shape[1])
+
+        text_loc, box_loc = \
+            sca._get_text_and_box_locations(shape, 'NE',
+                                            textsize, marginals,
+                                            bg_extra_width)
+
+        # Test only relevant things: x and y corners and that box is
+        # wider than text
+        self.assertEqual(text_loc[0],
+                         shape[0] - textsize[0] - marginals[0])
+        self.assertEqual(text_loc[1], 0)
+        self.assertLessEqual(box_loc[0], text_loc[0])
+        self.assertEqual(box_loc[1], text_loc[1])
+        self.assertGreaterEqual(box_loc[2], text_loc[0] + textsize[0])
+        self.assertGreaterEqual(box_loc[3], textsize[1] - 1)
+
+        text_loc, box_loc = \
+            sca._get_text_and_box_locations(shape, 'SC',
+                                            textsize, marginals,
+                                            bg_extra_width)
+
+        # Test only centering
+        self.assertEqual(text_loc[0], (shape[0] - textsize[0]) / 2)
+        self.assertLessEqual(box_loc[0], text_loc[0])
+        self.assertGreaterEqual(box_loc[2], text_loc[0] + textsize[0])
+
 
 def suite():
     """The suite for test_global_mosaic
