@@ -30,7 +30,7 @@ import glob
 from urlparse import urlparse
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
@@ -516,7 +516,6 @@ def _get_text_settings(config, subject):
 
 def add_text(img, text, settings):
     """Add text to the image"""
-    from PIL import ImageDraw, ImageFont
 
     if 'L' in img.mode:
         mode = 'RGB'
@@ -527,18 +526,7 @@ def add_text(img, text, settings):
 
     width, height = img.size
     draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype(settings['font_fname'],
-                                  settings['font_size'])
-        logging.debug('Font read from %s', settings['font_fname'])
-    except (IOError, TypeError):
-        try:
-            font = ImageFont.load(settings['font_fname'])
-            logging.debug('Font read from %s', settings['font_fname'])
-        except (IOError, TypeError):
-            logging.warning('Falling back to default font')
-            font = ImageFont.load_default()
-
+    font = _get_font(settings['font_fname'], settings['font_size'])
     textsize = draw.textsize(text, font)
 
     x_marginal = settings['x_marginal']
@@ -614,6 +602,23 @@ def add_text(img, text, settings):
               font=font)
 
     return img
+
+
+def _get_font(font_fname, font_size):
+    """Load a font from the given file, or if that fails, load the default
+    font from PIL"""
+    try:
+        font = ImageFont.truetype(font_fname, font_size)
+        logging.debug('Font read from %s', font_fname)
+    except (IOError, TypeError):
+        try:
+            font = ImageFont.load(font_fname)
+            logging.debug('Font read from %s', font_fname)
+        except (IOError, TypeError):
+            logging.warning('Falling back to default font')
+            font = ImageFont.load_default()
+
+    return font
 
 
 def update_existing_image(fname, new_img):
