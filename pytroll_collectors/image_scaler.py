@@ -559,32 +559,23 @@ def _text_in_north(img_shape, loc, textsize, marginals,
 
     if 'W' in loc:
         text_loc = (x_marginal, y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       0,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       textsize[1] + 2 * y_marginal]
-        else:
-            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   0,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   textsize[1] + 2 * y_marginal]
     elif 'E' in loc:
         text_loc = (width - textsize[0] - x_marginal, 0)  # y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       0,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       textsize[1] + 2 * y_marginal]
-        else:
-            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   0,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   textsize[1] + 2 * y_marginal]
     # Center
     else:
         text_loc = ((width - textsize[0]) / 2, 0)  # y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       0,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       textsize[1] + 2 * y_marginal]
-        else:
-            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   0,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   textsize[1] + 2 * y_marginal]
 
     return text_loc, box_loc
 
@@ -595,37 +586,25 @@ def _text_in_south(img_shape, loc, textsize, marginals,
     x_marginal, y_marginal = marginals
     if 'W' in loc:
         text_loc = (x_marginal, height - textsize[1] - 2 * y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       height - textsize[1] - 2 * y_marginal,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       height]
-        else:
-            box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                       width, height]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   height - textsize[1] - 2 * y_marginal,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   height]
     elif 'E' in loc:
         text_loc = (width - textsize[0] - x_marginal,
                     height - textsize[1] - 2 * y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       height - textsize[1] - 2 * y_marginal,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       height]
-        else:
-            box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                       width, height]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   height - textsize[1] - 2 * y_marginal,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   height]
     # Center
     else:
         text_loc = ((width - textsize[0]) / 2,
                     height - textsize[1] - 2 * y_marginal)
-        if bg_extra_width is not None:
-            box_loc = [text_loc[0] - bg_extra_width,
-                       height - textsize[1] - 2 * y_marginal,
-                       text_loc[0] + textsize[0] + bg_extra_width,
-                       height]
-        else:
-            box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                       width, height]
+        box_loc = [text_loc[0] - bg_extra_width,
+                   height - textsize[1] - 2 * y_marginal,
+                   text_loc[0] + textsize[0] + bg_extra_width,
+                   height]
 
     return text_loc, box_loc
 
