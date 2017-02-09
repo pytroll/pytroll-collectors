@@ -58,7 +58,7 @@ class ImageScaler(object):
     sizes = []
     tags = []
     timeliness = 10
-    latest_composite_image = None
+    static_image_fname = None
     areaname = None
     in_pattern = None
     fileparts = {}
@@ -147,10 +147,10 @@ class ImageScaler(object):
                 self.timeliness = 10
 
             try:
-                self.latest_composite_image = \
-                    self.config.get(self.subject, "latest_composite_image")
+                self.static_image_fname = \
+                    self.config.get(self.subject, "static_image_fname")
             except NoOptionError:
-                self.latest_composite_image = None
+                self.static_image_fname = None
 
             # get areaname from config
             self.areaname = self.config.get(self.subject, 'areaname')
@@ -338,11 +338,11 @@ class ImageScaler(object):
             # Save image
             img_out.save(fname)
 
-            # Update latest composite image, if given in config
-            if self.latest_composite_image:
+            # Update static image, if given in config
+            if self.static_image_fname:
                 fname = \
                     compose(os.path.join(self.out_dir,
-                                         self.latest_composite_image),
+                                         self.static_image_fname),
                             self.fileparts)
                 img = self._update_existing_img(img, self.tags[i],
                                                 fname=fname)
