@@ -548,11 +548,12 @@ def _get_text_and_box_locations(img_shape, loc, textsize, marginals,
     """Get text and text box locations in the image based on the config"""
 
     if 'S' in loc:
-        text_loc, box_loc = _text_in_south(img_shape, loc, textsize, marginals,
+        text_loc, box_loc = _text_in_south(img_shape, loc,
+                                           textsize, marginals,
                                            bg_extra_width)
     else:
-        text_loc, box_loc = _text_in_north(img_shape, loc, textsize, marginals,
-                                           bg_extra_width)
+        text_loc, box_loc = _text_in_north(img_shape, loc, textsize,
+                                           marginals, bg_extra_width)
 
     return text_loc, box_loc
 
