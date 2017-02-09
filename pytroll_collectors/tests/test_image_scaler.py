@@ -25,7 +25,7 @@ import os.path
 from ConfigParser import ConfigParser
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFont
 
 from pytroll_collectors import image_scaler as sca
 from mpop.imageo.geo_image import GeoImage
@@ -114,9 +114,16 @@ class TestImageScaler(unittest.TestCase):
         self.assertEqual(res['y_marginal'], 3)
         self.assertEqual(res['bg_extra_width'], 0)
 
+    def test_get_font(self):
+        res = sca._get_font('non_existent', 12)
+        self.assertTrue(isinstance(res, ImageFont.ImageFont))
+        res = sca._get_font(os.path.join(os.path.dirname(__file__),
+                                         'data', 'DejaVuSerif.ttf'), 12)
+        self.assertTrue(isinstance(res, ImageFont.FreeTypeFont))
+
     def test_add_text(self):
         text_settings = sca._get_text_settings(self.config, '/text/settings')
-        # Replace placeholder font path with a working one
+        # Replace placeholder font path with one that certainly exists
         text_settings['font_fname'] = os.path.join(os.path.dirname(__file__),
                                                    'data', 'DejaVuSerif.ttf')
         res = sca.add_text(self.img_l, 'A', text_settings)
