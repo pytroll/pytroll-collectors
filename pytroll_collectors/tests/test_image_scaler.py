@@ -131,6 +131,14 @@ class TestImageScaler(unittest.TestCase):
         res = sca.add_text(self.img_la, 'A', text_settings)
         self.assertTrue(res.mode == 'RGBA')
 
+    def test_is_rgb_color(self):
+        res = sca._is_rgb_color(((0, 0, 0), ))
+        self.assertFalse(res)
+        res = sca._is_rgb_color(((1, 0, 0), ))
+        self.assertTrue(res)
+        res = sca._is_rgb_color(((0, 0, 0), (1, 0, 0), ))
+        self.assertTrue(res)
+
 
 def suite():
     """The suite for test_global_mosaic
