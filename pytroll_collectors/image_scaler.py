@@ -509,7 +509,7 @@ def _get_text_settings(config, subject):
         settings['bg_extra_width'] = config.getint(subject,
                                                    'bg_extra_width')
     except (ValueError, NoOptionError):
-        settings['bg_extra_width'] = None
+        settings['bg_extra_width'] = 0
 
     return settings
 
