@@ -517,12 +517,7 @@ def _get_text_settings(config, subject):
 def add_text(img, text, settings):
     """Add text to the image"""
 
-    if 'L' in img.mode:
-        mode = 'RGB'
-        if 'A' in img.mode:
-            mode += 'A'
-        logging.info("Converting to %s", mode)
-        img = img.convert(mode)
+    img = _adjust_img_mode_for_text(img, mode)
 
     width, height = img.size
     draw = ImageDraw.Draw(img)
@@ -601,6 +596,19 @@ def add_text(img, text, settings):
     draw.text(text_loc, text, fill=tuple(settings['text_color']),
               font=font)
 
+    return img
+
+
+def _adjust_img_mode_for_text(img, mode):
+    """Adjust image mode to mach the text settings"""
+    # TODO: use the text settings, now converts only L to RGB and LA
+    # to RGBA
+    if 'L' in img.mode:
+        mode = 'RGB'
+        if 'A' in img.mode:
+            mode += 'A'
+        logging.info("Converting to %s", mode)
+        img = img.convert(mode)
     return img
 
 
