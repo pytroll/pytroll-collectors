@@ -221,7 +221,10 @@ class ImageScaler(object):
         else:
             logging.debug("Using overlay from cache")
 
-        return add_overlays(img,  self._overlays[self.subject])
+        try:
+            return add_image_as_overlay(img, self._overlays[self.subject])
+        except ValueError:
+            return img
 
     def _check_existing(self, start_time):
         """Check if there's an existing product that should be updated"""
@@ -516,9 +519,10 @@ def _get_text_settings(config, subject):
 
 def add_text(img, text, settings):
     """Add text to the image"""
-
+    # TODO: replace with pydecorate?
     img = _adjust_img_mode_for_text(img, (settings['text_color'],
                                           settings['bg_color']))
+    # Use 3-tuples only for RGB and RGBA, for others use integers
     if len(img.mode) < 3:
         text_color = settings['text_color'][0]
         bg_color = settings['bg_color'][0]
@@ -692,11 +696,13 @@ def read_image(filepath):
     return Image.open(filepath)
 
 
-def add_overlays(img, overlay):
-    """"""
+def add_image_as_overlay(img, overlay):
+    """Add PIL image as overlay to another image"""
     logging.info("Adding overlays")
-
-    img.paste(self._overlays[msg.subject],
-              mask=self._overlays[msg.subject])
+    if len(img.mode) > len(overlay.mode) or 'A' not in overlay.mode:
+        logging.info("Overlay needs to have same channels as the "
+                     "image, AND an alpha channel")
+        raise ValueError
+    img.paste(overlay, mask=overlay)
 
     return img
