@@ -517,80 +517,19 @@ def _get_text_settings(config, subject):
 def add_text(img, text, settings):
     """Add text to the image"""
 
-    img = _adjust_img_mode_for_text(img, mode)
+    img = _adjust_img_mode_for_text(img, (settings['text_color'],
+                                          settings['bg_color']))
 
-    width, height = img.size
     draw = ImageDraw.Draw(img)
     font = _get_font(settings['font_fname'], settings['font_size'])
     textsize = draw.textsize(text, font)
 
-    x_marginal = settings['x_marginal']
-    y_marginal = settings['y_marginal']
+    marginals = (settings['x_marginal'], settings['y_marginal'])
+    loc = settings['loc']
     bg_extra_width = settings['bg_extra_width']
-
-    if 'S' in settings['loc']:
-        if 'W' in settings['loc']:
-            text_loc = (x_marginal, height - textsize[1] - 2 * y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           height - textsize[1] - 2 * y_marginal,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           height]
-            else:
-                box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                           width, height]
-        elif 'E' in settings['loc']:
-            text_loc = (width - textsize[0] - x_marginal,
-                        height - textsize[1] - 2 * y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           height - textsize[1] - 2 * y_marginal,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           height]
-            else:
-                box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                           width, height]
-        # Center
-        else:
-            text_loc = ((width - textsize[0]) / 2,
-                        height - textsize[1] - 2 * y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           height - textsize[1] - 2 * y_marginal,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           height]
-            else:
-                box_loc = [0, height - textsize[1] - 2 * y_marginal,
-                           width, height]
-    else:
-        if 'W' in settings['loc']:
-            text_loc = (x_marginal, y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           0,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           textsize[1] + 2 * y_marginal]
-            else:
-                box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
-        elif 'E' in settings['loc']:
-            text_loc = (width - textsize[0] - x_marginal, 0)  # y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           0,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           textsize[1] + 2 * y_marginal]
-            else:
-                box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
-        # Center
-        else:
-            text_loc = ((width - textsize[0]) / 2, 0)  # y_marginal)
-            if bg_extra_width is not None:
-                box_loc = [text_loc[0] - bg_extra_width,
-                           0,
-                           text_loc[0] + textsize[0] + bg_extra_width,
-                           textsize[1] + 2 * y_marginal]
-            else:
-                box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+    text_loc, box_loc = _get_text_and_box_locations(img.size, loc,
+                                                    textsize, marginals,
+                                                    bg_extra_width)
 
     draw.rectangle(box_loc, fill=tuple(settings['bg_color']))
     draw.text(text_loc, text, fill=tuple(settings['text_color']),
@@ -599,9 +538,101 @@ def add_text(img, text, settings):
     return img
 
 
-def _adjust_img_mode_for_text(img, mode):
+def _get_text_and_box_locations(img_shape, loc, textsize, marginals,
+                                bg_extra_width):
+    """Get text and text box locations in the image based on the config"""
+
+    if 'S' in loc:
+        text_loc, box_loc = _text_in_south(img_shape, loc, textsize, marginals,
+                                           bg_extra_width)
+    else:
+        text_loc, box_loc = _text_in_north(img_shape, loc, textsize, marginals,
+                                           bg_extra_width)
+
+    return text_loc, box_loc
+
+
+def _text_in_north(img_shape, loc, textsize, marginals,
+                   bg_extra_width):
+    width, height = img_shape
+    x_marginal, y_marginal = marginals
+
+    if 'W' in loc:
+        text_loc = (x_marginal, y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       0,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       textsize[1] + 2 * y_marginal]
+        else:
+            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+    elif 'E' in loc:
+        text_loc = (width - textsize[0] - x_marginal, 0)  # y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       0,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       textsize[1] + 2 * y_marginal]
+        else:
+            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+    # Center
+    else:
+        text_loc = ((width - textsize[0]) / 2, 0)  # y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       0,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       textsize[1] + 2 * y_marginal]
+        else:
+            box_loc = [0, 0, width, textsize[1] + 2 * y_marginal]
+
+    return text_loc, box_loc
+
+
+def _text_in_south(img_shape, loc, textsize, marginals,
+                   bg_extra_width):
+    width, height = img_shape
+    x_marginal, y_marginal = marginals
+    if 'W' in loc:
+        text_loc = (x_marginal, height - textsize[1] - 2 * y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       height - textsize[1] - 2 * y_marginal,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       height]
+        else:
+            box_loc = [0, height - textsize[1] - 2 * y_marginal,
+                       width, height]
+    elif 'E' in loc:
+        text_loc = (width - textsize[0] - x_marginal,
+                    height - textsize[1] - 2 * y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       height - textsize[1] - 2 * y_marginal,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       height]
+        else:
+            box_loc = [0, height - textsize[1] - 2 * y_marginal,
+                       width, height]
+    # Center
+    else:
+        text_loc = ((width - textsize[0]) / 2,
+                    height - textsize[1] - 2 * y_marginal)
+        if bg_extra_width is not None:
+            box_loc = [text_loc[0] - bg_extra_width,
+                       height - textsize[1] - 2 * y_marginal,
+                       text_loc[0] + textsize[0] + bg_extra_width,
+                       height]
+        else:
+            box_loc = [0, height - textsize[1] - 2 * y_marginal,
+                       width, height]
+
+    return text_loc, box_loc
+
+
+def _adjust_img_mode_for_text(img, colors):
     """Adjust image mode to mach the text settings"""
-    # TODO: use the text settings, now converts only L to RGB and LA
+    # TODO: use the text *colors*, now converts only L to RGB and LA
     # to RGBA
     if 'L' in img.mode:
         mode = 'RGB'
@@ -610,6 +641,15 @@ def _adjust_img_mode_for_text(img, mode):
         logging.info("Converting to %s", mode)
         img = img.convert(mode)
     return img
+
+
+def _is_rgb_color(colors):
+    """Return True if RGB colors are needed to represent *colors*, or
+    False if grayscale is enough."""
+    for col in colors:
+        if np.unique(col).size > 1:
+            return True
+    return False
 
 
 def _get_font(font_fname, font_size):
