@@ -84,9 +84,9 @@ class TestImageScaler(unittest.TestCase):
     def test_save_image(self):
         out_dir = tempfile.gettempdir()
         fname = os.path.join(out_dir, 'img.png')
-        sca.save_image(self.img_rgb.copy(), fname)
+        sca.save_image(self.img_rgba.copy(), fname)
         fname = os.path.join(out_dir, 'img.tif')
-        sca.save_image(self.img_rgb.copy(), fname)
+        sca.save_image(self.img_rgba.copy(), fname)
 
     def test_crop_image(self):
         res = sca.crop_image(self.img_rgb.copy(), (3, 3, 7, 7))
@@ -218,10 +218,24 @@ class TestImageScaler(unittest.TestCase):
         self.assertTrue(res.mode == 'RGBA')
 
     def test_read_image(self):
-        pass
+        out_dir = tempfile.gettempdir()
+        fname = os.path.join(out_dir, 'img.png')
+        sca.save_image(self.img_rgba.copy(), fname)
+        res = sca.read_image(fname)
+        res = np.array(res.getdata(), dtype=np.float32)
+        src = np.array(self.img_rgba.getdata(), dtype=np.float32)
+        self.assertEqual(np.max(res - src), 0)
 
-    def test_read_image(self):
-        pass
+    def test_update_existing_image(self):
+        out_dir = tempfile.gettempdir()
+        fname = os.path.join(out_dir, 'img.png')
+        sca.save_image(self.img_rgba.copy(), fname)
+        data = 255 * np.ones(self.data.shape, dtype=np.uint8)
+        new_img = Image.fromarray(np.dstack((data, data, data, data)),
+                                  mode='RGBA')
+        res = sca.update_existing_image(fname, new_img)
+        res = np.array(res.getdata(), dtype=np.uint8)
+        self.assertTrue(np.all(res == 255))
 
     def test_add_image_as_overlay(self):
         res = sca.add_image_as_overlay(self.img_l.copy(), self.img_rgba)
