@@ -22,7 +22,7 @@
 import Queue
 import os
 import os.path
-from ConfigParser import NoOptionError
+from ConfigParser import NoOptionError, NoSectionError
 import logging
 import logging.config
 import datetime as dt
@@ -43,6 +43,31 @@ except ImportError:
     GeoImage = None
 
 GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
+
+# TODO: fix config parsing
+
+DEFAULT_SECTION_VALUES = {'update_existing': False,
+                          'is_backup': False,
+                          'crops': [],
+                          'sizes': [],
+                          'tags': [],
+                          'timeliness': 10,
+                          'static_image_fname': None,
+                          'use_platform_name_hack': False,
+                          'text_pattern': None,
+                          'area_def': None,
+                          'overlay_config_fname': None
+                          }
+
+DEFAULT_TEXT_SETTINGS = {'text_location': 'SW',
+                         'font_fname': '',
+                         'font_size': '12',
+                         'text_color': '0,0,0',
+                         'text_bg_color': '255,255,255',
+                         'x_marginal': '10',
+                         'y_marginal': '3',
+                         'bg_extra_width': '0',
+                         }
 
 
 class ImageScaler(object):
@@ -87,126 +112,115 @@ class ImageScaler(object):
 
     def _update_current_config(self):
         """Update the current config to class attributes."""
+
+        # These are mandatory config items, so handle them first
+        self._get_mandatory_config_items()
+
+        self._parse_crops()
+        self._parse_sizes()
+        self._parse_tags()
+        self._tidy_platform_name()
+        self._get_text_settings()
+
+        self.out_dir = self.config.get(self.subject, 'out_dir', 0,
+                                       DEFAULT_SECTION_VALUES)
+
+        self.update_existing = self._get_bool('update_existing')
+
+        self.is_backup = self._get_bool('only_backup')
+
+        self.timeliness = int(self.config.get(self.subject, 'timeliness', 0,
+                                              DEFAULT_SECTION_VALUES))
+
+        self.static_image_fname = \
+            self.config.get(self.subject, "static_image_fname", 0,
+                            DEFAULT_SECTION_VALUES)
+
+        self.overlay_config = self.config.get(self.subject,
+                                              'overlay_config', 0,
+                                              DEFAULT_SECTION_VALUES)
+
+    def _get_bool(self, key):
+        """Get *key* from config and interpret it as boolean"""
+        val = self.config.get(self.subject, key, 0, DEFAULT_SECTION_VALUES)
+        return val.lower() in ['yes', '1', 'true']
+
+    def _get_text_settings(self):
+        """Parse text overlay pattern and text settings"""
+        self.text_pattern = self.config.get(self.subject, 'text', 0,
+                                            DEFAULT_SECTION_VALUES)
+        self.text_settings = _get_text_settings(self.config, self.subject)
+
+    def _get_mandatory_config_items(self):
+        """Get mandatory config items and log possible errors"""
         try:
-            self.out_dir = self.config.get(self.subject, 'out_dir')
-        except NoOptionError:
-            logging.debug("No config for %s", self.subject)
-            pass  # continue
-
-        try:
-            self.update_existing = self.config.getboolean(self.subject,
-                                                          'update_existing')
-        except NoOptionError:
-            logging.debug("No option 'update_existing' given, "
-                          "default to False")
-            self.update_existing = False
-
-        try:
-            self.is_backup = self.config.getboolean(self.subject,
-                                                    'only_backup')
-        except NoOptionError:
-            logging.debug("No option 'only_backup' given, "
-                          "default to False")
-            self.is_backup = False
-
-            # Collect crop information
-            self.crops = []
-            try:
-                crop_conf = self.config.get(self.subject, 'crops').split(',')
-            except NoOptionError:
-                pass
-
-            for crop in crop_conf:
-                if 'x' in crop and '+' in crop:
-                    # Crop strings are formated like this:
-                    # <x_size>x<y_size>+<x_start>+<y_start>
-                    # eg. 1000x300+103+200
-                    # Origin (0, 0) is at top-left
-                    parts = crop.split('+')
-                    crop = tuple(map(int, parts[1:]) +
-                                 map(int, parts[0].split('x')))
-
-                    self.crops.append(crop)
-                else:
-                    self.crops.append(None)
-
-            # Read the requested sizes from configuration section
-            # named like the message topic
-            self.sizes = []
-            for size in self.config.get(self.subject, 'sizes').split(','):
-                self.sizes.append(map(int, size.split('x')))
-
-            self.tags = [tag for tag in self.config.get(self.subject,
-                                                        'tags').split(',')]
-            # get timeliness from config, if available
-            try:
-                self.timeliness = self.config.getint(self.subject,
-                                                     'timeliness')
-            except NoOptionError:
-                logging.debug("No timeliness given, using default of 10 min")
-                self.timeliness = 10
-
-            try:
-                self.static_image_fname = \
-                    self.config.get(self.subject, "static_image_fname")
-            except NoOptionError:
-                self.static_image_fname = None
-
-            # get areaname from config
             self.areaname = self.config.get(self.subject, 'areaname')
-
-            # get the input file pattern and replace areaname
             in_pattern = self.config.get(self.subject, 'in_pattern')
             self.in_pattern = in_pattern.replace('{areaname}', self.areaname)
-
-            # parse filename parts from the incoming file
-            try:
-                fileparts = parse(self.in_pattern,
-                                  os.path.basename(self.filepath))
-            except ValueError:
-                logging.info("Filepattern doesn't match, skipping.")
-                pass  # continue
-            self.fileparts['areaname'] = self.areaname
-
-            try:
-                use_platform_name_hack = \
-                    self.config.getboolean(self.subject,
-                                           'use_platform_name_hack')
-            except NoOptionError:
-                # return
-                use_platform_name_hack = False
-
-            if use_platform_name_hack:
-                # remove "-" from platform names
-                self.fileparts['platform_name'] = \
-                    self.fileparts['platform_name'].replace('-', '')
-
-            # Check if there's a composite_stack to be updated
-
-            # form the output filename
             out_pattern = self.config.get(self.subject, 'out_pattern')
             self.out_pattern = os.path.join(self.out_dir, out_pattern)
+        except NoOptionError:
+            logging.error("Required option missing!")
+            logging.error("Check that 'areaname', 'in_pattern' and " +
+                          "'out_pattern' are all defined under section " +
+                          self.subject)
+            raise NoOptionError
+        except NoSectionError:
+            logging.error("No config section for message subject " +
+                          self.subject)
+            raise NoSectionError
 
-            # Read overlay text settings
-            try:
-                self.text_pattern = self.config.get(self.subject, 'text')
-                self.text_settings = _get_text_settings(self.config,
-                                                        self.subject)
-            except NoOptionError:
-                self.text = None
+    def _tidy_platform_name(self):
+        """Remove "-" from platform names"""
+        tidy = self._get_bool('tidy_platform_name')
+        if tidy:
+            self.fileparts['platform_name'] = \
+                self.fileparts['platform_name'].replace('-', '')
 
-            # area definition for geoimages and overlays
-            try:
-                self.area_def = get_area_def(self.config.get(self.subject,
-                                                             'areaname'))
-            except NoOptionError:
-                self.area_def = None
-            try:
-                self.overlay_config = self.config.get(self.subject,
-                                                      'overlay_config')
-            except NoOptionError:
-                self.overlay_config = None
-            # area_def = (area_def.proj4_string, area_def.area_extent)
+    def _parse_crops(self):
+        """Parse crop settings from the raw crop config"""
+        crop_conf = self.config.get(self.subject, 'crops', 0,
+                                    DEFAULT_SECTION_VALUES)
+        if isinstance(crop_conf, list):
+            self.crops = crop_conf
+            return
+
+        self.crops = []
+        for crop in crop_conf.split(','):
+            if 'x' in crop and '+' in crop:
+                # Crop strings are formated like this:
+                # <x_size>x<y_size>+<x_start>+<y_start>
+                # eg. 1000x300+103+200
+                # Origin (0, 0) is at top-left
+                parts = crop.split('+')
+                crop = tuple(map(int, parts[1:]) +
+                             map(int, parts[0].split('x')))
+
+                self.crops.append(crop)
+            else:
+                self.crops.append(None)
+
+    def _parse_sizes(self):
+        """Parse crop settings from crop config"""
+        size_conf = self.config.get(self.subject, 'sizes', 0,
+                                    DEFAULT_SECTION_VALUES)
+        if isinstance(size_conf, list):
+            self.sizes = size_conf
+            return
+
+        self.sizes = []
+        for size in size_conf.split(','):
+            self.sizes.append(map(int, size.split('x')))
+
+    def _parse_tags(self):
+        """Parse tags from tag config"""
+        tag_conf = self.config.get(self.subject, 'tags', 0,
+                                   DEFAULT_SECTION_VALUES)
+
+        if isinstance(tag_conf, list):
+            self.tags = tag_conf
+            return
+        self.tags = [tag for tag in tag_conf.split(',')]
 
     def add_overlays(self, img):
         """Add overlays to image.  Add to cache, if not already there."""
@@ -215,9 +229,10 @@ class ImageScaler(object):
 
         if self.subject not in self._overlays:
             logging.debug("Adding overlay to cache")
+            area_def = get_area_def(self.areaname)
             self._overlays[self.subject] = \
                 self._cw.add_overlay_from_config(self.overlay_config,
-                                                 self.area_def)
+                                                 area_def)
         else:
             logging.debug("Using overlay from cache")
 
@@ -227,7 +242,7 @@ class ImageScaler(object):
             return img
 
     def _check_existing(self, start_time):
-        """Check if there's an existing product that should be updated"""
+        """Check if there's an existing image that should be updated"""
 
         # check if something silmiar has already been made:
         # checks for: platform_name, areaname and
@@ -296,7 +311,20 @@ class ImageScaler(object):
             self.subject = msg.subject
             self.filepath = urlparse(msg.data["uri"]).path
 
-            self._update_current_config()
+            try:
+                self._update_current_config()
+            except (NoOptionError, NoSectionError):
+                logging.warning("Skip processing for this message.")
+                continue
+
+            # parse filename parts from the incoming file
+            try:
+                self.fileparts = parse(self.in_pattern,
+                                       os.path.basename(self.filepath))
+            except ValueError:
+                logging.info("Filepattern doesn't match, skipping.")
+                continue
+            self.fileparts['areaname'] = self.areaname
 
             self.existing_fname_parts = \
                 self._check_existing(msg.data["start_time"])
@@ -469,50 +497,28 @@ def _get_crange(num):
 def _get_text_settings(config, subject):
     """Parse text settings from the config."""
     settings = {}
-    try:
-        settings['loc'] = config.get(subject, 'text_location')
-    except NoOptionError:
-        settings['loc'] = 'SW'
-
-    try:
-        settings['font_fname'] = config.get(subject, 'font')
-    except NoOptionError:
+    settings['loc'] = config.get(subject, 'text_location', 0,
+                                 DEFAULT_TEXT_SETTINGS)
+    font_fname = config.get(subject, 'font_fname', 0,
+                            DEFAULT_TEXT_SETTINGS)
+    if font_fname == '':
         settings['font_fname'] = None
-
-    try:
-        settings['font_size'] = config.getint(subject, 'font_size')
-    except NoOptionError:
-        settings['font_size'] = 12
-
-    try:
-        settings['text_color'] = \
-            tuple([int(x) for x in config.get(subject,
-                                              'text_color').split(',')])
-    except NoOptionError:
-        settings['text_color'] = (0, 0, 0)
-
-    try:
-        settings['bg_color'] = \
-            tuple([int(x) for x in config.get(subject,
-                                              'text_bg_color').split(',')])
-    except NoOptionError:
-        settings['bg_color'] = (255, 255, 255)
-
-    try:
-        settings['x_marginal'] = config.getint(subject, 'x_marginal')
-    except NoOptionError:
-        settings['x_marginal'] = 10
-
-    try:
-        settings['y_marginal'] = config.getint(subject, 'y_marginal')
-    except NoOptionError:
-        settings['y_marginal'] = 3
-
-    try:
-        settings['bg_extra_width'] = config.getint(subject,
-                                                   'bg_extra_width')
-    except (ValueError, NoOptionError):
-        settings['bg_extra_width'] = 0
+    else:
+        settings['font_fname'] = font_fname
+    settings['font_size'] = int(config.get(subject, 'font_size', 0,
+                                           DEFAULT_TEXT_SETTINGS))
+    text_color = config.get(subject, 'text_color', 0,
+                            DEFAULT_TEXT_SETTINGS)
+    settings['text_color'] = \
+        tuple([int(x) for x in text_color.split(',')])
+    bg_color = config.get(subject, 'text_bg_color', 0, DEFAULT_TEXT_SETTINGS)
+    settings['bg_color'] = tuple([int(x) for x in bg_color.split(',')])
+    settings['x_marginal'] = int(config.get(subject, 'x_marginal', 0,
+                                            DEFAULT_TEXT_SETTINGS))
+    settings['y_marginal'] = int(config.get(subject, 'y_marginal', 0,
+                                            DEFAULT_TEXT_SETTINGS))
+    settings['bg_extra_width'] = int(config.get(subject, 'bg_extra_width', 0,
+                                                DEFAULT_TEXT_SETTINGS))
 
     return settings
 
