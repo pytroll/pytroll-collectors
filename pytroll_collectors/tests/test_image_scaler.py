@@ -107,15 +107,22 @@ class TestImageScaler(unittest.TestCase):
     def test_get_text_settings(self):
         # No text settings in config, should give default values
         res = sca._get_text_settings(self.config, '/empty/text/settings')
-        self.assertTrue(res['loc'] == 'SW')
+        self.assertTrue(res['loc'] ==
+                        sca.DEFAULT_TEXT_SETTINGS['text_location'])
         self.assertTrue(res['font_fname'] is None)
-        self.assertEqual(res['font_size'], 12)
+        self.assertEqual(res['font_size'],
+                         int(sca.DEFAULT_TEXT_SETTINGS['font_size']))
+        text_color = map(int,
+                         sca.DEFAULT_TEXT_SETTINGS['text_color'].split(','))
+        text_bg_color = \
+            map(int,
+                sca.DEFAULT_TEXT_SETTINGS['text_bg_color'].split(','))
         for i in range(3):
-            self.assertEqual(res['text_color'][i], 0)
-            self.assertEqual(res['bg_color'][i], 255)
+            self.assertEqual(res['text_color'][i], text_color[i])
+            self.assertEqual(res['bg_color'][i], text_bg_color[i])
         res = sca._get_text_settings(self.config, '/text/settings')
-        self.assertEqual(res['x_marginal'], 10)
-        self.assertEqual(res['y_marginal'], 3)
+        self.assertEqual(res['x_marginal'], 20)
+        self.assertEqual(res['y_marginal'], 5)
         self.assertEqual(res['bg_extra_width'], 5)
 
     def test_get_font(self):
