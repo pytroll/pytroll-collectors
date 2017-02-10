@@ -44,7 +44,7 @@ except ImportError:
 
 GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
 
-# TODO: fix config parsing
+# TODO: fix config defaults, now only the default values are received!
 
 DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'is_backup': False,
