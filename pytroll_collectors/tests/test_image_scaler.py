@@ -23,10 +23,12 @@ import tempfile
 import os
 import os.path
 from ConfigParser import ConfigParser
+from mock import patch
 
 import numpy as np
 from PIL import Image, ImageFont
 
+from trollsift import parse
 from pytroll_collectors import image_scaler as sca
 
 
@@ -256,6 +258,93 @@ class TestImageScaler(unittest.TestCase):
                                   mode='RGBA')
         res = sca.add_image_as_overlay(self.img_rgb.copy(), overlay)
         self.assertEqual(res.getdata(0)[10], 255)
+
+    @patch("pytroll_collectors.image_scaler.ListenerContainer")
+    @patch("pytroll_collectors.image_scaler.ContourWriter")
+    def test_ImageScaler(self, cwriter, listener):
+        scaler = sca.ImageScaler(self.config)
+        scaler.subject = '/scaler'
+        # msg_filename = os.path.join(os.path.dirname(__file__),
+        #                            'data', 'empty.png')
+        filename = "201702141155_Meteosat-10_spam.tif"
+
+        res = scaler._get_conf_with_default('areaname')
+        self.assertTrue(res == self.config.get('/scaler',
+                                               'areaname'))
+
+        res = scaler._get_bool('only_backup')
+        self.assertTrue(res == sca.DEFAULT_CONFIG_VALUES['only_backup'])
+        res = scaler._get_bool('out_dir')
+        self.assertFalse(res)
+
+        scaler._get_text_settings()
+        self.assertTrue(
+            scaler.text_pattern == sca.DEFAULT_CONFIG_VALUES['text_pattern'])
+        self.assertTrue(isinstance(scaler.text_settings, dict))
+
+        scaler.subject = '/empty/text/settings'
+        with self.assertRaises(KeyError):
+            scaler._get_mandatory_config_items()
+        scaler.subject = '/not/existing'
+        with self.assertRaises(KeyError):
+            scaler._get_mandatory_config_items()
+        scaler.subject = '/scaler'
+        scaler._get_mandatory_config_items()
+        self.assertTrue(scaler.areaname == self.config.get('/scaler',
+                                                           'areaname'))
+        self.assertTrue(scaler.in_pattern == self.config.get('/scaler',
+                                                             'in_pattern'))
+        self.assertTrue(scaler.out_pattern == self.config.get('/scaler',
+                                                              'out_pattern'))
+
+        scaler.fileparts.update(parse(scaler.in_pattern, filename))
+        scaler._tidy_platform_name()
+        self.assertTrue(scaler.fileparts['platform_name'] == "Meteosat10")
+
+        scaler._update_current_config()
+        # Test few config items that the have the default values
+        self.assertEqual(scaler.timeliness,
+                         sca.DEFAULT_CONFIG_VALUES['timeliness'])
+        self.assertEqual(len(scaler.tags),
+                         len(sca.DEFAULT_CONFIG_VALUES['tags']))
+        # And the config values
+        self.assertTrue(scaler.areaname == self.config.get('/scaler',
+                                                           'areaname'))
+        self.assertTrue(scaler.in_pattern == self.config.get('/scaler',
+                                                             'in_pattern'))
+        self.assertTrue(scaler.out_pattern == self.config.get('/scaler',
+                                                              'out_pattern'))
+
+        scaler._parse_crops()
+        self.assertEqual(len(scaler.crops), 0)
+        scaler._parse_sizes()
+        self.assertEqual(len(scaler.sizes), 0)
+        scaler._parse_tags()
+        self.assertEqual(len(scaler.tags), 0)
+
+        scaler.subject = '/crops/sizes/tags'
+        scaler._update_current_config()
+        scaler._parse_crops()
+        self.assertEqual(len(scaler.crops), 2)
+        self.assertEqual(len(scaler.crops[0]), 4)
+        self.assertTrue(scaler.crops[1] is None)
+
+        scaler._parse_sizes()
+        self.assertEqual(len(scaler.sizes), 3)
+        self.assertEqual(len(scaler.sizes[0]), 2)
+
+        scaler._parse_tags()
+        self.assertEqual(len(scaler.tags), 3)
+
+        # Default text settings (black on white)
+        res = scaler._add_text(self.img_l.copy(), 'PL')
+        self.assertTrue(res.mode == 'L')
+        res = scaler._add_text(self.img_la.copy(), 'PL')
+        self.assertTrue(res.mode == 'LA')
+        res = scaler._add_text(self.img_rgb.copy(), 'PL')
+        self.assertTrue(res.mode == 'RGB')
+        res = scaler._add_text(self.img_rgba.copy(), 'PL')
+        self.assertTrue(res.mode == 'RGBA')
 
 
 def suite():
