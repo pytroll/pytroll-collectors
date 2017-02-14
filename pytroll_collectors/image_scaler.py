@@ -46,16 +46,17 @@ GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
 
 # Default values for each section
 DEFAULT_SECTION_VALUES = {'update_existing': False,
-                          'is_backup': False,
+                          'only_backup': False,
                           'crops': [],
                           'sizes': [],
                           'tags': [],
                           'timeliness': 10,
                           'static_image_fname': None,
-                          'use_platform_name_hack': False,
+                          'tidy_platform_name': False,
                           'text_pattern': None,
                           'area_def': None,
-                          'overlay_config_fname': None
+                          'overlay_config_fname': None,
+                          'out_dir': ''
                           }
 
 # Default text settings
@@ -138,8 +139,8 @@ class ImageScaler(object):
         self.static_image_fname = \
             self._get_conf_with_default(self.subject, "static_image_fname")
 
-        self.overlay_config = self._get_conf_with_default(self.subject,
-                                                          'overlay_config')
+        self.overlay_config = \
+            self._get_conf_with_default(self.subject, 'overlay_config_fname')
 
     def _get_conf_with_default(self, subject, item):
         """Get a config item and use a default if no value is available"""
@@ -148,11 +149,14 @@ class ImageScaler(object):
     def _get_bool(self, key):
         """Get *key* from config and interpret it as boolean"""
         val = self._get_conf_with_default(self.subject, key)
+        if isinstance(val, bool):
+            return val
         return val.lower() in ['yes', '1', 'true']
 
     def _get_text_settings(self):
         """Parse text overlay pattern and text settings"""
-        self.text_pattern = self._get_conf_with_default(self.subject, 'text')
+        self.text_pattern = self._get_conf_with_default(self.subject,
+                                                        'text_pattern')
         self.text_settings = _get_text_settings(self.config, self.subject)
 
     def _get_mandatory_config_items(self):
