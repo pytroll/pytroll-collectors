@@ -44,8 +44,7 @@ except ImportError:
 
 GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
 
-# TODO: fix config defaults, now only the default values are received!
-
+# Default values for each section
 DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'is_backup': False,
                           'crops': [],
@@ -59,6 +58,7 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'overlay_config_fname': None
                           }
 
+# Default text settings
 DEFAULT_TEXT_SETTINGS = {'text_location': 'SW',
                          'font_fname': '',
                          'font_size': '12',
@@ -68,6 +68,10 @@ DEFAULT_TEXT_SETTINGS = {'text_location': 'SW',
                          'y_marginal': '3',
                          'bg_extra_width': '0',
                          }
+
+# Merge the two default dictionaries to one master dict
+DEFAULT_CONFIG_VALUES = DEFAULT_SECTION_VALUES.copy()
+DEFAULT_CONFIG_VALUES.update(DEFAULT_TEXT_SETTINGS)
 
 
 class ImageScaler(object):
@@ -122,33 +126,33 @@ class ImageScaler(object):
         self._tidy_platform_name()
         self._get_text_settings()
 
-        self.out_dir = self.config.get(self.subject, 'out_dir', 0,
-                                       DEFAULT_SECTION_VALUES)
+        self.out_dir = self._get_conf_with_default(self.subject, 'out_dir')
 
         self.update_existing = self._get_bool('update_existing')
 
         self.is_backup = self._get_bool('only_backup')
 
-        self.timeliness = int(self.config.get(self.subject, 'timeliness', 0,
-                                              DEFAULT_SECTION_VALUES))
+        self.timeliness = int(self._get_conf_with_default(self.subject,
+                                                          'timeliness'))
 
         self.static_image_fname = \
-            self.config.get(self.subject, "static_image_fname", 0,
-                            DEFAULT_SECTION_VALUES)
+            self._get_conf_with_default(self.subject, "static_image_fname")
 
-        self.overlay_config = self.config.get(self.subject,
-                                              'overlay_config', 0,
-                                              DEFAULT_SECTION_VALUES)
+        self.overlay_config = self._get_conf_with_default(self.subject,
+                                                          'overlay_config')
+
+    def _get_conf_with_default(self, subject, item):
+        """Get a config item and use a default if no value is available"""
+        return _get_conf_with_default(self.config, subject, item)
 
     def _get_bool(self, key):
         """Get *key* from config and interpret it as boolean"""
-        val = self.config.get(self.subject, key, 0, DEFAULT_SECTION_VALUES)
+        val = self._get_conf_with_default(self.subject, key)
         return val.lower() in ['yes', '1', 'true']
 
     def _get_text_settings(self):
         """Parse text overlay pattern and text settings"""
-        self.text_pattern = self.config.get(self.subject, 'text', 0,
-                                            DEFAULT_SECTION_VALUES)
+        self.text_pattern = self._get_conf_with_default(self.subject, 'text')
         self.text_settings = _get_text_settings(self.config, self.subject)
 
     def _get_mandatory_config_items(self):
@@ -174,13 +178,12 @@ class ImageScaler(object):
         """Remove "-" from platform names"""
         tidy = self._get_bool('tidy_platform_name')
         if tidy:
-            self.fileparts['platform_name'] = \
-                self.fileparts['platform_name'].replace('-', '')
+            self.fileparts['platform_name'] = self.fileparts[
+                'platform_name'].replace('-', '')
 
     def _parse_crops(self):
         """Parse crop settings from the raw crop config"""
-        crop_conf = self.config.get(self.subject, 'crops', 0,
-                                    DEFAULT_SECTION_VALUES)
+        crop_conf = self._get_conf_with_default(self.subject, 'crops')
         if isinstance(crop_conf, list):
             self.crops = crop_conf
             return
@@ -202,8 +205,7 @@ class ImageScaler(object):
 
     def _parse_sizes(self):
         """Parse crop settings from crop config"""
-        size_conf = self.config.get(self.subject, 'sizes', 0,
-                                    DEFAULT_SECTION_VALUES)
+        size_conf = self._get_conf_with_default(self.subject, 'sizes')
         if isinstance(size_conf, list):
             self.sizes = size_conf
             return
@@ -214,8 +216,7 @@ class ImageScaler(object):
 
     def _parse_tags(self):
         """Parse tags from tag config"""
-        tag_conf = self.config.get(self.subject, 'tags', 0,
-                                   DEFAULT_SECTION_VALUES)
+        tag_conf = self._get_conf_with_default(self.subject, 'tags')
 
         if isinstance(tag_conf, list):
             self.tags = tag_conf
@@ -230,9 +231,8 @@ class ImageScaler(object):
         if self.subject not in self._overlays:
             logging.debug("Adding overlay to cache")
             area_def = get_area_def(self.areaname)
-            self._overlays[self.subject] = \
-                self._cw.add_overlay_from_config(self.overlay_config,
-                                                 area_def)
+            self._overlays[self.subject] = self._cw.add_overlay_from_config(
+                self.overlay_config, area_def)
         else:
             logging.debug("Using overlay from cache")
 
@@ -270,8 +270,8 @@ class ImageScaler(object):
                 try:
                     update_fname_parts = parse(self.out_pattern,
                                                glob_fnames[0])
-                    update_fname_parts["composite"] = \
-                        self.fileparts["composite"]
+                    update_fname_parts[
+                        "composite"] = self.fileparts["composite"]
                     if not self.is_backup:
                         try:
                             update_fname_parts["platform_name"] = \
@@ -326,8 +326,8 @@ class ImageScaler(object):
                 continue
             self.fileparts['areaname'] = self.areaname
 
-            self.existing_fname_parts = \
-                self._check_existing(msg.data["start_time"])
+            self.existing_fname_parts = self._check_existing(
+                msg.data["start_time"])
 
             # There is already a matching image which isn't going to
             # be updated
@@ -371,7 +371,7 @@ class ImageScaler(object):
             img_out.save(fname)
 
             # Update static image, if given in config
-            self._update_static_img(img, tags[i])
+            self._update_static_img(img, self.tags[i])
 
     def _update_static_img(self, img, tag):
         """Update image with static filename"""
@@ -497,28 +497,25 @@ def _get_crange(num):
 def _get_text_settings(config, subject):
     """Parse text settings from the config."""
     settings = {}
-    settings['loc'] = config.get(subject, 'text_location', 0,
-                                 DEFAULT_TEXT_SETTINGS)
-    font_fname = config.get(subject, 'font_fname', 0,
-                            DEFAULT_TEXT_SETTINGS)
+    settings['loc'] = _get_conf_with_default(config, subject, 'text_location')
+    font_fname = _get_conf_with_default(config, subject, 'font_fname')
     if font_fname == '':
         settings['font_fname'] = None
     else:
         settings['font_fname'] = font_fname
-    settings['font_size'] = int(config.get(subject, 'font_size', 0,
-                                           DEFAULT_TEXT_SETTINGS))
-    text_color = config.get(subject, 'text_color', 0,
-                            DEFAULT_TEXT_SETTINGS)
-    settings['text_color'] = \
-        tuple([int(x) for x in text_color.split(',')])
-    bg_color = config.get(subject, 'text_bg_color', 0, DEFAULT_TEXT_SETTINGS)
+    settings['font_size'] = int(_get_conf_with_default(config, subject,
+                                                       'font_size'))
+    text_color = _get_conf_with_default(config, subject, 'text_color')
+    settings['text_color'] = tuple([int(x) for x in text_color.split(',')])
+
+    bg_color = _get_conf_with_default(config, subject, 'text_bg_color')
     settings['bg_color'] = tuple([int(x) for x in bg_color.split(',')])
-    settings['x_marginal'] = int(config.get(subject, 'x_marginal', 0,
-                                            DEFAULT_TEXT_SETTINGS))
-    settings['y_marginal'] = int(config.get(subject, 'y_marginal', 0,
-                                            DEFAULT_TEXT_SETTINGS))
-    settings['bg_extra_width'] = int(config.get(subject, 'bg_extra_width', 0,
-                                                DEFAULT_TEXT_SETTINGS))
+    settings['x_marginal'] = int(_get_conf_with_default(config, subject,
+                                                        'x_marginal'))
+    settings['y_marginal'] = int(_get_conf_with_default(config, subject,
+                                                        'y_marginal'))
+    settings['bg_extra_width'] = int(_get_conf_with_default(config, subject,
+                                                            'bg_extra_width'))
 
     return settings
 
@@ -712,3 +709,12 @@ def add_image_as_overlay(img, overlay):
     img.paste(overlay, mask=overlay)
 
     return img
+
+
+def _get_conf_with_default(config, subject, item):
+    """Get a config item and use a default if no value is available"""
+    try:
+        val = config.get(subject, item)
+    except NoOptionError:
+        val = DEFAULT_CONFIG_VALUES[item]
+    return val
