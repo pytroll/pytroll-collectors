@@ -115,6 +115,108 @@ class ImageScaler(object):
             if self.listener is not None:
                 self.listener.stop()
 
+    def run(self):
+        '''Start waiting for messages.
+
+        On message arrival, read the image, scale down to the defined
+        sizes and add coastlines.
+        '''
+
+        while self._loop:
+            # Wait for new messages
+            try:
+                msg = self.listener.queue.get(True, 5)
+            except KeyboardInterrupt:
+                self.stop()
+                raise
+            except Queue.Empty:
+                continue
+
+            logging.info("New message with topic %s", msg.subject)
+
+            self.subject = msg.subject
+            self.filepath = urlparse(msg.data["uri"]).path
+
+            try:
+                self._update_current_config()
+            except (NoOptionError, NoSectionError):
+                logging.warning("Skip processing for this message.")
+                continue
+
+            # parse filename parts from the incoming file
+            try:
+                self.fileparts = parse(self.in_pattern,
+                                       os.path.basename(self.filepath))
+            except ValueError:
+                logging.info("Filepattern doesn't match, skipping.")
+                continue
+            self.fileparts['areaname'] = self.areaname
+
+            self.existing_fname_parts = self._check_existing(
+                msg.data["start_time"])
+
+            # There is already a matching image which isn't going to
+            # be updated
+            if self.existing_fname_parts is None:
+                continue
+
+            # Read the image
+            img = read_image(self.filepath)
+
+            # Add overlays, if any
+            img = self.add_overlays(img)
+
+            # Save image(s)
+            self.save_images(img)
+
+    def add_overlays(self, img):
+        """Add overlays to image.  Add to cache, if not already there."""
+        if self.overlay_config is None:
+            return img
+
+        if self.subject not in self._overlays:
+            logging.debug("Adding overlay to cache")
+            area_def = get_area_def(self.areaname)
+            self._overlays[self.subject] = self._cw.add_overlay_from_config(
+                self.overlay_config, area_def)
+        else:
+            logging.debug("Using overlay from cache")
+
+        try:
+            return add_image_as_overlay(img, self._overlays[self.subject])
+        except ValueError:
+            return img
+
+    def save_images(self, img):
+        """Save image(s)"""
+        # Loop through different image sizes
+        for i in range(len(self.sizes)):
+
+            # Crop the image
+            img = crop_image(img, self.crops[i])
+
+            # Resize the image
+            img = resize_image(img, self.sizes[i])
+
+            # Update existing image if configured to do so
+            if self.update_existing:
+                img, fname = self._update_existing_img(img, self.tags[i])
+                # Add text
+                img_out = self._add_text(img, update_img=True)
+            # In other case, save as a new image
+            else:
+                # Add text
+                img_out = self._add_text(img, update_img=False)
+                # Compose filename
+                self.fileparts['tag'] = self.tags[i]
+                fname = compose(self.out_pattern, self.fileparts)
+
+            # Save image
+            img_out.save(fname)
+
+            # Update static image, if given in config
+            self._update_static_img(img, self.tags[i])
+
     def _update_current_config(self):
         """Update the current config to class attributes."""
 
@@ -227,24 +329,6 @@ class ImageScaler(object):
             return
         self.tags = [tag for tag in tag_conf.split(',')]
 
-    def add_overlays(self, img):
-        """Add overlays to image.  Add to cache, if not already there."""
-        if self.overlay_config is None:
-            return img
-
-        if self.subject not in self._overlays:
-            logging.debug("Adding overlay to cache")
-            area_def = get_area_def(self.areaname)
-            self._overlays[self.subject] = self._cw.add_overlay_from_config(
-                self.overlay_config, area_def)
-        else:
-            logging.debug("Using overlay from cache")
-
-        try:
-            return add_image_as_overlay(img, self._overlays[self.subject])
-        except ValueError:
-            return img
-
     def _check_existing(self, start_time):
         """Check if there's an existing image that should be updated"""
 
@@ -292,90 +376,6 @@ class ImageScaler(object):
         if self.is_backup and not first_overpass:
             logging.info("File already exists, no backuping needed.")
             return None
-
-    def run(self):
-        '''Start waiting for messages.
-
-        On message arrival, read the image, scale down to the defined
-        sizes and add coastlines.
-        '''
-
-        while self._loop:
-            # Wait for new messages
-            try:
-                msg = self.listener.queue.get(True, 5)
-            except KeyboardInterrupt:
-                self.stop()
-                raise
-            except Queue.Empty:
-                continue
-
-            logging.info("New message with topic %s", msg.subject)
-
-            self.subject = msg.subject
-            self.filepath = urlparse(msg.data["uri"]).path
-
-            try:
-                self._update_current_config()
-            except (NoOptionError, NoSectionError):
-                logging.warning("Skip processing for this message.")
-                continue
-
-            # parse filename parts from the incoming file
-            try:
-                self.fileparts = parse(self.in_pattern,
-                                       os.path.basename(self.filepath))
-            except ValueError:
-                logging.info("Filepattern doesn't match, skipping.")
-                continue
-            self.fileparts['areaname'] = self.areaname
-
-            self.existing_fname_parts = self._check_existing(
-                msg.data["start_time"])
-
-            # There is already a matching image which isn't going to
-            # be updated
-            if self.existing_fname_parts is None:
-                continue
-
-            # Read the image
-            img = read_image(self.filepath)
-
-            # Add overlays, if any
-            img = self.add_overlays(img)
-
-            # Save image(s)
-            self.save_images(img)
-
-    def save_images(self, img):
-        """Save image(s)"""
-        # Loop through different image sizes
-        for i in range(len(self.sizes)):
-
-            # Crop the image
-            img = crop_image(img, self.crops[i])
-
-            # Resize the image
-            img = resize_image(img, self.sizes[i])
-
-            # Update existing image if configured to do so
-            if self.update_existing:
-                img, fname = self._update_existing_img(img, self.tags[i])
-                # Add text
-                img_out = self._add_text(img, update_img=True)
-            # In other case, save as a new image
-            else:
-                # Add text
-                img_out = self._add_text(img, update_img=False)
-                # Compose filename
-                self.fileparts['tag'] = self.tags[i]
-                fname = compose(self.out_pattern, self.fileparts)
-
-            # Save image
-            img_out.save(fname)
-
-            # Update static image, if given in config
-            self._update_static_img(img, self.tags[i])
 
     def _update_static_img(self, img, tag):
         """Update image with static filename"""
