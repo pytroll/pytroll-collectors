@@ -229,36 +229,34 @@ class ImageScaler(object):
         self._tidy_platform_name()
         self._get_text_settings()
 
-        self.out_dir = self._get_conf_with_default(self.subject, 'out_dir')
+        self.out_dir = self._get_conf_with_default('out_dir')
 
         self.update_existing = self._get_bool('update_existing')
 
         self.is_backup = self._get_bool('only_backup')
 
-        self.timeliness = int(self._get_conf_with_default(self.subject,
-                                                          'timeliness'))
+        self.timeliness = int(self._get_conf_with_default('timeliness'))
 
         self.static_image_fname = \
-            self._get_conf_with_default(self.subject, "static_image_fname")
+            self._get_conf_with_default("static_image_fname")
 
         self.overlay_config = \
-            self._get_conf_with_default(self.subject, 'overlay_config_fname')
+            self._get_conf_with_default('overlay_config_fname')
 
-    def _get_conf_with_default(self, subject, item):
+    def _get_conf_with_default(self, item):
         """Get a config item and use a default if no value is available"""
-        return _get_conf_with_default(self.config, subject, item)
+        return _get_conf_with_default(self.config, self.subject, item)
 
     def _get_bool(self, key):
         """Get *key* from config and interpret it as boolean"""
-        val = self._get_conf_with_default(self.subject, key)
+        val = self._get_conf_with_default(key)
         if isinstance(val, bool):
             return val
         return val.lower() in ['yes', '1', 'true']
 
     def _get_text_settings(self):
         """Parse text overlay pattern and text settings"""
-        self.text_pattern = self._get_conf_with_default(self.subject,
-                                                        'text_pattern')
+        self.text_pattern = self._get_conf_with_default('text_pattern')
         self.text_settings = _get_text_settings(self.config, self.subject)
 
     def _get_mandatory_config_items(self):
@@ -274,11 +272,11 @@ class ImageScaler(object):
             logging.error("Check that 'areaname', 'in_pattern' and " +
                           "'out_pattern' are all defined under section " +
                           self.subject)
-            raise NoOptionError
+            raise KeyError("Required config item missing")
         except NoSectionError:
             logging.error("No config section for message subject " +
                           self.subject)
-            raise NoSectionError
+            raise KeyError("Missing config section")
 
     def _tidy_platform_name(self):
         """Remove "-" from platform names"""
@@ -289,7 +287,7 @@ class ImageScaler(object):
 
     def _parse_crops(self):
         """Parse crop settings from the raw crop config"""
-        crop_conf = self._get_conf_with_default(self.subject, 'crops')
+        crop_conf = self._get_conf_with_default('crops')
         if isinstance(crop_conf, list):
             self.crops = crop_conf
             return
@@ -311,7 +309,7 @@ class ImageScaler(object):
 
     def _parse_sizes(self):
         """Parse crop settings from crop config"""
-        size_conf = self._get_conf_with_default(self.subject, 'sizes')
+        size_conf = self._get_conf_with_default('sizes')
         if isinstance(size_conf, list):
             self.sizes = size_conf
             return
@@ -322,7 +320,7 @@ class ImageScaler(object):
 
     def _parse_tags(self):
         """Parse tags from tag config"""
-        tag_conf = self._get_conf_with_default(self.subject, 'tags')
+        tag_conf = self._get_conf_with_default('tags')
 
         if isinstance(tag_conf, list):
             self.tags = tag_conf
