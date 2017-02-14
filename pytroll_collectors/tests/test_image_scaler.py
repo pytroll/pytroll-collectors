@@ -28,7 +28,6 @@ import numpy as np
 from PIL import Image, ImageFont
 
 from pytroll_collectors import image_scaler as sca
-from mpop.imageo.geo_image import GeoImage
 
 
 class TestImageScaler(unittest.TestCase):
@@ -120,6 +119,8 @@ class TestImageScaler(unittest.TestCase):
         for i in range(3):
             self.assertEqual(res['text_color'][i], text_color[i])
             self.assertEqual(res['bg_color'][i], text_bg_color[i])
+
+        # Settings are given
         res = sca._get_text_settings(self.config, '/text/settings')
         self.assertEqual(res['x_marginal'], 20)
         self.assertEqual(res['y_marginal'], 5)
