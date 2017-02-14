@@ -98,7 +98,7 @@ class ImageScaler(object):
     area_def = None
     overlay_config = None
     filepath = None
-    existing_fname_parts = None
+    existing_fname_parts = {}
 
     def __init__(self, config):
         self.config = config
@@ -125,7 +125,7 @@ class ImageScaler(object):
         while self._loop:
             # Wait for new messages
             try:
-                msg = self.listener.queue.get(True, 5)
+                msg = self.listener.output_queue.get(True, 5)
             except KeyboardInterrupt:
                 self.stop()
                 raise
@@ -152,13 +152,13 @@ class ImageScaler(object):
                 continue
             self.fileparts['areaname'] = self.areaname
 
-            self.existing_fname_parts = self._check_existing(
-                msg.data["start_time"])
+            existing_fname_parts = self._check_existing(msg.data["start_time"])
 
             # There is already a matching image which isn't going to
             # be updated
             if self.existing_fname_parts is None:
                 continue
+            self.existing_fname_parts = existing_fname_parts
 
             # Read the image
             img = read_image(self.filepath)
@@ -199,7 +199,7 @@ class ImageScaler(object):
             img = resize_image(img, self.sizes[i])
 
             # Update existing image if configured to do so
-            if self.update_existing:
+            if self.update_existing and len(self.existing_fname_parts) > 0:
                 img, fname = self._update_existing_img(img, self.tags[i])
                 # Add text
                 img_out = self._add_text(img, update_img=True)
@@ -263,8 +263,7 @@ class ImageScaler(object):
         """Get mandatory config items and log possible errors"""
         try:
             self.areaname = self.config.get(self.subject, 'areaname')
-            in_pattern = self.config.get(self.subject, 'in_pattern')
-            self.in_pattern = in_pattern.replace('{areaname}', self.areaname)
+            self.in_pattern = self.config.get(self.subject, 'in_pattern')
             out_pattern = self.config.get(self.subject, 'out_pattern')
             self.out_pattern = os.path.join(self.out_dir, out_pattern)
         except NoOptionError:
@@ -374,6 +373,8 @@ class ImageScaler(object):
         if self.is_backup and not first_overpass:
             logging.info("File already exists, no backuping needed.")
             return None
+        else:
+            return {}
 
     def _update_static_img(self, img, tag):
         """Update image with static filename"""
