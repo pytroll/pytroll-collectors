@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015
+# Copyright (c) 2015, 2017
 
 # Author(s):
 
@@ -21,23 +21,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''Listen to messages and generate smaller versions of the images.
-
-Example scale_images.ini:
-
-[/HRPT/L3/dev/hki/euron1]
-# <x_size>x<y_size>+<x_start>+<y_start>
-crops = ,768x768+800+300,
-sizes = 3072x3072,768x768,384x384
-tags = large,small,thumb
-out_dir = /tmp
-areaname = euron1
-in_pattern = {time:%Y%m%d_%H%M}_Metop-A_{areaname}_{composite}.png
-out_dir = /lustre/tmp/data/oper/test/qlook/{tag}
-out_pattern = {time:%Y%m%d_%H%M}_MetopA-{composite}-{areaname}.png
-overlay_config = /home/users/satman/config_files/pycoast_euron1_overlay_config.ini
-use_platform_name_hack = False
-timeliness = 10
-latest_composite_image = /tmp/latest_polar_data-{composite}-{areaname}.png
 '''
 
 import sys
@@ -48,7 +31,7 @@ from ConfigParser import ConfigParser
 
 from pytroll_collectors.image_scaler import ImageScaler
 
-
+# TODO: Move to config file
 LOG_CONFIG = {'version': 1,
               'handlers': {
                   'console':  {
