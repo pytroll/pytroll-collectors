@@ -192,31 +192,33 @@ class ImageScaler(object):
         # Loop through different image sizes
         num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
         for i in range(num):
+            img_out = img.copy()
 
             # Crop the image
             try:
-                img = crop_image(img, self.crops[i])
+                img_out = crop_image(img_out, self.crops[i])
             except IndexError:
                 pass
 
             # Resize the image
             try:
-                img = resize_image(img, self.sizes[i])
+                img_out = resize_image(img_out, self.sizes[i])
             except IndexError:
                 pass
 
             # Update existing image if configured to do so
             if self.update_existing and len(self.existing_fname_parts) > 0:
                 try:
-                    img, fname = self._update_existing_img(img, self.tags[i])
+                    img_out, fname = self._update_existing_img(img_out,
+                                                               self.tags[i])
                 except IndexError:
                     pass
                 # Add text
-                img = self._add_text(img, update_img=True)
+                img_out = self._add_text(img_out, update_img=True)
             # In other case, save as a new image
             else:
                 # Add text
-                img = self._add_text(img, update_img=False)
+                img_out = self._add_text(img_out, update_img=False)
                 # Compose filename
                 try:
                     self.fileparts['tag'] = self.tags[i]
@@ -227,10 +229,13 @@ class ImageScaler(object):
 
             # Save image
             logging.info("Saving image %s", fname)
-            img.save(fname)
+            img_out.save(fname)
 
             # Update static image, if given in config
-            self._update_static_img(img, self.tags[i])
+            try:
+                self._update_static_img(img_out, self.tags[i])
+            except IndexError:
+                pass
 
     def _update_current_config(self):
         """Update the current config to class attributes."""
@@ -670,11 +675,11 @@ def _get_font(font_fname, font_size):
     try:
         font = ImageFont.truetype(font_fname, font_size)
         logging.debug('Font read from %s', font_fname)
-    except (IOError, TypeError):
+    except (AttributeError, IOError, TypeError):
         try:
             font = ImageFont.load(font_fname)
             logging.debug('Font read from %s', font_fname)
-        except (IOError, TypeError):
+        except (AttributeError, IOError, TypeError):
             logging.warning('Falling back to default font')
             font = ImageFont.load_default()
 
