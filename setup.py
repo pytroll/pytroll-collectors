@@ -59,7 +59,7 @@ setup(name="pytroll_collectors",
       install_requires=['pykdtree', 'pyinotify', 'mpop', 'posttroll>=1.3.0',
                         'trollsift', 'netifaces',
                         'pytroll-schedule', 'pyresample',
-                        'pillow', ],
+                        'pillow', 'pycoast'],
       tests_require=['mock', 'scipy', 'trollsift', 'pillow'],
       test_suite='pytroll_collectors.tests.suite',
       )
