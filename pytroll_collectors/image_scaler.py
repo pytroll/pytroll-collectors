@@ -42,7 +42,11 @@ try:
 except ImportError:
     GeoImage = None
 
-GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
+try:
+    GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
+except KeyError:
+    logging.warning("GSHHS_DATA_ROOT is not set, unable to add coastlines")
+    GSHHS_DATA_ROOT = None
 
 # Default values for each section
 DEFAULT_SECTION_VALUES = {'update_existing': False,
@@ -106,7 +110,10 @@ class ImageScaler(object):
         self.listener = ListenerContainer(topics=topics)
         self._loop = True
         self._overlays = {}
-        self._cw = ContourWriter(GSHHS_DATA_ROOT)
+        if GSHHS_DATA_ROOT:
+            self._cw = ContourWriter(GSHHS_DATA_ROOT)
+        else:
+            self._cw = None
 
     def stop(self):
         '''Stop scaler before shutting down.'''
@@ -172,6 +179,11 @@ class ImageScaler(object):
     def add_overlays(self, img):
         """Add overlays to image.  Add to cache, if not already there."""
         if self.overlay_config is None:
+            return img
+
+        if self._cw is None:
+            logging.warning("GSHHS_DATA_ROOT is not set, "
+                            "unable to add coastlines")
             return img
 
         if self.subject not in self._overlays:
