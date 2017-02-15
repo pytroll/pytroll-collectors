@@ -264,9 +264,9 @@ class TestImageScaler(unittest.TestCase):
     def test_ImageScaler(self, cwriter, listener):
         scaler = sca.ImageScaler(self.config)
         scaler.subject = '/scaler'
-        # msg_filename = os.path.join(os.path.dirname(__file__),
-        #                            'data', 'empty.png')
-        filename = "201702141155_Meteosat-10_spam.tif"
+        filename = '201702071200_Meteosat-10_EPSG4326_spam.png'
+        filename = os.path.join(os.path.dirname(__file__),
+                                'data', filename)
 
         res = scaler._get_conf_with_default('areaname')
         self.assertTrue(res == self.config.get('/scaler',
@@ -297,7 +297,8 @@ class TestImageScaler(unittest.TestCase):
         self.assertTrue(scaler.out_pattern == self.config.get('/scaler',
                                                               'out_pattern'))
 
-        scaler.fileparts.update(parse(scaler.in_pattern, filename))
+        scaler.fileparts.update(parse(scaler.out_pattern,
+                                      os.path.basename(filename)))
         scaler._tidy_platform_name()
         self.assertTrue(scaler.fileparts['platform_name'] == "Meteosat10")
 
@@ -345,6 +346,28 @@ class TestImageScaler(unittest.TestCase):
         self.assertTrue(res.mode == 'RGB')
         res = scaler._add_text(self.img_rgba.copy(), 'PL')
         self.assertTrue(res.mode == 'RGBA')
+
+        scaler.fileparts.update(parse(scaler.out_pattern,
+                                      os.path.basename(filename)))
+        tslot = dt.datetime.utcnow()
+        # File that doesn't exist
+        res = scaler._check_existing(tslot)
+        self.assertEqual(len(res), 0)
+        # Existing file with "is_backup" set to False so we should get a full
+        # set of metadata
+        scaler.out_dir = os.path.join(os.path.dirname(__file__),
+                                      'data')
+        tslot = scaler.fileparts['time']
+        res = scaler._check_existing(tslot)
+        self.assertEqual(res['time'], tslot)
+        self.assertEqual(res['areaname'], scaler.areaname)
+        self.assertEqual(res['platform_name'],
+                         scaler.fileparts['platform_name'])
+        self.assertEqual(res['composite'], 'spam')
+        # Existing file with "is_backup" set to True
+        scaler.is_backup = True
+        res = scaler._check_existing(tslot)
+        self.assertIsNone(res)
 
 
 def suite():
