@@ -1,0 +1,83 @@
+# Different setups are defined by the message header
+[/new/file/yay/euro4]
+### Required items
+
+# Name of the area definition
+areaname = euro4
+
+# Pattern of the new images
+in_pattern = {time:%Y%m%d_%H%M}_{platform_name}_RSS_{areaname}_{composite}.png
+
+# Pattern of the saved images
+out_pattern = {time:%Y%m%d_%H%M}_{platform_name}-{composite}-{areaname}-{tag}.png
+
+### optional settings
+
+# Output directory (default: current workind directory)
+out_dir = /tmp
+
+# Update image if it already exists within the given timeliness (default: False)
+update_existing = True
+
+# Timeliness when to update an existing image (default: 10 minutes)
+timeliness = 10
+
+# Use the incoming images as a backup, so ignore also platform_name when
+# searching for existing files. Skip saving if anything matching exist.
+# (default: False)
+only_backup = False
+
+# List of crops as comma separated list (default: no cropping)
+# Format: <x_size>x<y_size>+<x_start>+<y_start>
+# - x_size : crop size in x-direction
+# - y_size : crop size in y-direction
+# - x_start : x-coordinate of the top-left corner of the crop area
+# - y_start : y-coordinate of the top-left corner of the crop area
+# If used together with sizes and/or tags, use same number of definitions in each!
+# Cropping is applied before image scaling
+# crops = 1000x300+103+200
+
+# Image sizes as comma separated list (default: no scaling)
+sizes = 1024x1024,512x512,256x256
+
+# Name tags for the different image sizes (default: no tags)
+tags = large,small,thumb
+
+# Filename pattern for a static image which is always updated.
+# Useful for making "latest data" images for qlook with "tags" shown above
+static_image_fname = latest_polar_data_combo-{composite}-{areaname}.png
+
+# Name of pycoast overlay configuration file, with full path.
+# Overlays are added to the image that is READ, BEFORE any scaling/cropping
+# /path/to/overlay/pycoast_euro4_overlay_config.ini
+
+# Text pattern to be written on the image (default: no text)
+# Text is added as last operation
+text_pattern = {time:%Y%m%d %H:%M}
+
+### Text settings
+
+# Text location in image, valid combinations are:
+# NW, NC, NE, SW, SC, SE (default: SW)
+text_location = SC
+
+# Full path to font file to use (default: Pillow default font)
+# font_fname = /usr/share/fonts/truetype/msttcorefonts/Arial.ttf
+
+# Font size (default: 12)
+font_size = 12
+
+# Text color as 3 comma separated integers, eg. red (default: black)
+text_color = 255,0,0
+
+# Text background color as 3 comma separated integers, eg. white (default)
+text_bg_color = 255,255,255
+
+# Marginal in x-direction, in pixels (default: 0)
+x_marginal = 10
+
+# Marginal in y-direction, in pixels (default: 0)
+y_marginal = 3
+
+# Extra marginal in X-direction for the background color (default: 0)
+bg_extra_width = 3
