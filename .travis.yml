@@ -21,6 +21,7 @@ before_install:
   - pip install https://github.com/pytroll/posttroll/archive/develop.tar.gz
   - pip install https://github.com/pytroll/mpop/archive/pre-master.tar.gz
   - pip install https://github.com/pytroll/trollsift/archive/master.tar.gz
+  - pip install https://github.com/pytroll/pycoast/archive/master.tar.gz
 install:
   - pip install .
   - pip install mock
