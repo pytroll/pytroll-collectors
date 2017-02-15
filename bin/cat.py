@@ -171,6 +171,8 @@ def process_message(msg, config):
     del new_data["collection"]
     new_data["filename"] = os.path.basename(output_file)
     new_data["uri"] = output_file
+    if "publish_topic" in config:
+        msg.subject = config.get("publish_topic")
     msg2 = Message(msg.subject, "file", new_data)
 
     return msg2
