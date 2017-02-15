@@ -24,11 +24,12 @@
 """
 
 import unittest
-import doctest
+# import doctest
 from pytroll_collectors.tests import (test_helper_functions,
                                       test_scisys,
                                       test_trigger,
-                                      test_global_mosaic)
+                                      test_global_mosaic,
+                                      test_image_scaler)
 
 
 def suite():
