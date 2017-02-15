@@ -190,29 +190,44 @@ class ImageScaler(object):
     def save_images(self, img):
         """Save image(s)"""
         # Loop through different image sizes
-        for i in range(len(self.sizes)):
+        num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
+        for i in range(num):
 
             # Crop the image
-            img = crop_image(img, self.crops[i])
+            try:
+                img = crop_image(img, self.crops[i])
+            except IndexError:
+                pass
 
             # Resize the image
-            img = resize_image(img, self.sizes[i])
+            try:
+                img = resize_image(img, self.sizes[i])
+            except IndexError:
+                pass
 
             # Update existing image if configured to do so
             if self.update_existing and len(self.existing_fname_parts) > 0:
-                img, fname = self._update_existing_img(img, self.tags[i])
+                try:
+                    img, fname = self._update_existing_img(img, self.tags[i])
+                except IndexError:
+                    pass
                 # Add text
-                img_out = self._add_text(img, update_img=True)
+                img = self._add_text(img, update_img=True)
             # In other case, save as a new image
             else:
                 # Add text
-                img_out = self._add_text(img, update_img=False)
+                img = self._add_text(img, update_img=False)
                 # Compose filename
-                self.fileparts['tag'] = self.tags[i]
-                fname = compose(self.out_pattern, self.fileparts)
+                try:
+                    self.fileparts['tag'] = self.tags[i]
+                except IndexError:
+                    pass
+                fname = compose(os.path.join(self.out_dir, self.out_pattern),
+                                self.fileparts)
 
             # Save image
-            img_out.save(fname)
+            logging.info("Saving image %s", fname)
+            img.save(fname)
 
             # Update static image, if given in config
             self._update_static_img(img, self.tags[i])
@@ -264,8 +279,7 @@ class ImageScaler(object):
         try:
             self.areaname = self.config.get(self.subject, 'areaname')
             self.in_pattern = self.config.get(self.subject, 'in_pattern')
-            out_pattern = self.config.get(self.subject, 'out_pattern')
-            self.out_pattern = os.path.join(self.out_dir, out_pattern)
+            self.out_pattern = self.config.get(self.subject, 'out_pattern')
         except NoOptionError:
             logging.error("Required option missing!")
             logging.error("Check that 'areaname', 'in_pattern' and " +
@@ -342,7 +356,7 @@ class ImageScaler(object):
         check_dict["composite"] = '*'
 
         first_overpass = True
-        update_fname_parts = None
+        update_fname_parts = {}
         for i in range(2 * self.timeliness + 1):
             check_dict['time'] = check_start_time + dt.timedelta(minutes=i)
             glob_pattern = compose(os.path.join(self.out_dir,
@@ -350,29 +364,32 @@ class ImageScaler(object):
                                    check_dict)
             glob_fnames = glob.glob(glob_pattern)
             if len(glob_fnames) > 0:
+                fname = os.path.basename(glob_fnames[0])
                 first_overpass = False
                 logging.debug("Found files: %s", str(glob_fnames))
                 try:
                     update_fname_parts = parse(self.out_pattern,
-                                               glob_fnames[0])
-                    update_fname_parts[
-                        "composite"] = self.fileparts["composite"]
+                                               fname)
+                    update_fname_parts["composite"] = \
+                        self.fileparts["composite"]
                     if not self.is_backup:
                         try:
                             update_fname_parts["platform_name"] = \
                                 self.fileparts["platform_name"]
+                            return update_fname_parts
                         except KeyError:
                             pass
-                    break
                 except ValueError:
                     logging.debug("Parsing failed for update_fname_parts.")
                     logging.debug("out_pattern: %s, basename: %s",
-                                  self.out_pattern, glob_fnames[0])
+                                  self.out_pattern, fname)
                     update_fname_parts = {}
 
+        # Only backup, so save only if there were no matches
         if self.is_backup and not first_overpass:
             logging.info("File already exists, no backuping needed.")
             return None
+        # No existing image
         else:
             return {}
 
@@ -384,7 +401,7 @@ class ImageScaler(object):
         fname = compose(os.path.join(self.out_dir,
                                      self.static_image_fname),
                         self.fileparts)
-        img = self._update_existing_img(img, tag, fname=fname)
+        img, fname = self._update_existing_img(img, tag, fname=fname)
         img = self._add_text(img, update_img=False)
 
         img.save(fname)
@@ -412,7 +429,7 @@ class ImageScaler(object):
                      fname, self.filepath)
         img_out = update_existing_image(fname, img)
 
-        return img_out
+        return img_out, fname
 
 
 def resize_image(img, size):
@@ -459,6 +476,7 @@ def save_image(img, fname, adef=None, time_slot=None, fill_value=None):
             fname.lower().endswith(('.tif', '.tiff'))):
         img = _pil_to_geoimage(img, adef=adef, time_slot=time_slot,
                                fill_value=fill_value)
+    logging.debug("Saving image %s", fname)
     img.save(fname)
 
 
