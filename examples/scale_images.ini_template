@@ -55,6 +55,9 @@ static_image_fname = latest_polar_data_combo-{composite}-{areaname}.png
 # Text is added as last operation
 text_pattern = {time:%Y%m%d %H:%M}
 
+# Use this value as fill_value for the images (default: None)
+# fill_value = 0
+
 ### Text settings
 
 # Text location in image, valid combinations are:
@@ -81,3 +84,21 @@ y_marginal = 3
 
 # Extra marginal in X-direction for the background color (default: 0)
 bg_extra_width = 3
+
+### Image save settings
+
+# Compression ratio (default: 6)
+save_compression = 6
+
+# TIFF tags (default: None)
+# save_tags = foo bar
+
+# File format (default: None)
+# save_fformat = adaguc
+
+# Extra options to pass to gdal
+# save_gdal_options =
+
+# Saving blocksize (default: 0)
+# NOTE: blocksize = 0 is needed for reading TIFF images with Pillow!
+save_blocksize = 0
