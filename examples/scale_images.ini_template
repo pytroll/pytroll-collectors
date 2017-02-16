@@ -45,7 +45,7 @@ tags = large,small,thumb
 
 # Filename pattern for a static image which is always updated.
 # Useful for making "latest data" images for qlook with "tags" shown above
-static_image_fname = latest_polar_data_combo-{composite}-{areaname}.png
+static_image_fname_pattern = latest_polar_data_combo-{composite}-{areaname}.png
 
 # Name of pycoast overlay configuration file, with full path.
 # Overlays are added to the image that is READ, BEFORE any scaling/cropping
@@ -55,7 +55,7 @@ static_image_fname = latest_polar_data_combo-{composite}-{areaname}.png
 # Text is added as last operation
 text_pattern = {time:%Y%m%d %H:%M}
 
-# Use this value as fill_value for the images (default: None)
+# Use this value as fill_value for the images (default: 0)
 # fill_value = 0
 
 ### Text settings
