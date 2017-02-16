@@ -35,6 +35,7 @@ from PIL import Image, ImageDraw, ImageFont
 from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
+from trollsift.parser import _extract_parsedef as extract_parsedef
 from mpop.projector import get_area_def
 
 try:
@@ -60,7 +61,8 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'text_pattern': None,
                           'area_def': None,
                           'overlay_config_fname': None,
-                          'out_dir': ''
+                          'out_dir': '',
+                          'fill_value': None
                           }
 
 # Default text settings
@@ -74,9 +76,17 @@ DEFAULT_TEXT_SETTINGS = {'text_location': 'SW',
                          'bg_extra_width': '0',
                          }
 
+# Default save settings for TIFF images
+DEFAULT_SAVE_OPTIONS = {'save_compression': 6,
+                        'save_tags': None,
+                        'save_fformat': None,
+                        'save_gdal_options': None,
+                        'save_blocksize': 0}
+
 # Merge the two default dictionaries to one master dict
 DEFAULT_CONFIG_VALUES = DEFAULT_SECTION_VALUES.copy()
 DEFAULT_CONFIG_VALUES.update(DEFAULT_TEXT_SETTINGS)
+DEFAULT_CONFIG_VALUES.update(DEFAULT_SAVE_OPTIONS)
 
 
 class ImageScaler(object):
@@ -103,6 +113,9 @@ class ImageScaler(object):
     overlay_config = None
     filepath = None
     existing_fname_parts = {}
+    time_name = 'time'
+    time_slot = None
+    fill_value = None
 
     def __init__(self, config):
         self.config = config
@@ -150,6 +163,13 @@ class ImageScaler(object):
                 logging.warning("Skip processing for this message.")
                 continue
 
+            self.time_name = self._get_time_name(msg.data)
+            # Adjust in_pattern and out_pattern to match this time_name
+            self.in_pattern = adjust_pattern_time_name(self.in_pattern,
+                                                       self.time_name)
+            self.out_pattern = adjust_pattern_time_name(self.out_pattern,
+                                                        self.time_name)
+
             # parse filename parts from the incoming file
             try:
                 self.fileparts = parse(self.in_pattern,
@@ -159,7 +179,9 @@ class ImageScaler(object):
                 continue
             self.fileparts['areaname'] = self.areaname
 
-            existing_fname_parts = self._check_existing(msg.data["start_time"])
+            self.time_slot = msg.data[self.time_name]
+            existing_fname_parts = \
+                self._check_existing(msg.data[self.time_name])
 
             # There is already a matching image which isn't going to
             # be updated
@@ -175,6 +197,13 @@ class ImageScaler(object):
 
             # Save image(s)
             self.save_images(img)
+
+    def _get_time_name(self, info):
+        """"Try to find the name for 'nominal' time"""
+        for key in info:
+            if "time" in key and "end" not in key and "proc" not in key:
+                return key
+        return None
 
     def add_overlays(self, img):
         """Add overlays to image.  Add to cache, if not already there."""
@@ -201,6 +230,7 @@ class ImageScaler(object):
 
     def save_images(self, img):
         """Save image(s)"""
+
         # Loop through different image sizes
         num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
         for i in range(num):
@@ -210,13 +240,13 @@ class ImageScaler(object):
             try:
                 img_out = crop_image(img_out, self.crops[i])
             except IndexError:
-                pass
+                logging.debug("No valid crops configured")
 
             # Resize the image
             try:
                 img_out = resize_image(img_out, self.sizes[i])
             except IndexError:
-                pass
+                logging.debug("No valid sizes configured")
 
             # Update existing image if configured to do so
             if self.update_existing and len(self.existing_fname_parts) > 0:
@@ -240,14 +270,29 @@ class ImageScaler(object):
                                 self.fileparts)
 
             # Save image
-            logging.info("Saving image %s", fname)
-            img_out.save(fname)
+            save_image(img_out, fname, adef=self.area_def,
+                       time_slot=self.time_slot, fill_value=self.fill_value,
+                       save_options=self.save_options)
 
             # Update static image, if given in config
             try:
                 self._update_static_img(img_out, self.tags[i])
             except IndexError:
                 pass
+
+    def _get_save_options(self):
+        """Get save options from config"""
+        compression = self._get_conf_with_default('save_compression')
+        tags = self._get_conf_with_default('save_tags')
+        fformat = self._get_conf_with_default('save_fformat')
+        gdal_options = self._get_conf_with_default('save_gdal_options')
+        blocksize = self._get_conf_with_default('save_blocksize')
+        save_options = {'compression': compression,
+                        'tags': tags,
+                        'fformat': fformat,
+                        'gdal_options': gdal_options,
+                        'blocksize': blocksize}
+        return save_options
 
     def _update_current_config(self):
         """Update the current config to class attributes."""
@@ -261,6 +306,9 @@ class ImageScaler(object):
         self._tidy_platform_name()
         self._get_text_settings()
 
+        # Get image save options
+        self.save_options = self._get_save_options()
+
         self.out_dir = self._get_conf_with_default('out_dir')
 
         self.update_existing = self._get_bool('update_existing')
@@ -268,6 +316,8 @@ class ImageScaler(object):
         self.is_backup = self._get_bool('only_backup')
 
         self.timeliness = int(self._get_conf_with_default('timeliness'))
+
+        self.fill_value = self._get_conf_with_default('fill_value')
 
         self.static_image_fname = \
             self._get_conf_with_default("static_image_fname")
@@ -295,6 +345,7 @@ class ImageScaler(object):
         """Get mandatory config items and log possible errors"""
         try:
             self.areaname = self.config.get(self.subject, 'areaname')
+            self.area_def = get_area_def(self.areaname)
             self.in_pattern = self.config.get(self.subject, 'in_pattern')
             self.out_pattern = self.config.get(self.subject, 'out_pattern')
         except NoOptionError:
@@ -421,7 +472,10 @@ class ImageScaler(object):
         img, fname = self._update_existing_img(img, tag, fname=fname)
         img = self._add_text(img, update_img=False)
 
-        img.save(fname)
+        save_image(img, fname, adef=self.area_def,
+                   time_slot=self.time_slot, fill_value=self.fill_value,
+                   save_options=self.save_options)
+
         logging.info("Updated image with static filename: %s", fname)
 
     def _add_text(self, img, update_img=False):
@@ -485,7 +539,8 @@ def crop_image(img, crop):
     return img_wrk
 
 
-def save_image(img, fname, adef=None, time_slot=None, fill_value=None):
+def save_image(img, fname, adef=None, time_slot=None, fill_value=None,
+               save_options=None):
     """Save image.  In case of area definition and start time are given,
     and the image type is tif, convert first to Geoimage to save geotiff
     """
@@ -493,8 +548,11 @@ def save_image(img, fname, adef=None, time_slot=None, fill_value=None):
             fname.lower().endswith(('.tif', '.tiff'))):
         img = _pil_to_geoimage(img, adef=adef, time_slot=time_slot,
                                fill_value=fill_value)
-    logging.debug("Saving image %s", fname)
-    img.save(fname)
+        logging.info("Saving GeoImage %s", fname)
+        img.save(fname, **save_options)
+    else:
+        logging.info("Saving PIL image %s", fname)
+        img.save(fname)
 
 
 def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
@@ -756,3 +814,25 @@ def _get_conf_with_default(config, subject, item):
     except NoOptionError:
         val = DEFAULT_CONFIG_VALUES[item]
     return val
+
+
+def adjust_pattern_time_name(pattern, time_name):
+    """Adjust filename pattern so that time_name is present."""
+    # Get parse definitions and try to figure out if there's
+    # an item for time
+    parsedefs, _ = extract_parsedef(pattern)
+    for itm in parsedefs:
+        if isinstance(itm, dict):
+            key, val = itm.items()[0]
+            if val is None:
+                continue
+            # Need to exclude 'end_time' and 'proc_time' / 'processing_time'
+            if ("time" in key or "%" in val) and \
+               "end" not in key and key != time_name:
+                logging.debug("Updating pattern from '%s' ...", pattern)
+
+                while '{' + key in pattern:
+                    pattern = pattern.replace('{' + key,
+                                              '{' + time_name)
+                logging.debug("... to '%s'", pattern)
+    return pattern
