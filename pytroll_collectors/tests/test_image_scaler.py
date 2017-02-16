@@ -34,6 +34,7 @@ from pytroll_collectors import image_scaler as sca
 
 class TestImageScaler(unittest.TestCase):
 
+    # Create fake images with different modes
     data = np.random.randint(0, 255, (100, 100), dtype=np.uint8)
     img_l = Image.fromarray(data, mode='L')
     img_la = Image.fromarray(np.dstack((data, data)), mode='LA')
@@ -41,6 +42,7 @@ class TestImageScaler(unittest.TestCase):
     img_rgba = Image.fromarray(np.dstack((data, data, data, data)),
                                mode='RGBA')
 
+    # Read config
     config = ConfigParser()
     config.read(os.path.join(os.path.dirname(__file__),
                              'data', 'scale_images.ini'))
@@ -51,6 +53,7 @@ class TestImageScaler(unittest.TestCase):
                 self.assertEqual(val[0], 0)
                 self.assertEqual(val[1], 1)
 
+        # Test that color ranges have correct
         res = sca._get_crange(1)
         test_vals(res)
         self.assertTrue(len(res) == 1)
@@ -63,23 +66,22 @@ class TestImageScaler(unittest.TestCase):
         test_vals(res)
 
     def test_pil_to_geoimage(self):
-        res = sca._pil_to_geoimage(self.img_l.copy(), None, None,
-                                   fill_value=None)
+        res = sca._pil_to_geoimage(self.img_l.copy(), None, None)
         self.assertEqual(res.mode, 'L')
-        self.assertTrue(res.fill_value is None)
-        self.assertTrue(res.time_slot is None)
-        self.assertTrue(res.area is None)
+        self.assertIsNone(res.fill_value)
+        self.assertIsNone(res.time_slot)
+        self.assertIsNone(res.area)
         tslot = dt.datetime(2017, 2, 7, 12, 0)
         res = sca._pil_to_geoimage(self.img_la.copy(), None, tslot,
-                                   fill_value=0)
+                                   fill_value=42)
         self.assertEqual(res.mode, 'LA')
-        self.assertTrue(res.fill_value[0] is 0)
+        self.assertTrue(res.fill_value[0] == 42)
         self.assertEqual(res.time_slot, tslot)
         res = sca._pil_to_geoimage(self.img_rgb.copy(), None, None,
-                                   fill_value=None)
+                                   fill_value=42)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_geoimage(self.img_rgba.copy(), None, None,
-                                   fill_value=None)
+                                   fill_value=42)
         self.assertEqual(res.mode, 'RGBA')
 
     def test_save_image(self):
