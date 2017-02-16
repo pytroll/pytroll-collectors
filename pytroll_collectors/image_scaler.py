@@ -215,11 +215,13 @@ class ImageScaler(object):
                             "unable to add coastlines")
             return img
 
-        if self.subject not in self._overlays:
+        if self.subject not in self._overlays and self.area_def is not None:
             logging.debug("Adding overlay to cache")
-            area_def = get_area_def(self.areaname)
             self._overlays[self.subject] = self._cw.add_overlay_from_config(
-                self.overlay_config, area_def)
+                self.overlay_config, self.area_def)
+        elif self.area_def is None:
+            logging.warning("Area definition not available, "
+                            "can't add overlays!")
         else:
             logging.debug("Using overlay from cache")
 
@@ -345,7 +347,11 @@ class ImageScaler(object):
         """Get mandatory config items and log possible errors"""
         try:
             self.areaname = self.config.get(self.subject, 'areaname')
-            self.area_def = get_area_def(self.areaname)
+            try:
+                self.area_def = get_area_def(self.areaname)
+            except IOError:
+                self.area_def = None
+                logging.warning("Area definition not available")
             self.in_pattern = self.config.get(self.subject, 'in_pattern')
             self.out_pattern = self.config.get(self.subject, 'out_pattern')
         except NoOptionError:
