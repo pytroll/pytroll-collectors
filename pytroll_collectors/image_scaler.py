@@ -56,13 +56,13 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'sizes': [],
                           'tags': [],
                           'timeliness': 10,
-                          'static_image_fname': None,
+                          'static_image_fname_pattern': None,
                           'tidy_platform_name': False,
                           'text_pattern': None,
                           'area_def': None,
                           'overlay_config_fname': None,
                           'out_dir': '',
-                          'fill_value': None
+                          'fill_value': (0, 0, 0)
                           }
 
 # Default text settings
@@ -115,7 +115,7 @@ class ImageScaler(object):
     existing_fname_parts = {}
     time_name = 'time'
     time_slot = None
-    fill_value = None
+    fill_value = (0, 0, 0)
 
     def __init__(self, config):
         self.config = config
@@ -253,10 +253,13 @@ class ImageScaler(object):
             # Update existing image if configured to do so
             if self.update_existing and len(self.existing_fname_parts) > 0:
                 try:
-                    img_out, fname = self._update_existing_img(img_out,
-                                                               self.tags[i])
+                    self.existing_fname_parts['tag'] = self.tags[i]
                 except IndexError:
                     pass
+                fname = compose(os.path.join(self.out_dir, self.out_pattern),
+                                self.existing_fname_parts)
+                img_out = self._update_existing_img(img_out, fname)
+
                 # Add text
                 img_out = self._add_text(img_out, update_img=True)
             # In other case, save as a new image
@@ -278,17 +281,18 @@ class ImageScaler(object):
 
             # Update static image, if given in config
             try:
-                self._update_static_img(img_out, self.tags[i])
+                self.fileparts['tag'] = self.tags[i]
             except IndexError:
                 pass
+            self._update_static_img(img_out)
 
     def _get_save_options(self):
         """Get save options from config"""
-        compression = self._get_conf_with_default('save_compression')
+        compression = int(self._get_conf_with_default('save_compression'))
         tags = self._get_conf_with_default('save_tags')
         fformat = self._get_conf_with_default('save_fformat')
         gdal_options = self._get_conf_with_default('save_gdal_options')
-        blocksize = self._get_conf_with_default('save_blocksize')
+        blocksize = int(self._get_conf_with_default('save_blocksize'))
         save_options = {'compression': compression,
                         'tags': tags,
                         'fformat': fformat,
@@ -319,10 +323,10 @@ class ImageScaler(object):
 
         self.timeliness = int(self._get_conf_with_default('timeliness'))
 
-        self.fill_value = self._get_conf_with_default('fill_value')
+        self.fill_value = self._get_fill_value()
 
-        self.static_image_fname = \
-            self._get_conf_with_default("static_image_fname")
+        self.static_image_fname_pattern = \
+            self._get_conf_with_default("static_image_fname_pattern")
 
         self.overlay_config = \
             self._get_conf_with_default('overlay_config_fname')
@@ -337,6 +341,13 @@ class ImageScaler(object):
         if isinstance(val, bool):
             return val
         return val.lower() in ['yes', '1', 'true']
+
+    def _get_fill_value(self):
+        """Parse fill value"""
+        fill_value = self._get_conf_with_default('fill_value')
+        if not isinstance(fill_value, (tuple, list)):
+            fill_value = map(int, fill_value.split(','))
+        return fill_value
 
     def _get_text_settings(self):
         """Parse text overlay pattern and text settings"""
@@ -427,7 +438,7 @@ class ImageScaler(object):
         if self.is_backup:
             check_dict["platform_name"] = '*'
             check_dict["sat_loc"] = '*'
-        check_dict["composite"] = '*'
+        # check_dict["composite"] = '*'
 
         first_overpass = True
         update_fname_parts = {}
@@ -467,15 +478,15 @@ class ImageScaler(object):
         else:
             return {}
 
-    def _update_static_img(self, img, tag):
+    def _update_static_img(self, img):
         """Update image with static filename"""
-        if self.static_image_fname is None:
+        if self.static_image_fname_pattern is None:
             return
 
         fname = compose(os.path.join(self.out_dir,
-                                     self.static_image_fname),
+                                     self.static_image_fname_pattern),
                         self.fileparts)
-        img, fname = self._update_existing_img(img, tag, fname=fname)
+        img = self._update_existing_img(img, fname)
         img = self._add_text(img, update_img=False)
 
         save_image(img, fname, adef=self.area_def,
@@ -496,17 +507,13 @@ class ImageScaler(object):
 
         return add_text(img, text, self.text_settings)
 
-    def _update_existing_img(self, img, tag, fname=None):
+    def _update_existing_img(self, img, fname):
         """Update existing image"""
-        if fname is None:
-            self.existing_fname_parts['tag'] = tag
-            fname = compose(os.path.join(self.out_dir, self.out_pattern),
-                            self.existing_fname_parts)
         logging.info("Updating image %s with image %s",
                      fname, self.filepath)
-        img_out = update_existing_image(fname, img)
+        img_out = update_existing_image(fname, img, fill_value=self.fill_value)
 
-        return img_out, fname
+        return img_out
 
 
 def resize_image(img, size):
@@ -762,38 +769,48 @@ def _get_font(font_fname, font_size):
     return font
 
 
-def update_existing_image(fname, new_img):
+def update_existing_image(fname, new_img,
+                          fill_value=DEFAULT_SECTION_VALUES['fill_value']):
     '''Read image from fname, if present, and update valid data (= not
-    black) from img_in.  Return updated image as PIL image.
+    fill_value or masked by alpha channel) from img_in.  Return updated image
+    as PIL image.
     '''
 
-    new_img_mode = new_img.mode
     try:
-        old_img = Image.open(fname)
+        # Read existing image, use .copy() to ensure the image is readable
+        old_img = Image.open(fname).copy()
     except IOError:
         return new_img
 
-    if new_img_mode == 'LA':
-        old_img = np.array(old_img.convert('RGBA'))
-        old_img = np.dstack((old_img[:, :, 0], old_img[:, :, -1]))
-        new_img = np.array(new_img.convert('RGBA'))
-        new_img = np.dstack((new_img[:, :, 0], new_img[:, :, -1]))
-    else:
-        old_img = np.array(old_img.convert(new_img_mode))
-        new_img = np.array(new_img)
+    old_img_mode = old_img.mode
+    old_img = np.array(old_img)
+    new_img_mode = new_img.mode
+    new_img = np.array(new_img)
 
-    ndims = old_img.shape
-    logging.debug("Image dimensions: old_img: %s, new_img: %s", str(ndims),
+    # Use alpha channel if available
+    if 'A' in new_img_mode:
+        mask = new_img[:, :, -1] > 0
+    else:
+        # Single channel images
+        if new_img_mode == 'L':
+            mask = np.invert(new_img == fill_value[0])
+        # RGB images, fill_value needs to be 3-tuple
+        else:
+            mask = (np.invert(new_img[:, :, 0] == fill_value[0]) &
+                    np.invert(new_img[:, :, 1] == fill_value[1]) &
+                    np.invert(new_img[:, :, 2] == fill_value[2]))
+
+    shape = old_img.shape
+    logging.debug("Image dimensions: old_img: %s, new_img: %s", str(shape),
                   str(new_img.shape))
-    if len(ndims) > 1:
-        mask = np.max(new_img, -1) > 0
-        for i in range(ndims[-1]):
+
+    if len(shape) > 2:
+        for i in range(shape[-1]):
             old_img[mask, i] = new_img[mask, i]
     else:
-        mask = new_img > 0
         old_img[mask] = new_img[mask]
 
-    return Image.fromarray(old_img, mode=new_img_mode)
+    return Image.fromarray(old_img, mode=old_img_mode)
 
 
 def read_image(filepath):
