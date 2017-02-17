@@ -73,16 +73,19 @@ class TestImageScaler(unittest.TestCase):
         self.assertIsNone(res.area)
         tslot = dt.datetime(2017, 2, 7, 12, 0)
         res = sca._pil_to_geoimage(self.img_la.copy(), None, tslot,
-                                   fill_value=42)
+                                   fill_value=(42,))
         self.assertEqual(res.mode, 'LA')
-        self.assertTrue(res.fill_value[0] == 42)
+        self.assertIsNone(res.fill_value)
         self.assertEqual(res.time_slot, tslot)
         res = sca._pil_to_geoimage(self.img_rgb.copy(), None, None,
-                                   fill_value=42)
+                                   fill_value=(42, 42, 42))
+        for i in range(3):
+            self.assertTrue(res.fill_value[i], 42)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_geoimage(self.img_rgba.copy(), None, None,
-                                   fill_value=42)
+                                   fill_value=(42, 42, 42))
         self.assertEqual(res.mode, 'RGBA')
+        self.assertIsNone(res.fill_value)
 
     def test_save_image(self):
         out_dir = tempfile.gettempdir()
@@ -246,13 +249,69 @@ class TestImageScaler(unittest.TestCase):
         # Replace part of the alpha channel with zeros, so that no all of the
         # image is updated
         data[0, :] *= 0
-        new_img = Image.fromarray(np.dstack((data, data, data, data)),
-                                  mode='RGBA')
+        data_stack = np.dstack((data, data, data, data))
+        new_img = Image.fromarray(data_stack, mode='RGBA')
         res = sca.update_existing_image(fname, new_img)
         res = np.array(res)
         self.assertTrue(np.all(res[1:, :, :] == 255))
-        self.assertTrue(np.all(res[0, :, :] ==
-                               np.array(self.img_rgba)[0, :, :]))
+        self.assertTrue(np.all(res[0, :, :-1] ==
+                               np.array(self.img_rgba)[0, :, :-1]))
+
+        # Update L with L
+        sca.save_image(self.img_l.copy(), fname)
+        res = sca.update_existing_image(fname, self.img_l.copy())
+        self.assertTrue(res.mode == 'L')
+        # Update L with LA
+        res = sca.update_existing_image(fname, self.img_la.copy())
+        self.assertTrue(res.mode == 'LA')
+        # Update L with RGB
+        res = sca.update_existing_image(fname, self.img_rgb.copy())
+        self.assertTrue(res.mode == 'RGB')
+        # Update L with RGBA
+        res = sca.update_existing_image(fname, self.img_rgba.copy())
+        self.assertTrue(res.mode == 'RGBA')
+
+        # Update LA with L
+        sca.save_image(self.img_la.copy(), fname)
+        res = sca.update_existing_image(fname, self.img_l.copy())
+        self.assertTrue(res.mode == 'L')
+        # Update LA with LA
+        res = sca.update_existing_image(fname, self.img_la.copy())
+        self.assertTrue(res.mode == 'LA')
+        # Update LA with RGB
+        res = sca.update_existing_image(fname, self.img_rgb.copy())
+        self.assertTrue(res.mode == 'RGB')
+        # Update LA with RGBA
+        res = sca.update_existing_image(fname, self.img_rgba.copy())
+        self.assertTrue(res.mode == 'RGBA')
+
+        # Update RGB with L
+        sca.save_image(self.img_rgb.copy(), fname)
+        res = sca.update_existing_image(fname, self.img_l.copy())
+        self.assertTrue(res.mode == 'L')
+        # Update RGB with LA
+        res = sca.update_existing_image(fname, self.img_la.copy())
+        self.assertTrue(res.mode == 'LA')
+        # Update RGB with RGB
+        res = sca.update_existing_image(fname, self.img_rgb.copy())
+        self.assertTrue(res.mode == 'RGB')
+        # Update RGB with RGBA
+        res = sca.update_existing_image(fname, self.img_rgba.copy())
+        self.assertTrue(res.mode == 'RGBA')
+
+        # Update RGBA with L
+        sca.save_image(self.img_rgba.copy(), fname)
+        res = sca.update_existing_image(fname, self.img_l.copy())
+        self.assertTrue(res.mode == 'L')
+        # Update RGBA with LA
+        res = sca.update_existing_image(fname, self.img_la.copy())
+        self.assertTrue(res.mode == 'LA')
+        # Update RGBA with RGB
+        res = sca.update_existing_image(fname, self.img_rgb.copy())
+        self.assertTrue(res.mode == 'RGB')
+        # Update RGBA with RGBA
+        res = sca.update_existing_image(fname, self.img_rgba.copy())
+        self.assertTrue(res.mode == 'RGBA')
 
     def test_add_image_as_overlay(self):
         res = sca.add_image_as_overlay(self.img_l.copy(), self.img_rgba)
