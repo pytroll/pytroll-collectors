@@ -572,24 +572,23 @@ def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
     """Convert PIL image to GeoImage"""
     # Get image mode, widht and height
     mode = img.mode
-    width = img.width
-    height = img.height
 
     # TODO: handle other than 8-bit images
     max_val = 255.
     # Convert to Numpy array
-    img = np.array(img.getdata()).astype(np.float32)
-    img = img.reshape((height, width, len(mode)))
+    img = np.array(img, dtype=np.float32)
 
     chans = []
     # TODO: handle P image mode
     if mode == 'L':
         chans.append(np.squeeze(img) / max_val)
     else:
-        if mode.endswith('A'):
-            mask = img[:, :, -1]
+        if 'A' in mode:
+            mask = img[:, :, -1] == 0
+            fill_value = None
         else:
             mask = False
+
         for i in range(len(mode)):
             chans.append(np.ma.masked_where(mask, img[:, :, i] / max_val))
 
@@ -782,7 +781,6 @@ def update_existing_image(fname, new_img,
     except IOError:
         return new_img
 
-    old_img_mode = old_img.mode
     old_img = np.array(old_img)
     new_img_mode = new_img.mode
     new_img = np.array(new_img)
@@ -796,21 +794,31 @@ def update_existing_image(fname, new_img,
             mask = np.invert(new_img == fill_value[0])
         # RGB images, fill_value needs to be 3-tuple
         else:
-            mask = (np.invert(new_img[:, :, 0] == fill_value[0]) &
-                    np.invert(new_img[:, :, 1] == fill_value[1]) &
-                    np.invert(new_img[:, :, 2] == fill_value[2]))
+            mask = np.invert(_get_fill_mask(new_img, fill_value))
 
-    shape = old_img.shape
-    logging.debug("Image dimensions: old_img: %s, new_img: %s", str(shape),
-                  str(new_img.shape))
+    new_shape = new_img.shape
+    logging.debug("Image dimensions: old_img: %s, new_img: %s",
+                  str(old_img.shape), str(new_shape))
 
-    if len(shape) > 2:
-        for i in range(shape[-1]):
+    if len(new_shape) > 2:
+        if old_img.ndim == 2:
+            # Add "channel" dimension to output image and copy the existing
+            # data to non-alpha channels
+            old_img = _add_channels(old_img, new_img_mode)
+        if 'A' in new_img_mode:
+            logging.debug("Set alpha channel to output image")
+            old_img[:, :, -1] = 255
+            # Set fill_value areas in the alpha channel as transparent
+            old_img[_get_fill_mask(old_img, fill_value), -1] = 0
+        elif old_img.shape[-1] > new_shape[-1]:
+            logging.debug("Removing alpha channel from output image")
+            old_img = old_img[:, :, :-1]
+        for i in range(new_shape[-1]):
             old_img[mask, i] = new_img[mask, i]
     else:
         old_img[mask] = new_img[mask]
 
-    return Image.fromarray(old_img, mode=old_img_mode)
+    return Image.fromarray(old_img, mode=new_img_mode)
 
 
 def read_image(filepath):
@@ -859,3 +867,17 @@ def adjust_pattern_time_name(pattern, time_name):
                                               '{' + time_name)
                 logging.debug("... to '%s'", pattern)
     return pattern
+
+
+def _get_fill_mask(img, fill_value):
+    """Get mask where channels equal the fill value for that channel"""
+    return ((img[:, :, 0] == fill_value[0]) &
+            (img[:, :, 1] == fill_value[1]) &
+            (img[:, :, 2] == fill_value[2]))
+
+
+def _add_channels(img, mode):
+    img = np.expand_dims(img, -1)
+    for i in range(len(mode) - img.shape[-1]):
+        img = np.dstack((img, img[:, :, 0]))
+    return img
