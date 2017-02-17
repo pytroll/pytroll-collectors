@@ -572,11 +572,14 @@ def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
     """Convert PIL image to GeoImage"""
     # Get image mode, widht and height
     mode = img.mode
+    width = img.width
+    height = img.height
 
     # TODO: handle other than 8-bit images
     max_val = 255.
     # Convert to Numpy array
-    img = np.array(img, dtype=np.float32)
+    img = np.array(img.getdata()).astype(np.float32)
+    img = img.reshape((height, width, len(mode)))
 
     chans = []
     # TODO: handle P image mode
@@ -780,43 +783,32 @@ def update_existing_image(fname, new_img,
         old_img = Image.open(fname).copy()
     except IOError:
         return new_img
-
-    old_img = np.array(old_img)
+    height = old_img.height
+    width = old_img.width
+    old_img_mode = old_img.mode
+    old_img = np.array(
+        old_img.getdata(), dtype=np.uint8).reshape((height, width,
+                                                    len(old_img_mode)))
     new_img_mode = new_img.mode
-    new_img = np.array(new_img)
 
-    # Use alpha channel if available
-    if 'A' in new_img_mode:
-        mask = new_img[:, :, -1] > 0
-    else:
-        # Single channel images
-        if new_img_mode == 'L':
-            mask = np.invert(new_img == fill_value[0])
-        # RGB images, fill_value needs to be 3-tuple
-        else:
-            mask = np.invert(_get_fill_mask(new_img, fill_value))
+    try:
+        new_img = np.array(new_img.getdata(),
+                           dtype=np.uint8).reshape((height, width,
+                                                    len(new_img_mode)))
+    except ValueError:
+        logging.warning("Image are different sizes, using new image")
+        return new_img
 
-    new_shape = new_img.shape
     logging.debug("Image dimensions: old_img: %s, new_img: %s",
-                  str(old_img.shape), str(new_shape))
+                  str(old_img.shape), str(new_img.shape))
 
-    if len(new_shape) > 2:
-        if old_img.ndim == 2:
-            # Add "channel" dimension to output image and copy the existing
-            # data to non-alpha channels
-            old_img = _add_channels(old_img, new_img_mode)
-        if 'A' in new_img_mode:
-            logging.debug("Set alpha channel to output image")
-            old_img[:, :, -1] = 255
-            # Set fill_value areas in the alpha channel as transparent
-            old_img[_get_fill_mask(old_img, fill_value), -1] = 0
-        elif old_img.shape[-1] > new_shape[-1]:
-            logging.debug("Removing alpha channel from output image")
-            old_img = old_img[:, :, :-1]
-        for i in range(new_shape[-1]):
-            old_img[mask, i] = new_img[mask, i]
-    else:
-        old_img[mask] = new_img[mask]
+    # Get mask for merging
+    mask = _get_fill_mask(new_img, fill_value, new_img_mode)
+
+    old_img = _prepare_old_img(old_img, old_img_mode, new_img.shape,
+                               new_img_mode, fill_value)
+    old_img = _update_img(old_img, new_img, mask)
+    old_img = _remove_extra_channels(old_img, new_img.shape, new_img_mode)
 
     return Image.fromarray(old_img, mode=new_img_mode)
 
@@ -869,15 +861,73 @@ def adjust_pattern_time_name(pattern, time_name):
     return pattern
 
 
-def _get_fill_mask(img, fill_value):
+def _get_fill_mask(img, fill_value, mode):
     """Get mask where channels equal the fill value for that channel"""
-    return ((img[:, :, 0] == fill_value[0]) &
-            (img[:, :, 1] == fill_value[1]) &
-            (img[:, :, 2] == fill_value[2]))
+    shape = img.shape
+    if len(shape) == 2:
+        mask = img == fill_value[0]
+    # Use alpha channel if available
+    elif 'A' in mode:
+        mask = img[:, :, -1] > 0
+    else:
+        mask = img[:, :, 0] == fill_value[0]
+        if 'A' not in mode:
+            num = min(2, shape[-1])
+            for i in range(1, num):
+                mask &= (img[:, :, i] == fill_value[i])
+
+    # Remove extra dimensions from the mask
+    mask = np.squeeze(mask)
+
+    return mask
 
 
 def _add_channels(img, mode):
-    img = np.expand_dims(img, -1)
+    if len(img.shape) == 2:
+        img = np.expand_dims(img, -1)
     for i in range(len(mode) - img.shape[-1]):
         img = np.dstack((img, img[:, :, 0]))
     return img
+
+
+def _prepare_old_img(old_img, old_img_mode, new_img_shape, new_img_mode,
+                     fill_value):
+    """Prepare old image: expand dimensions, duplicate channels, add mask"""
+    if old_img.ndim == 2:
+        # Add "channel" dimension to output image
+        old_img = np.expand_dims(old_img, -1)
+    if old_img.shape[-1] < new_img_shape[-1]:
+        # Copy the existing data to each channel
+        old_img = _add_channels(old_img, new_img_mode)
+    if 'A' in new_img_mode and 'A' not in old_img_mode:
+        logging.debug("Set alpha channel to output image")
+        old_img[:, :, -1] = 255
+        # Set fill_value areas in the alpha channel as transparent
+        old_img[_get_fill_mask(old_img, fill_value, old_img_mode), -1] = 0
+
+    return old_img
+
+
+def _update_img(old_img, new_img, mask):
+    """Update image where mask is true"""
+    if len(new_img.shape) > 2:
+        # Update the image
+        for i in range(new_img.shape[-1]):
+            old_img[mask, i] = new_img[mask, i]
+    else:
+        old_img[mask] = new_img[mask]
+
+    return old_img
+
+
+def _remove_extra_channels(old_img, new_img_shape, new_img_mode):
+    """Remove extra channels from the image"""
+    if old_img.ndim > 2:
+        while old_img.shape[-1] > new_img_shape[-1]:
+            logging.debug("Removing extra channel from output image")
+            old_img = old_img[:, :, :-1]
+    # Remove empty dimensions
+    if len(new_img_mode) == 1:
+        old_img = np.squeeze(old_img)
+
+    return old_img
