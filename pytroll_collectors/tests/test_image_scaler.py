@@ -243,11 +243,16 @@ class TestImageScaler(unittest.TestCase):
         fname = os.path.join(out_dir, 'img.png')
         sca.save_image(self.img_rgba.copy(), fname)
         data = 255 * np.ones(self.data.shape, dtype=np.uint8)
+        # Replace part of the alpha channel with zeros, so that no all of the
+        # image is updated
+        data[0, :] *= 0
         new_img = Image.fromarray(np.dstack((data, data, data, data)),
                                   mode='RGBA')
         res = sca.update_existing_image(fname, new_img)
-        res = np.array(res.getdata(), dtype=np.uint8)
-        self.assertTrue(np.all(res == 255))
+        res = np.array(res)
+        self.assertTrue(np.all(res[1:, :, :] == 255))
+        self.assertTrue(np.all(res[0, :, :] ==
+                               np.array(self.img_rgba)[0, :, :]))
 
     def test_add_image_as_overlay(self):
         res = sca.add_image_as_overlay(self.img_l.copy(), self.img_rgba)
