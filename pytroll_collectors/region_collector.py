@@ -72,6 +72,11 @@ class RegionCollector(object):
         platform = granule_metadata['platform_name']
 
         start_time = granule_metadata['start_time']
+        if ("end_time" not in granule_metadata and
+            self.granule_duration is not None):
+            granule_metadata["end_time"] = (granule_metadata["start_time"] +
+                                            self.granule_duration)
+
         end_time = granule_metadata['end_time']
 
         if start_time > end_time:
