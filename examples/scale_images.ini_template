@@ -49,7 +49,7 @@ static_image_fname_pattern = latest_polar_data_combo-{composite}-{areaname}.png
 
 # Name of pycoast overlay configuration file, with full path.
 # Overlays are added to the image that is READ, BEFORE any scaling/cropping
-# /path/to/overlay/pycoast_euro4_overlay_config.ini
+# overlay_config_fname = /path/to/overlay/pycoast_euro4_overlay_config.ini
 
 # Text pattern to be written on the image (default: no text)
 # Text is added as last operation
