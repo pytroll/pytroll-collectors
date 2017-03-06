@@ -32,6 +32,7 @@ import Queue
 import time
 from collections import OrderedDict
 from ConfigParser import NoOptionError, RawConfigParser
+from urlparse import urlparse, urlunparse
 
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer
@@ -350,6 +351,27 @@ class SegmentGatherer(object):
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
             self._init_data(metadata)
+            slot = self.slots[time_slot]
+            to_add = []
+            for filename in slot['all_files']:
+                if filename == msg.data['uid']:
+                    continue
+                url = urlparse(msg.data['uri'])
+                path = os.path.join(os.path.dirname(url.path), filename)
+                if not os.path.exists(path):
+                    continue
+                new_url = list(url)
+                new_url[2] = path
+                uri = urlunparse(new_url)
+
+                slot['metadata']['dataset'].append({'uri': uri,
+                                                    'uid': filename})
+                to_add.append(filename)
+
+            slot['received_files'].update(to_add)
+            if to_add:
+                self.logger.debug("Some files were already received %s",
+                                  str(to_add))
 
         slot = self.slots[time_slot]
 
