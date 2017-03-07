@@ -178,6 +178,7 @@ class ImageScaler(object):
                 logging.info("Filepattern doesn't match, skipping.")
                 continue
             self.fileparts['areaname'] = self.areaname
+            self._tidy_platform_name()
 
             self.time_slot = msg.data[self.time_name]
             existing_fname_parts = \
@@ -309,7 +310,6 @@ class ImageScaler(object):
         self._parse_crops()
         self._parse_sizes()
         self._parse_tags()
-        self._tidy_platform_name()
         self._get_text_settings()
 
         # Get image save options
