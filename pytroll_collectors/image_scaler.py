@@ -817,7 +817,7 @@ def update_existing_image(fname, new_img,
 def read_image(filepath):
     """Read the image from *filepath* and return it as PIL image."""
     if filepath.lower().endswith(('.tif', '.tiff')):
-        img = Image.fromarray(imread(filepath))
+        return Image.fromarray(imread(filepath))
     else:
         return Image.open(filepath)
 
