@@ -37,6 +37,7 @@ from pycoast import ContourWriter
 from trollsift import parse, compose
 from trollsift.parser import _extract_parsedef as extract_parsedef
 from mpop.projector import get_area_def
+from mpop.imageo.formats.tifffile import imread
 
 try:
     from mpop.imageo.geo_image import GeoImage
@@ -815,7 +816,10 @@ def update_existing_image(fname, new_img,
 
 def read_image(filepath):
     """Read the image from *filepath* and return it as PIL image."""
-    return Image.open(filepath)
+    if filepath.lower().endswith(('.tif', '.tiff')):
+        return imread(filepath)
+    else:
+        return Image.open(filepath)
 
 
 def add_image_as_overlay(img, overlay):
