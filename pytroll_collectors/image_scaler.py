@@ -435,7 +435,10 @@ class ImageScaler(object):
         check_start_time = start_time - \
             dt.timedelta(minutes=self.timeliness)
         check_dict = self.fileparts.copy()
-        check_dict["tag"] = self.tags[0]
+        try:
+            check_dict["tag"] = self.tags[0]
+        except IndexError:
+            pass
         if self.is_backup:
             check_dict["platform_name"] = '*'
             check_dict["sat_loc"] = '*'
