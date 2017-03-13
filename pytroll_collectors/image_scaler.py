@@ -368,12 +368,12 @@ class ImageScaler(object):
             self.out_pattern = self.config.get(self.subject, 'out_pattern')
         except NoOptionError:
             logging.error("Required option missing!")
-            logging.error("Check that 'areaname', 'in_pattern' and " +
-                          "'out_pattern' are all defined under section " +
+            logging.error("Check that 'areaname', 'in_pattern' and "
+                          "'out_pattern' are all defined under section %s",
                           self.subject)
             raise KeyError("Required config item missing")
         except NoSectionError:
-            logging.error("No config section for message subject " +
+            logging.error("No config section for message subject %s",
                           self.subject)
             raise KeyError("Missing config section")
 
