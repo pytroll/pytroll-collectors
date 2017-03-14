@@ -447,7 +447,8 @@ class ImageScaler(object):
         first_overpass = True
         update_fname_parts = {}
         for i in range(2 * self.timeliness + 1):
-            check_dict['time'] = check_start_time + dt.timedelta(minutes=i)
+            check_dict[self.time_name] = \
+                check_start_time + dt.timedelta(minutes=i)
             glob_pattern = compose(os.path.join(self.out_dir,
                                                 self.out_pattern),
                                    check_dict)
