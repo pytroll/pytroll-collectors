@@ -442,7 +442,7 @@ class ImageScaler(object):
         if self.is_backup:
             check_dict["platform_name"] = '*'
             check_dict["sat_loc"] = '*'
-        # check_dict["composite"] = '*'
+        check_dict["composite"] = '*'
 
         first_overpass = True
         update_fname_parts = {}
