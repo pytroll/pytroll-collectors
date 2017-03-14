@@ -451,6 +451,7 @@ class ImageScaler(object):
             glob_pattern = compose(os.path.join(self.out_dir,
                                                 self.out_pattern),
                                    check_dict)
+            logging.debug("Check pattern: %s", glob_pattern)
             glob_fnames = glob.glob(glob_pattern)
             if len(glob_fnames) > 0:
                 fname = os.path.basename(glob_fnames[0])
