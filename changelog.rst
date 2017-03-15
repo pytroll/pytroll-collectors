@@ -1,6 +1,289 @@
 Changelog
 =========
 
+v0.4.0 (2017-03-15)
+-------------------
+
+- Update changelog. [Panu Lahtinen]
+
+- Bump version: 0.3.0 → 0.4.0. [Panu Lahtinen]
+
+- Use self.time_name when checking for existing files. [Panu Lahtinen]
+
+- Add log message with check pattern. [Panu Lahtinen]
+
+- Set composite as wildcard when searching for existing files. [Panu
+  Lahtinen]
+
+- PEP8 logging syntax. [Panu Lahtinen]
+
+- Handle missing 'tags' [Panu Lahtinen]
+
+- Add return which was missing. [Panu Lahtinen]
+
+- Convert read TIFF image to PIL image object. [Panu Lahtinen]
+
+- Use mpop.imageo.formats.tifffile.imread() to read TIFF images. [Panu
+  Lahtinen]
+
+- Move call to _tidy_platform_name() to correct place. [Panu Lahtinen]
+
+- Add missing parameter name. [Panu Lahtinen]
+
+- Set execute bit. [Panu Lahtinen]
+
+- Merge pull request #2 from pytroll/feature_scale_image. [Panu
+  Lahtinen]
+
+  Feature scale image
+
+- Fix updating existing image, split parts to new functions. [Panu
+  Lahtinen]
+
+  - use the mode of the new image
+  - fix masking
+  - use fill_value to create values for new alpha channel for the old image
+    if mode changes from L to LA or from L or RGB to RGBA
+  - add enough channels if the existing image had fewer than the new one
+  - remove "obsolete" channels if channel number is reduced
+
+
+- Test all combinations of updating L, LA, RGB and RGBA images. [Panu
+  Lahtinen]
+
+- Fix updating existing image. [Panu Lahtinen]
+
+  - use the mode of the new image
+  - fix masking
+  - add enough channels if the existing image had fewer than the new one
+  - use fill_value to create values for new alpha channel if mode changes
+    from L to LA or from L or RGB to RGBA
+
+
+- Enhance test_update_existing_image. [Panu Lahtinen]
+
+- Fix and adjust many things. [Panu Lahtinen]
+
+  - fix image updating
+  - change static_image_fname to static_image_fname_pattern
+  - use tuples as fill_value
+  - fix filename composing
+  - fix reading fill_value, compression and blocksize from config
+
+
+- Use assertIsNone(), fix fill_values. [Panu Lahtinen]
+
+- Adjust static image option name, fix default of fill_value. [Panu
+  Lahtinen]
+
+- Add checks for area definition availability. [Panu Lahtinen]
+
+- Add new config options. [Panu Lahtinen]
+
+- Fix time_name handling, expose more settings, fix saving. [Panu
+  Lahtinen]
+
+   - add save settings
+   - find the correct name for the "nominal time"
+   - adjust in_pattern and out_pattern to use the same time_name as incoming
+     message
+   - use save_image instead of direct img.save()
+
+
+- Add check for GSHHS_DATA_ROOT environment variable. [Panu Lahtinen]
+
+- Add pycoast as requirement. [Panu Lahtinen]
+
+- Install pycoast. [Panu Lahtinen]
+
+- Remove obsolete config, add TODO. [Panu Lahtinen]
+
+- Install Pillow and trollsift. [Panu Lahtinen]
+
+- Add example config for scale_images.py. [Panu Lahtinen]
+
+- Copy image before modifying, catch AttributeError when reading fonts.
+  [Panu Lahtinen]
+
+- Fix looping in save_images, don't join out_dir and out_pattern when
+  reading config, fix _check_existing() [Panu Lahtinen]
+
+- Fix filenames, parse from basename, more tests for ImageScaler class.
+  [Panu Lahtinen]
+
+- Import test_image_scaler. [Panu Lahtinen]
+
+- Fix out_patterns. [Panu Lahtinen]
+
+- Add an empty image for testing ImageScaler. [Panu Lahtinen]
+
+- Change file patterns and areaname. [Panu Lahtinen]
+
+- Require postroll 1.3.0 or later. [Panu Lahtinen]
+
+- Fix existing_fname_parts, fix listener queue name, fix in_pattern.
+  [Panu Lahtinen]
+
+- Add more test requirements. [Panu Lahtinen]
+
+- Add tests for ImageScaler class. [Panu Lahtinen]
+
+- Add another section for testing crops/sizes/tags. [Panu Lahtinen]
+
+- Add better filename patterns. [Panu Lahtinen]
+
+- Remove unnecessary self.subject arguments, adjust raised errors. [Panu
+  Lahtinen]
+
+- Move public methods before privates. [Panu Lahtinen]
+
+- Add section for testing ImageScaler class. [Panu Lahtinen]
+
+- Fix _get_bool(), fix config item names. [Panu Lahtinen]
+
+- Add a function to get config value with a default value as backup.
+  [Panu Lahtinen]
+
+- Remove unused comment. [Panu Lahtinen]
+
+- Update TODO. [Panu Lahtinen]
+
+- Change text_location to differenve value as default. [Panu Lahtinen]
+
+- Read defaults from the module. [Panu Lahtinen]
+
+- Change values so that they are not the same as defaults. [Panu
+  Lahtinen]
+
+- Continue refactoring. [Panu Lahtinen]
+
+  - add default values for config items in a dict
+  - remove many try-excepts
+  - handle mandatory config items in a method
+  - move parsing of crops, sizes and tags to methods
+  - rename "use_platform_name_hack" to "tidy_platform_name" and make it a method
+  - use default dictionary for _get_text_settings()
+  - replace config.getint() with int(config.get())
+  - replace config.getbool() with own method
+
+
+- Fix "font" to "font_name" [Panu Lahtinen]
+
+- Add tests for read_image() and update_existing_image() [Panu Lahtinen]
+
+- Use copies of the images, add tests for add_image_as_overlay. [Panu
+  Lahtinen]
+
+- Check overlay validitu, raise ValueError for invalid, handle error.
+  [Panu Lahtinen]
+
+- Add tests for adjust_img_mode_for_text(), add placeholder tests for
+  untested functions. [Panu Lahtinen]
+
+- Fix test name, fix correct value. [Panu Lahtinen]
+
+- Add more tests for different text/bg color settings. [Panu Lahtinen]
+
+- Shorten lines. [Panu Lahtinen]
+
+- Convert to RGB(A) only if text color dictates so. [Panu Lahtinen]
+
+- Remove unnecessary if-elses, as bg_extra_width defaults to 0 not None.
+  [Panu Lahtinen]
+
+- Add tests for text and background color box locations. [Panu Lahtinen]
+
+- Move text location calculation to separate functions. [Panu Lahtinen]
+
+- Add test for _is_rgb_color. [Panu Lahtinen]
+
+- Add a function to convert image mode suitable for the text. [Panu
+  Lahtinen]
+
+- Add test for _get_font() [Panu Lahtinen]
+
+- Make a function to get font. [Panu Lahtinen]
+
+- Add config parser and tests for _get_text_settings() and _add_text()
+  [Panu Lahtinen]
+
+- Change default value from None to 0. [Panu Lahtinen]
+
+- Add config file with text related test settings. [Panu Lahtinen]
+
+- Add static font that can be used in tests. [Panu Lahtinen]
+
+- Move saving of staticly named images to a function. [Panu Lahtinen]
+
+- Rename latest_composite_image to static_image_fname. [Panu Lahtinen]
+
+- Remove exception handling, add filename as kwarg to
+  self._update_existing_img() [Panu Lahtinen]
+
+- Add text based on the image type, use single save command. [Panu
+  Lahtinen]
+
+- Add interface funtion self._add_text() to add_text() [Panu Lahtinen]
+
+- Move updating of existing image to self._update_existing_img() [Panu
+  Lahtinen]
+
+- Add unit tests for resize_image() [Panu Lahtinen]
+
+- Move image resizing to a separate function. [Panu Lahtinen]
+
+- Add tests for crop_image() [Panu Lahtinen]
+
+- Check crop limits, fix name of the returned image. [Panu Lahtinen]
+
+- Move image crop to a separate function. [Panu Lahtinen]
+
+- Add tests for save_image() [Panu Lahtinen]
+
+- Convert only to GeoImage if adef and time_slot are given. [Panu
+  Lahtinen]
+
+- Add first unittests for those functions that are more or less
+  finalized. [Panu Lahtinen]
+
+- Refactor. [Panu Lahtinen]
+
+  - move config items to class attributes
+  - split run() to several smaller functions
+
+
+- Move shape file environment variable to image_scaler.py. [Panu
+  Lahtinen]
+
+- Add tests for image_scaler. [Panu Lahtinen]
+
+- Move functionality to pytroll_collectors.image_scaler. [Panu Lahtinen]
+
+- Initial commit for the library part of scale_images. [Panu Lahtinen]
+
+- Initial version of image scaler. [Panu Lahtinen]
+
+- Merge pull request #1 from TAlonglong/develop. [Panu Lahtinen]
+
+  bin/cat.py if publish_topic is given in config, replace topic
+
+- Bin/segment_gatherer.py remove diff newline. [Trygve Aspenes]
+
+- Bin/segment_gatherer.py Go back to similar handleing as original.
+  [Trygve Aspenes]
+
+- Bin/segment_gatherer.py dont need the msg handeling here as it is
+  already done. [Trygve Aspenes]
+
+- Fixed conflict. [Trygve Aspenes]
+
+- Bin/segment_gatherer.py fixed _init... and process to avoid
+  overwriting end_time with data parsed anew from filename. [Trygve
+  Aspenes]
+
+- Bin/cat.py if publish_topic is given in config, replace topic. [Trygve
+  Aspenes]
+
 v0.3.0 (2017-01-18)
 -------------------
 
