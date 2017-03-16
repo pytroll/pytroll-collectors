@@ -58,6 +58,10 @@ text_pattern = {time:%Y%m%d %H:%M}
 # Use this value as fill_value for the images (default: 0)
 # fill_value = 0
 
+# Garbage collection can be forced after each received item to free memory
+# Defaults to False if not given
+# force_gc = True
+
 ### Text settings
 
 # Text location in image, valid combinations are:
