@@ -6,6 +6,7 @@ import logging
 import logging.handlers
 import datetime as dt
 import Queue
+import gc
 
 try:
     import scipy.ndimage as ndi
@@ -181,6 +182,9 @@ class WorldCompositeDaemon(object):
 
             if msg.type == "file":
                 self._handle_message(msg)
+
+            num = gc.collect()
+            self.logger("%d objects garbage collected", num)
 
     def _handle_message(self, msg):
         """Insert file from the message to correct time slot and composite"""
