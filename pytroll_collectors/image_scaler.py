@@ -28,9 +28,9 @@ import logging.config
 import datetime as dt
 import glob
 from urlparse import urlparse
-
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+import gc
 
 from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
@@ -63,7 +63,8 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'area_def': None,
                           'overlay_config_fname': None,
                           'out_dir': '',
-                          'fill_value': (0, 0, 0)
+                          'fill_value': (0, 0, 0),
+                          'force_gc': False
                           }
 
 # Default text settings
@@ -128,6 +129,7 @@ class ImageScaler(object):
             self._cw = ContourWriter(GSHHS_DATA_ROOT)
         else:
             self._cw = None
+        self._force_gc = False
 
     def stop(self):
         '''Stop scaler before shutting down.'''
@@ -199,6 +201,15 @@ class ImageScaler(object):
 
             # Save image(s)
             self.save_images(img)
+
+            # Run garbage collection if configured
+            self._gc()
+
+    def _gc(self):
+        """Run garbage collection if it is configured."""
+        if self._force_gc:
+            num = gc.collect()
+            logging.debug("Garbage collection cleaned %s objects", num)
 
     def _get_time_name(self, info):
         """"Try to find the name for 'nominal' time"""
@@ -331,6 +342,7 @@ class ImageScaler(object):
 
         self.overlay_config = \
             self._get_conf_with_default('overlay_config_fname')
+        self._force_gc = self._get_bool('force_gc')
 
     def _get_conf_with_default(self, item):
         """Get a config item and use a default if no value is available"""
