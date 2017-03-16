@@ -273,13 +273,16 @@ class WorldCompositeDaemon(object):
                     img = read_image(fname_out, slot,
                                      self.adef.area_id)
                     if img:
-                        self.logger.info("Read existing image: %s", fname_out)
+                        self.logger.info("Existing image was read: %s",
+                                         fname_out)
 
+                    self.logger.info("Creating composite")
                     img = create_world_composite(fnames,
                                                  slot,
                                                  self.adef,
                                                  lon_limits,
                                                  blend=blend, img=img)
+
                     self.logger.info("Saving %s", fname_out)
                     img.save(fname_out, compression=compression,
                              tags=tags, fformat=fformat,
