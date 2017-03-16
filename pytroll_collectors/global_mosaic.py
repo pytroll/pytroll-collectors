@@ -76,14 +76,16 @@ def read_image(fname, tslot, adef, lon_limits=None):
 
 
 def create_world_composite(fnames, tslot, adef, sat_limits,
-                           blend=None, img=None):
+                           blend=None, img=None, logger=logging):
     """Create world composite from files *fnames*"""
     for fname in fnames:
+        logger.info("Reading image %s", fname)
         next_img = read_image(fname, tslot, adef, sat_limits)
 
         if img is None:
             img = next_img
         else:
+            logger.debug("Creating mask")
             img_mask = reduce(np.ma.mask_or,
                               [chn.mask for chn in img.channels])
             next_img_mask = reduce(np.ma.mask_or,
@@ -92,6 +94,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             chmask = np.logical_and(img_mask, next_img_mask)
 
             if blend and ndi:
+                logger.debug("Creating blend mask")
                 scaled_erosion_size = \
                     blend["erosion_width"] * (float(img.width) / 1000.0)
                 scaled_smooth_width = \
@@ -108,6 +111,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
             for i in range(3):
+                logger.debug("Merging channel %d", i)
                 if blend and ndi:
                     if blend["scale"]:
                         chmask2 = np.invert(chmask)
@@ -281,7 +285,9 @@ class WorldCompositeDaemon(object):
                                                  slot,
                                                  self.adef,
                                                  lon_limits,
-                                                 blend=blend, img=img)
+                                                 blend=blend,
+                                                 img=img,
+                                                 logger=self.logger)
 
                     self.logger.info("Saving %s", fname_out)
                     img.save(fname_out, compression=compression,
