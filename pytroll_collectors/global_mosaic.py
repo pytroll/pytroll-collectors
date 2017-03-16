@@ -184,7 +184,7 @@ class WorldCompositeDaemon(object):
                 self._handle_message(msg)
 
             num = gc.collect()
-            self.logger("%d objects garbage collected", num)
+            self.logger.info("%d objects garbage collected", num)
 
     def _handle_message(self, msg):
         """Insert file from the message to correct time slot and composite"""
