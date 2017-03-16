@@ -202,6 +202,9 @@ class ImageScaler(object):
             # Save image(s)
             self.save_images(img)
 
+            # Delete obsolete image object
+            del img
+
             # Run garbage collection if configured
             self._gc()
 
