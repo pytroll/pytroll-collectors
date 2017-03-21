@@ -308,8 +308,10 @@ class WorldCompositeDaemon(object):
                              tags=tags, fformat=fformat,
                              gdal_options=gdal_options,
                              blocksize=blocksize)
-                    utils.send_message(topic, "file", file_parts,
-                                       nameservers=nameservers, port=port)
+                    msg = utils.send_message(topic, "file", file_parts,
+                                             nameservers=nameservers,
+                                             port=port)
+                    self.logger.info("Sent message: %s", str(msg))
                     del self.slots[slot][composite]
                     del img
                     img = None

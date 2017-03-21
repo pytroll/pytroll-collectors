@@ -13,3 +13,4 @@ def send_message(topic, msg_type, msg_data, nameservers=None, port=0):
                  nameservers=nameservers) as pub:
         msg = Message(topic, msg_type, msg_data)
         pub.send(str(msg))
+        return str(msg)
