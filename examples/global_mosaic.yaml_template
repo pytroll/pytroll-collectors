@@ -73,9 +73,9 @@ timeout_epoch: nominal_time
 
 # Message settings
 message_settings:
-  topic = "/global/mosaic/{areaname}"
-  nameservers = null
-  port = 0
+  topic: "/global/mosaic/{areaname}"
+  nameservers: null
+  port: 0
 
 # Log config dictionary
 log_config:
