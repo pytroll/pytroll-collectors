@@ -551,19 +551,18 @@ def resize_image(img, size):
 
 def crop_image(img, crop):
     """Crop the given image"""
-    # Adjust limits so that they don't exceed image dimensions
-    crop = list(crop)
-    if crop[0] < 0:
-        crop[0] = 0
-    if crop[1] < 0:
-        crop[1] = 0
-    if crop[2] > img.size[0]:
-        crop[2] = img.size[0]
-    if crop[3] > img.size[1]:
-        crop[3] = img.size[1]
-
     try:
+        # Adjust limits so that they don't exceed image dimensions
         if crop is not None:
+            crop = list(crop)
+            if crop[0] < 0:
+                crop[0] = 0
+            if crop[1] < 0:
+                crop[1] = 0
+            if crop[2] > img.size[0]:
+                crop[2] = img.size[0]
+            if crop[3] > img.size[1]:
+                crop[3] = img.size[1]
             img_wrk = img.crop(crop)
         else:
             img_wrk = img
