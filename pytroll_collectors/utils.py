@@ -9,7 +9,7 @@ def send_message(topic, msg_type, msg_data, nameservers=None, port=0):
     if not isinstance(nameservers, list):
         nameservers = [nameservers]
 
-    with Publish("trollflow-sat monitor", port=port,
+    with Publish("pytroll-collectors", port=port,
                  nameservers=nameservers) as pub:
         msg = Message(topic, msg_type, msg_data)
         pub.send(str(msg))
