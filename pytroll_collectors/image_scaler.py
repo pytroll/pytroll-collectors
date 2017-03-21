@@ -257,6 +257,7 @@ class ImageScaler(object):
             # Crop the image
             try:
                 img_out = crop_image(img_out, self.crops[i])
+                logging.debug("Applied crop: %s", str(self.crops[i]))
             except IndexError:
                 logging.debug("No valid crops configured")
 
@@ -414,8 +415,10 @@ class ImageScaler(object):
                 # eg. 1000x300+103+200
                 # Origin (0, 0) is at top-left
                 parts = crop.split('+')
-                crop = tuple(map(int, parts[1:]) +
-                             map(int, parts[0].split('x')))
+                left, up = map(int, parts[1:])
+                x_size, y_size = map(int, parts[0].split('x'))
+                right, bottom = left + x_size, up + y_size
+                crop = tuple(left, up, right, bottom)
 
                 self.crops.append(crop)
             else:
