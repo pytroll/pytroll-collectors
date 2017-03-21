@@ -7,6 +7,7 @@ import logging.handlers
 import datetime as dt
 import Queue
 import gc
+import os.path
 
 try:
     import scipy.ndimage as ndi
@@ -18,7 +19,6 @@ from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
 from pytroll_collectors import utils
-from trollsift import compose
 
 # These longitudinally valid ranges are mid-way points calculated from
 # satellite locations assuming the given satellites are in use
@@ -288,6 +288,9 @@ class WorldCompositeDaemon(object):
                     fnames = self.slots[slot][composite]["fnames"]
                     fname_out = compose(self.config["out_pattern"],
                                         file_parts)
+                    file_parts['uri'] = fname_out
+                    file_parts['uid'] = os.path.basename(fname_out)
+
                     # Check if we already have an image with this filename
                     img = read_image(fname_out, slot,
                                      self.adef.area_id)
