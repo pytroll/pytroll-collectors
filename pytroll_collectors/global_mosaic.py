@@ -260,9 +260,9 @@ class WorldCompositeDaemon(object):
 
         # Get message options
         try:
-            topic = \
-                self.config["message_settings"].get("topic",
-                                                    "/global/mosaic/{areaname}")
+            topic = self.config[
+                "message_settings"].get("topic",
+                                        "/global/mosaic/{areaname}")
             nameservers = self.config["message_settings"].get("nameservers",
                                                               None)
             port = self.config["message_settings"].get("port", 0)
