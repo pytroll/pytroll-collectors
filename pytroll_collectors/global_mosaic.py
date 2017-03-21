@@ -18,6 +18,7 @@ from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
 from pytroll_collectors import utils
+from trollsift import compose
 
 # These longitudinally valid ranges are mid-way points calculated from
 # satellite locations assuming the given satellites are in use
@@ -308,7 +309,8 @@ class WorldCompositeDaemon(object):
                              tags=tags, fformat=fformat,
                              gdal_options=gdal_options,
                              blocksize=blocksize)
-                    msg = utils.send_message(topic, "file", file_parts,
+                    msg = utils.send_message(compose(topic, file_parts),
+                                             "file", file_parts,
                                              nameservers=nameservers,
                                              port=port)
                     self.logger.info("Sent message: %s", str(msg))
