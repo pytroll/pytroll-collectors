@@ -17,6 +17,7 @@ from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
+from pytroll_collectors import utils
 
 # These longitudinally valid ranges are mid-way points calculated from
 # satellite locations assuming the given satellites are in use
@@ -257,6 +258,19 @@ class WorldCompositeDaemon(object):
             gdal_options = None
             blocksize = 0
 
+        # Get message options
+        try:
+            topic = \
+                self.config["message_settings"].get("topic",
+                                                    "/global/mosaic/{areaname}")
+            nameservers = self.config["message_settings"].get("nameservers",
+                                                              None)
+            port = self.config["message_settings"].get("port", 0)
+        except KeyError:
+            topic = "/global/mosaic/{areaname}"
+            nameservers = None
+            port = 0
+
         # Check timeouts and completed composites
         check_time = dt.datetime.utcnow()
 
@@ -294,6 +308,8 @@ class WorldCompositeDaemon(object):
                              tags=tags, fformat=fformat,
                              gdal_options=gdal_options,
                              blocksize=blocksize)
+                    utils.send_message(topic, "file", file_parts,
+                                       nameservers=nameservers, port=port)
                     del self.slots[slot][composite]
                     del img
                     img = None
