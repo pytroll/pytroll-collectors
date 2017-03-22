@@ -418,7 +418,7 @@ class ImageScaler(object):
                 left, up = map(int, parts[1:])
                 x_size, y_size = map(int, parts[0].split('x'))
                 right, bottom = left + x_size, up + y_size
-                crop = tuple(left, up, right, bottom)
+                crop = (left, up, right, bottom)
 
                 self.crops.append(crop)
             else:
