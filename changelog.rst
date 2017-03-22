@@ -1,6 +1,67 @@
 Changelog
 =========
 
+v0.5.0 (2017-03-22)
+-------------------
+
+- Update changelog. [Panu Lahtinen]
+
+- Bump version: 0.4.0 → 0.5.0. [Panu Lahtinen]
+
+- Fix crop tuple. [Panu Lahtinen]
+
+- Fix cropping. [Panu Lahtinen]
+
+- Add UID and URI to sent message. [Panu Lahtinen]
+
+- Compose topic. [Panu Lahtinen]
+
+- Log sent message. [Panu Lahtinen]
+
+- Fix format. [Panu Lahtinen]
+
+- PEP8. [Panu Lahtinen]
+
+- Fix publisher name. [Panu Lahtinen]
+
+- Add message settings. [Panu Lahtinen]
+
+- Add message sending for saved global mosaics. [Panu Lahtinen]
+
+- Add function for sending messages. [Panu Lahtinen]
+
+- Merge branch 'develop' of https://github.com/pytroll/pytroll-
+  collectors into develop. [Panu Lahtinen]
+
+- Merge pull request #3 from pytroll/feature-check-local-files. [Panu
+  Lahtinen]
+
+  Check presence of local files when a new slot is initialised in segment-gatherer
+
+- Update timeout when checking segments on disk. [Martin Raspaud]
+
+- Fix setup.cfg to require python-pillow. [Martin Raspaud]
+
+- Add checking for locally received files in segment gatherer. [Martin
+  Raspaud]
+
+- Move crop area adjustment inside None check. [Panu Lahtinen]
+
+- Delete image object after it is not used anymore. [Panu Lahtinen]
+
+- Add option for garbage collection to config example. [Panu Lahtinen]
+
+- Add optional garbage collection to image scaler. [Panu Lahtinen]
+
+- Pass logger to create_world_composite and add log messages. [Panu
+  Lahtinen]
+
+- Clarify log messages. [Panu Lahtinen]
+
+- Fix logger call. [Panu Lahtinen]
+
+- Force garbage collection after each handled message. [Panu Lahtinen]
+
 v0.4.0 (2017-03-15)
 -------------------
 
