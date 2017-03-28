@@ -27,11 +27,14 @@ import sys
 import os
 import time
 import logging
-from ConfigParser import ConfigParser
+try:
+    from ConfigParser import ConfigParser, NoOptionError, NoSectionError
+except ImportError:
+    from configparser import ConfigParser, NoOptionError, NoSectionError
 
 from pytroll_collectors.image_scaler import ImageScaler
 
-# TODO: Move to config file
+# This is a fallback logging config if no config file is found
 LOG_CONFIG = {'version': 1,
               'handlers': {
                   'console':  {
@@ -75,7 +78,11 @@ def main():
     config = ConfigParser()
     config.read(config_file)
 
-    logging.config.dictConfig(LOG_CONFIG)
+    try:
+        log_config_fname = config.get('DEFAULT', 'log_config_fname')
+        logging.config.fileConfig(log_config_fname)
+    except (NoSectionError, NoOptionError):
+        logging.config.dictConfig(LOG_CONFIG)
 
     logging.info("Config read")
 

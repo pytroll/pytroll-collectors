@@ -22,7 +22,10 @@
 import Queue
 import os
 import os.path
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
 import logging
 import logging.config
 import datetime as dt
