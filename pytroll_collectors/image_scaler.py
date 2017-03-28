@@ -196,6 +196,10 @@ class ImageScaler(object):
             # Read the image
             img = read_image(self.filepath)
 
+            if img is None:
+                logging.error("Could not read image %s", self.filepath)
+                continue
+
             # Add overlays, if any
             img = self.add_overlays(img)
 
@@ -839,9 +843,14 @@ def update_existing_image(fname, new_img,
 def read_image(filepath):
     """Read the image from *filepath* and return it as PIL image."""
     if filepath.lower().endswith(('.tif', '.tiff')):
-        return Image.fromarray(imread(filepath))
+        try:
+            img = Image.fromarray(imread(filepath))
+        except ValueError:
+            img = None
     else:
-        return Image.open(filepath)
+        img = Image.open(filepath)
+
+    return img
 
 
 def add_image_as_overlay(img, overlay):
