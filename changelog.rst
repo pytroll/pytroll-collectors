@@ -1,6 +1,19 @@
 Changelog
 =========
 
+v0.5.1 (2017-04-06)
+-------------------
+
+- Update changelog. [Panu Lahtinen]
+
+- Bump version: 0.5.0 → 0.5.1. [Panu Lahtinen]
+
+- Add Python3 configparser, try to get log config from a file. [Panu
+  Lahtinen]
+
+- Handle "ValueError: corrupted page" when reading TIFF images. [Panu
+  Lahtinen]
+
 v0.5.0 (2017-03-22)
 -------------------
 
