@@ -18,7 +18,8 @@ from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
-from pytroll_collectors import utils
+from posttroll.publisher import PublisherContainer
+from posttroll.message import Message
 
 # These longitudinally valid ranges are mid-way points calculated from
 # satellite locations assuming the given satellites are in use
@@ -154,15 +155,28 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 class WorldCompositeDaemon(object):
 
     logger = logging.getLogger(__name__)
+    publish_topic = "/global/mosaic/{areaname}"
+    nameservers = None
+    port = 0
+    aliases = None
+    broadcast_interval = 2
 
     def __init__(self, config):
         self.config = config
         self.slots = {}
+        # Structure of self.slots is:
         # slots = {tslot: {composite: {"img": None,
         #                              "num": 0},
         #                  "timeout": None}}
 
         self._listener = ListenerContainer(topics=config["topics"])
+        self._set_message_settings()
+        self._publisher = \
+            PublisherContainer("WorldCompositePublisher",
+                               port=self.port,
+                               aliases=self.aliases,
+                               broadcast_interval=self.broadcast_interval,
+                               nameservers=self.nameservers)
         self._loop = False
         if isinstance(config["area_def"], str):
             self.adef = get_area_def(config["area_def"])
@@ -191,6 +205,21 @@ class WorldCompositeDaemon(object):
 
             num = gc.collect()
             self.logger.info("%d objects garbage collected", num)
+
+    def _set_message_settings(self):
+        """Set message settings from config"""
+        if "message_settings" not in self.config:
+            return
+
+        self.publish_topic = \
+            self.config["message_settings"].get("publish_topic",
+                                                "/global/mosaic/{areaname}")
+        self.nameservers = \
+            self.config["message_settings"].get("nameservers", None)
+        self.port = self.config["message_settings"].get("port", 0)
+        self.aliases = self.config["message_settings"].get("aliases", None)
+        self.broadcast_interval = \
+            self.config["message_settings"].get("broadcast_interval", 2)
 
     def _handle_message(self, msg):
         """Insert file from the message to correct time slot and composite"""
@@ -259,19 +288,6 @@ class WorldCompositeDaemon(object):
             gdal_options = None
             blocksize = 0
 
-        # Get message options
-        try:
-            topic = self.config[
-                "message_settings"].get("topic",
-                                        "/global/mosaic/{areaname}")
-            nameservers = self.config["message_settings"].get("nameservers",
-                                                              None)
-            port = self.config["message_settings"].get("port", 0)
-        except KeyError:
-            topic = "/global/mosaic/{areaname}"
-            nameservers = None
-            port = 0
-
         # Check timeouts and completed composites
         check_time = dt.datetime.utcnow()
 
@@ -312,11 +328,9 @@ class WorldCompositeDaemon(object):
                              tags=tags, fformat=fformat,
                              gdal_options=gdal_options,
                              blocksize=blocksize)
-                    msg = utils.send_message(compose(topic, file_parts),
-                                             "file", file_parts,
-                                             nameservers=nameservers,
-                                             port=port)
-                    self.logger.info("Sent message: %s", str(msg))
+                    msg = Message(compose(self.publish_topic, file_parts),
+                                  "file", file_parts)
+                    self._publisher.send(msg)
                     del self.slots[slot][composite]
                     del img
                     img = None
@@ -334,6 +348,7 @@ class WorldCompositeDaemon(object):
         """Stop"""
         self.logger.info("Stopping WorldCompositor")
         self._listener.stop()
+        self._publisher.stop()
 
     def set_logger(self, logger):
         """Set logger."""
