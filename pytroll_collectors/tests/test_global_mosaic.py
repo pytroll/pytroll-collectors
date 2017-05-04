@@ -214,6 +214,8 @@ class TestGlobalMosaic(unittest.TestCase):
                 # Remove the file
                 os.remove(config["out_pattern"])
 
+        comp.stop()
+
         # Epoch: file nominal time
         config = {"topics": ["/test"], "area_def": ADEF,
                   "timeout_epoch": "nominal_time", "timeout": 45,
@@ -255,6 +257,8 @@ class TestGlobalMosaic(unittest.TestCase):
         # Remove the file
         os.remove(config["out_pattern"])
 
+        # Stop compositor daemon
+        comp.stop()
         # Stop nameserver
         ns_.stop()
         thr.join()
