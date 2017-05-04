@@ -332,6 +332,7 @@ class WorldCompositeDaemon(object):
                     msg = Message(compose(self.publish_topic, file_parts),
                                   "file", file_parts)
                     self._publisher.send(str(msg))
+                    self.logger.info("Sending message: %s", str(msg))
                     del self.slots[slot][composite]
                     del img
                     img = None
