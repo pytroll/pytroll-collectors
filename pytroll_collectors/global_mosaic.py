@@ -18,7 +18,7 @@ from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
-from posttroll.publisher import PublisherContainer
+from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
 
 # These longitudinally valid ranges are mid-way points calculated from
@@ -172,11 +172,12 @@ class WorldCompositeDaemon(object):
         self._listener = ListenerContainer(topics=config["topics"])
         self._set_message_settings()
         self._publisher = \
-            PublisherContainer("WorldCompositePublisher",
-                               port=self.port,
-                               aliases=self.aliases,
-                               broadcast_interval=self.broadcast_interval,
-                               nameservers=self.nameservers)
+            NoisyPublisher("WorldCompositePublisher",
+                           port=self.port,
+                           aliases=self.aliases,
+                           broadcast_interval=self.broadcast_interval,
+                           nameservers=self.nameservers)
+        self._publisher.start()
         self._loop = False
         if isinstance(config["area_def"], str):
             self.adef = get_area_def(config["area_def"])
@@ -330,7 +331,7 @@ class WorldCompositeDaemon(object):
                              blocksize=blocksize)
                     msg = Message(compose(self.publish_topic, file_parts),
                                   "file", file_parts)
-                    self._publisher.send(msg)
+                    self._publisher.send(str(msg))
                     del self.slots[slot][composite]
                     del img
                     img = None
