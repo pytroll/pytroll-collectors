@@ -192,7 +192,7 @@ class ImageScaler(object):
 
             # There is already a matching image which isn't going to
             # be updated
-            if self.existing_fname_parts is None:
+            if existing_fname_parts is None:
                 continue
             self.existing_fname_parts = existing_fname_parts
 
@@ -467,7 +467,7 @@ class ImageScaler(object):
         if self.is_backup:
             check_dict["platform_name"] = '*'
             check_dict["sat_loc"] = '*'
-        check_dict["composite"] = '*'
+        # check_dict["composite"] = '*'
 
         first_overpass = True
         update_fname_parts = {}

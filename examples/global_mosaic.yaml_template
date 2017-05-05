@@ -73,9 +73,13 @@ timeout_epoch: nominal_time
 
 # Message settings
 message_settings:
-  topic: "/global/mosaic/{areaname}"
+  # These settings are optional.  The shown values are the defaults that are
+  # used if nothing is setup
+  publish_topic: "/global/mosaic/{areaname}"
   nameservers: null
   port: 0
+  aliases: null
+  broadcast_interval: 2
 
 # Log config dictionary
 log_config:
