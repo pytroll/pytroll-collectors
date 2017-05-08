@@ -127,7 +127,7 @@ class ImageScaler(object):
         topics = config.sections()
         self.listener = ListenerContainer(topics=topics)
         self._loop = True
-        self._overlays = {}
+
         if GSHHS_DATA_ROOT:
             self._cw = ContourWriter(GSHHS_DATA_ROOT)
         else:
@@ -238,20 +238,13 @@ class ImageScaler(object):
                             "unable to add coastlines")
             return img
 
-        if self.subject not in self._overlays and self.area_def is not None:
-            logging.debug("Adding overlay to cache")
-            self._overlays[self.subject] = self._cw.add_overlay_from_config(
-                self.overlay_config, self.area_def)
-        elif self.area_def is None:
+        if self.area_def is None:
             logging.warning("Area definition not available, "
                             "can't add overlays!")
         else:
-            logging.debug("Using overlay from cache")
-
-        try:
-            return add_image_as_overlay(img, self._overlays[self.subject])
-        except ValueError:
-            return img
+            return add_overlay_from_config(img, self._cw,
+                                           self.overlay_config,
+                                           self.area_def)
 
     def save_images(self, img):
         """Save image(s)"""
@@ -863,6 +856,15 @@ def add_image_as_overlay(img, overlay):
         logging.info("Overlay needs to have same channels as the "
                      "image, AND an alpha channel")
         raise ValueError
+    img.paste(overlay, mask=overlay)
+
+    return img
+
+
+def add_overlay_from_config(img, cw_, overlay_config, area_def):
+    """Add overlay from confit to the given image"""
+    logging.info("Adding overlays")
+    overlay = cw_.add_overlay_from_config(overlay_config, area_def)
     img.paste(overlay, mask=overlay)
 
     return img
