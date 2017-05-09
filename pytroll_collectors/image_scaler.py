@@ -253,7 +253,6 @@ class ImageScaler(object):
         num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
         for i in range(num):
             img_out = img.copy()
-
             # Crop the image
             try:
                 img_out = crop_image(img_out, self.crops[i])
@@ -556,14 +555,30 @@ def crop_image(img, crop):
     """Crop the given image"""
     try:
         # Adjust limits so that they don't exceed image dimensions
+        # crop = (left, up, right, bottom)
         if crop is not None:
             crop = list(crop)
+            # Left edge
             if crop[0] < 0:
                 crop[0] = 0
+            # Upper edge
             if crop[1] < 0:
                 crop[1] = 0
+            # Right edge. Wrap around if exceedes image width
             if crop[2] > img.size[0]:
-                crop[2] = img.size[0]
+                # Create a new image
+                img_new = Image.new(img.mode, (crop[2], img.size[1]))
+                # Paste original image to top-left corner of the new image
+                img_new.paste(img)
+                # Paste a crop from the left edge to the right edge of the
+                # new image
+                img_new.paste(img.crop((0, 0,
+                                       crop[2] - img.size[0], img.size[1])),
+                              (img.size[0], 0))
+                # Replace original image with the extended image
+                img = img_new.copy()
+                del img_new
+            # Bottom edge
             if crop[3] > img.size[1]:
                 crop[3] = img.size[1]
             img_wrk = img.crop(crop)

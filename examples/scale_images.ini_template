@@ -33,6 +33,10 @@ only_backup = False
 # - y_size : crop size in y-direction
 # - x_start : x-coordinate of the top-left corner of the crop area
 # - y_start : y-coordinate of the top-left corner of the crop area
+# If x_start + x_size is larger than image width, crop area is continued from
+# the left edge of the image (image is assumed to wrap from right to left).
+# Useful for creating crops from global images where left and right edges are
+# connected.
 # If used together with sizes and/or tags, use same number of definitions in each!
 # Cropping is applied before image scaling
 # crops = 1000x300+103+200
