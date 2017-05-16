@@ -8,6 +8,7 @@ import datetime as dt
 import Queue
 import gc
 import os.path
+import time
 
 try:
     import scipy.ndimage as ndi
@@ -54,8 +55,14 @@ def read_image(fname, tslot, adef, lon_limits=None):
     # Convert to float32 to save memory in later steps
     try:
         img = np.array(Image.open(fname)).astype(np.float32)
-    except IOError:
-        return None
+    except (IOError, TypeError):
+        logging.error("Reading image %s failed, retrying once.", fname)
+        time.sleep(5)
+        try:
+            img = np.array(Image.open(fname)).astype(np.float32)
+        except (IOError, TypeError):
+            logging.error("Reading image failed agains, skipping!")
+            return None
 
     mask = img[:, :, 3]
 
