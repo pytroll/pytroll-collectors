@@ -94,6 +94,8 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 
         if img is None:
             img = next_img
+        elif next_img is None:
+            continue
         else:
             logger.debug("Creating mask")
             img_mask = reduce(np.ma.mask_or,
