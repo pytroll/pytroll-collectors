@@ -103,7 +103,6 @@ def get_arguments():
 def get_config(configfile, service, procenv):
     """Get the configuration from file"""
 
-    #CONFIG_PATH = os.environ.get('ZIPCOLLECTOR_RUNNER_CONFIG_DIR', './')
     conf = ConfigParser.ConfigParser()
     conf.read(configfile)
 
@@ -139,7 +138,7 @@ def start_zipcollector(registry, message, options, **kwargs):
         return registry
     elif (message.type != 'dataset'):
         LOG.warning(
-            "Message type is not a collection {}".format(message.type))
+            "Message type is not a collection! Type=%s", str(message.type))
         return registry
 
     if 'start_time' in message.data:
@@ -203,6 +202,7 @@ def zipcollector_live_runner(options):
     """Listens and triggers processing"""
 
     LOG.info("*** Start the zipcollector runner:")
+    LOG.debug("Listens for messages of type: %s", options['message_type'])
     with posttroll.subscriber.Subscribe('', [options['message_type'], ], True) as subscr:
         with Publish('zipcollector_runner', 0) as publisher:
             file_reg = {}
