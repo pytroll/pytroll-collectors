@@ -191,11 +191,26 @@ def start_zipcollector(registry, message, options, **kwargs):
                 filepath = urlparse(item['uri']).path
                 archive.add(filepath, arcname=item['uid'])
 
-        shutil.copy(local_filepath, dest_filepath)
+        copy_file_to_destination(local_filepath, dest_filepath)
     else:
         LOG.info("Time slot {0} NOT requested. Do nothing".format(start_time))
 
     return registry
+
+
+def copy_file_to_destination(inpath, outpath):
+    """Copy a file from one destination (typical local disk or a SAN type disk
+    storage) to another (typically NFS based filesystem) using tempfile
+
+    """
+
+    import tempfile
+    tmp_filepath = tempfile.mktemp(suffix='_' + os.path.basename(outpath),
+                                   dir=os.path.dirname(outpath))
+    shutil.copy(inpath, tmp_filepath)
+    os.rename(tmp_filepath, outpath)
+
+    return
 
 
 def zipcollector_live_runner(options):
