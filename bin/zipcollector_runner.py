@@ -27,7 +27,7 @@ store on disk in configurable destination directory
 """
 
 import os
-import ConfigParser
+import yaml
 import shutil
 import tarfile
 
@@ -103,20 +103,20 @@ def get_arguments():
 def get_config(configfile, service, procenv):
     """Get the configuration from file"""
 
-    conf = ConfigParser.ConfigParser()
-    conf.read(configfile)
-
-    MODE = procenv
+    with open(filename, 'r') as fp_:
+        config = yaml.load(fp_)
 
     options = {}
-    for option, value in conf.items(MODE, raw=True):
-        options[option] = value
-
-    for option, value in conf.items(service, raw=True):
-        options[option] = value
-
-    options.update({k: options[k].split(",")
-                    for k in options if "," in options[k]})
+    for item in config:
+        if not isinstance(config[item], dict):
+            options[item] = config[item]
+        elif item in [service]:
+            for key in config[service]:
+                if not isinstance(config[service][key], dict):
+                    options[key] = config[service][key]
+                elif key in [procenv]:
+                    for memb in config[service][key]:
+                        options[memb] = config[service][key][memb]
 
     return options
 
@@ -186,12 +186,24 @@ def start_zipcollector(registry, message, options, **kwargs):
 
         # Create the tar archive:
         LOG.debug("Create gzipped tar archive: %s", local_filepath)
-        with tarfile.open(local_filepath, "w|gz") as archive:
-            for item in message.data['dataset']:
-                filepath = urlparse(item['uri']).path
-                archive.add(filepath, arcname=item['uid'])
+        status = True
+        try:
+            with tarfile.open(local_filepath, "w|gz") as archive:
+                for item in message.data['dataset']:
+                    filepath = urlparse(item['uri']).path
+                    archive.add(filepath, arcname=item['uid'])
 
-        copy_file_to_destination(local_filepath, dest_filepath)
+            copy_file_to_destination(local_filepath, dest_filepath)
+            monitor_msg = "File successfully created"
+        except Exception as err:
+            monitor_msg = "Failed generating tar file: " + str(err)
+            status = False
+
+        if 'post_hook' in options:
+            options['monitoring_hook'](status, monitor_msg)
+        else:
+            LOG.error("Configuration lacking a post_hook entry!")
+
     else:
         LOG.info("Time slot {0} NOT requested. Do nothing".format(start_time))
 
