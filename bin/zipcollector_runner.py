@@ -199,10 +199,10 @@ def start_zipcollector(registry, message, options, **kwargs):
             monitor_msg = "Failed generating tar file: " + str(err)
             status = False
 
-        if 'post_hook' in options:
+        if 'monitoring_hook' in options:
             options['monitoring_hook'](status, monitor_msg)
         else:
-            LOG.error("Configuration lacking a post_hook entry!")
+            LOG.error("Configuration lacking a monitoring_hook entry!")
 
     else:
         LOG.info("Time slot {0} NOT requested. Do nothing".format(start_time))
