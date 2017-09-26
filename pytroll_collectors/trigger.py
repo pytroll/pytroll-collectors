@@ -336,9 +336,10 @@ class AbstractMessageProcessor(Thread):
     """Process Messages
     """
 
-    def __init__(self, services, topics):
+    def __init__(self, services, topics, nameserver="localhost"):
         Thread.__init__(self)
-        self.nssub = NSSubscriber(services, topics, True)
+        LOG.debug("Nameserver: {}".format(nameserver))
+        self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
         self.sub = None
         self.loop = True
 
@@ -378,8 +379,8 @@ class PostTrollTrigger(FileTrigger):
     """
 
     def __init__(self, collectors, terminator, services, topics,
-                 publish_topic=None):
-        self.msgproc = AbstractMessageProcessor(services, topics)
+                 publish_topic=None, nameserver="localhost"):
+        self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
                              publish_topic=publish_topic)
