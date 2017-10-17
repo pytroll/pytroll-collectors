@@ -32,6 +32,7 @@ import Queue
 import time
 from collections import OrderedDict
 from ConfigParser import NoOptionError, RawConfigParser
+from urlparse import urlparse, urlunparse
 
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer
@@ -210,6 +211,13 @@ class SegmentGatherer(object):
         """Set logger."""
         self.logger = logger
 
+    def update_timeout(self, slot):
+        slot['timeout'] = dt.datetime.utcnow() + self._timeliness
+        time_slot = str(slot['metadata'][self.time_name])
+        self.logger.info("Setting timeout to %s for slot %s.",
+                         str(slot['timeout']),
+                         time_slot)
+
     def slot_ready(self, slot):
         """Determine if slot is ready to be published."""
         # If no files have been collected, return False
@@ -239,39 +247,23 @@ class SegmentGatherer(object):
                              time_slot)
             return SLOT_READY
 
-        if slot['critical_files'].issubset(slot['received_files']):
-            # All critical files have been received
-            if slot['timeout'] is None:
-                # Set timeout
-                slot['timeout'] = dt.datetime.utcnow() + self._timeliness
-                self.logger.info("Setting timeout to %s for slot %s.",
-                                 str(slot['timeout']),
-                                 time_slot)
-                return SLOT_NOT_READY
-            elif slot['timeout'] < dt.datetime.utcnow():
+        if slot['timeout'] is None:
+            self.update_timeout(slot)
+
+        if slot['timeout'] < dt.datetime.utcnow():
+            if slot['critical_files'].issubset(slot['received_files']):
+                # All critical files have been received
                 # Timeout reached, collection ready
                 self.logger.info("Timeout occured, required files received "
                                  "for slot %s.", time_slot)
                 return SLOT_READY
             else:
-                pass
-        else:
-            if slot['timeout'] is None:
-                slot['timeout'] = dt.datetime.utcnow() + self._timeliness
-                self.logger.info("Setting timeout to %s for slot %s",
-                                 str(slot['timeout']),
-                                 time_slot)
-                return SLOT_NOT_READY
-
-            elif slot['timeout'] < dt.datetime.utcnow():
                 # Timeout reached, collection is obsolete
                 self.logger.warning("Timeout occured and required files "
                                     "were not present, data discarded for "
                                     "slot %s.",
                                     time_slot)
                 return SLOT_OBSOLETE_TIMEOUT
-            else:
-                pass
 
         # Timeout not reached, wait for more files
         return SLOT_NOT_READY
@@ -350,6 +342,28 @@ class SegmentGatherer(object):
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
             self._init_data(metadata)
+            slot = self.slots[time_slot]
+            to_add = []
+            for filename in slot['all_files']:
+                if filename == msg.data['uid']:
+                    continue
+                url = urlparse(msg.data['uri'])
+                path = os.path.join(os.path.dirname(url.path), filename)
+                if not os.path.exists(path):
+                    continue
+                new_url = list(url)
+                new_url[2] = path
+                uri = urlunparse(new_url)
+
+                slot['metadata']['dataset'].append({'uri': uri,
+                                                    'uid': filename})
+                to_add.append(filename)
+
+            slot['received_files'].update(to_add)
+            if to_add:
+                self.logger.debug("Some files were already received %s",
+                                  str(to_add))
+                self.update_timeout(slot)
 
         slot = self.slots[time_slot]
 

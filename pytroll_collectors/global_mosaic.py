@@ -6,6 +6,9 @@ import logging
 import logging.handlers
 import datetime as dt
 import Queue
+import gc
+import os.path
+import time
 
 try:
     import scipy.ndimage as ndi
@@ -16,6 +19,8 @@ from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
 from mpop.projector import get_area_def
 from posttroll.listener import ListenerContainer
+from posttroll.publisher import NoisyPublisher
+from posttroll.message import Message
 
 # These longitudinally valid ranges are mid-way points calculated from
 # satellite locations assuming the given satellites are in use
@@ -50,8 +55,14 @@ def read_image(fname, tslot, adef, lon_limits=None):
     # Convert to float32 to save memory in later steps
     try:
         img = np.array(Image.open(fname)).astype(np.float32)
-    except IOError:
-        return None
+    except (IOError, TypeError):
+        logging.error("Reading image %s failed, retrying once.", fname)
+        time.sleep(5)
+        try:
+            img = np.array(Image.open(fname)).astype(np.float32)
+        except (IOError, TypeError):
+            logging.error("Reading image failed agains, skipping!")
+            return None
 
     mask = img[:, :, 3]
 
@@ -75,14 +86,18 @@ def read_image(fname, tslot, adef, lon_limits=None):
 
 
 def create_world_composite(fnames, tslot, adef, sat_limits,
-                           blend=None, img=None):
+                           blend=None, img=None, logger=logging):
     """Create world composite from files *fnames*"""
     for fname in fnames:
+        logger.info("Reading image %s", fname)
         next_img = read_image(fname, tslot, adef, sat_limits)
 
         if img is None:
             img = next_img
+        elif next_img is None:
+            continue
         else:
+            logger.debug("Creating mask")
             img_mask = reduce(np.ma.mask_or,
                               [chn.mask for chn in img.channels])
             next_img_mask = reduce(np.ma.mask_or,
@@ -91,6 +106,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             chmask = np.logical_and(img_mask, next_img_mask)
 
             if blend and ndi:
+                logger.debug("Creating blend mask")
                 scaled_erosion_size = \
                     blend["erosion_width"] * (float(img.width) / 1000.0)
                 scaled_smooth_width = \
@@ -107,6 +123,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
             for i in range(3):
+                logger.debug("Merging channel %d", i)
                 if blend and ndi:
                     if blend["scale"]:
                         chmask2 = np.invert(chmask)
@@ -147,15 +164,29 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 class WorldCompositeDaemon(object):
 
     logger = logging.getLogger(__name__)
+    publish_topic = "/global/mosaic/{areaname}"
+    nameservers = None
+    port = 0
+    aliases = None
+    broadcast_interval = 2
 
     def __init__(self, config):
         self.config = config
         self.slots = {}
+        # Structure of self.slots is:
         # slots = {tslot: {composite: {"img": None,
         #                              "num": 0},
         #                  "timeout": None}}
 
         self._listener = ListenerContainer(topics=config["topics"])
+        self._set_message_settings()
+        self._publisher = \
+            NoisyPublisher("WorldCompositePublisher",
+                           port=self.port,
+                           aliases=self.aliases,
+                           broadcast_interval=self.broadcast_interval,
+                           nameservers=self.nameservers)
+        self._publisher.start()
         self._loop = False
         if isinstance(config["area_def"], str):
             self.adef = get_area_def(config["area_def"])
@@ -181,6 +212,24 @@ class WorldCompositeDaemon(object):
 
             if msg.type == "file":
                 self._handle_message(msg)
+
+            num = gc.collect()
+            self.logger.info("%d objects garbage collected", num)
+
+    def _set_message_settings(self):
+        """Set message settings from config"""
+        if "message_settings" not in self.config:
+            return
+
+        self.publish_topic = \
+            self.config["message_settings"].get("publish_topic",
+                                                "/global/mosaic/{areaname}")
+        self.nameservers = \
+            self.config["message_settings"].get("nameservers", None)
+        self.port = self.config["message_settings"].get("port", 0)
+        self.aliases = self.config["message_settings"].get("aliases", None)
+        self.broadcast_interval = \
+            self.config["message_settings"].get("broadcast_interval", 2)
 
     def _handle_message(self, msg):
         """Insert file from the message to correct time slot and composite"""
@@ -265,22 +314,34 @@ class WorldCompositeDaemon(object):
                     fnames = self.slots[slot][composite]["fnames"]
                     fname_out = compose(self.config["out_pattern"],
                                         file_parts)
+                    file_parts['uri'] = fname_out
+                    file_parts['uid'] = os.path.basename(fname_out)
+
                     # Check if we already have an image with this filename
                     img = read_image(fname_out, slot,
                                      self.adef.area_id)
                     if img:
-                        self.logger.info("Read existing image: %s", fname_out)
+                        self.logger.info("Existing image was read: %s",
+                                         fname_out)
 
+                    self.logger.info("Creating composite")
                     img = create_world_composite(fnames,
                                                  slot,
                                                  self.adef,
                                                  lon_limits,
-                                                 blend=blend, img=img)
+                                                 blend=blend,
+                                                 img=img,
+                                                 logger=self.logger)
+
                     self.logger.info("Saving %s", fname_out)
                     img.save(fname_out, compression=compression,
                              tags=tags, fformat=fformat,
                              gdal_options=gdal_options,
                              blocksize=blocksize)
+                    msg = Message(compose(self.publish_topic, file_parts),
+                                  "file", file_parts)
+                    self._publisher.send(str(msg))
+                    self.logger.info("Sending message: %s", str(msg))
                     del self.slots[slot][composite]
                     del img
                     img = None
@@ -298,6 +359,7 @@ class WorldCompositeDaemon(object):
         """Stop"""
         self.logger.info("Stopping WorldCompositor")
         self._listener.stop()
+        self._publisher.stop()
 
     def set_logger(self, logger):
         """Set logger."""

@@ -1,11 +1,8 @@
 sudo: false
 language: python
 python:
-  - '2.6'
   - '2.7'
 matrix:
-  allow_failures:
-    - python: '2.6'
 cache: apt
 addons:
   apt:
@@ -19,10 +16,12 @@ before_install:
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - conda update --yes conda
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy coverage
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy coverage pillow
   - pip install pykdtree
   - pip install https://github.com/pytroll/posttroll/archive/develop.tar.gz
   - pip install https://github.com/pytroll/mpop/archive/pre-master.tar.gz
+  - pip install https://github.com/pytroll/trollsift/archive/master.tar.gz
+  - pip install https://github.com/pytroll/pycoast/archive/master.tar.gz
 install:
   - pip install .
   - pip install mock
