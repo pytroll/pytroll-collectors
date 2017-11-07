@@ -235,7 +235,8 @@ class MessageReceiver(object):
                 raise ValueError(
                     "Unrecognized satellite ID: " + pds["apid1"][:3])
 
-            if satellite in self._excluded_platforms:
+            if not satellite or satellite in self._excluded_platforms:
+                LOGGER.debug("Platform name %s is excluded...", str(satellite))
                 return None
 
             swath = self._received_passes.get(pname, {}).copy()
