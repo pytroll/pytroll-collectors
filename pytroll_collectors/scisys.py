@@ -273,6 +273,7 @@ class MessageReceiver(object):
             # below (Adam - 2013-06-04):
             mda = {}
             mda["format"] = filename[0]
+            file_ok = False
             for prefix in JPSS_INSTRUMENTS_FROM_FILENAMES:
                 if filename.startswith(prefix):
                     mda["sensor"] = JPSS_INSTRUMENTS_FROM_FILENAMES[prefix]
@@ -281,11 +282,14 @@ class MessageReceiver(object):
                     satellite = JPSS_PLATFORM_NAME.get(filename.strip(prefix).split('_')[0],
                                                        None)
                     orbit = filename.strip(prefix).split('_')[4].strip('b')
-                else:
-                    LOGGER.warning("Seems to be a NPP/JPSS RDR "
-                                   "file but name is not standard!")
-                    LOGGER.warning("filename = %s", filename)
-                    return None
+                    file_ok = True
+                    break
+
+            if not file_ok:
+                LOGGER.warning("Seems to be a NPP/JPSS RDR "
+                               "file but name is not standard!")
+                LOGGER.warning("filename = %s", filename)
+                return None
 
             #satellite = "Suomi-NPP"
             if not satellite or satellite in self._excluded_platforms:
