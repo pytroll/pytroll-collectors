@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015 SMHI
+# Copyright (c) 2012, 2013, 2014, 2015, 2017 SMHI
 
 # Author(s):
 
@@ -47,6 +47,15 @@ from posttroll.publisher import Publish
 from pytroll_collectors.helper_functions import is_uri_on_server
 
 LOGGER = logging.getLogger(__name__)
+
+JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
+                                   "RCRIS-RNSCA_": "cris",
+                                   "RNSCA-RVIRS_": "viirs",
+                                   "RATMS_": "atms",
+                                   "RCRIS_": "cris"}
+JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
+                      'jpss1': 'NOAA-20',
+                      'noaa20': 'NOAA-20'}
 
 
 class TwoMetMessage(object):
@@ -132,10 +141,11 @@ class MessageReceiver(object):
     """Interprets received messages between stop reception and file dispatch.
     """
 
-    def __init__(self, emitter):
+    def __init__(self, emitter, excluded_satellite_list):
         self._received_passes = PassRecorder()
         self._distributed_files = {}
         self._emitter = emitter
+        self._excluded_platforms = excluded_satellite_list
 
     def add_pass(self, message):
         """Formats pass info and adds it to the object.
@@ -177,6 +187,10 @@ class MessageReceiver(object):
         """React to a file dispatch message.
         """
 
+        # As a new reception may have started before the dispatch is done
+        # we cannot use the metadata from the last received pass.
+        # Thus, we have to check the filenames to find the correct pass and its metadata
+        # Martin & Adam, 2017-11-07
         pathname1, pathname2 = message.split(" ")
         dummy, filename = os.path.split(pathname1)
         # TODO: Should not make any assumptions on filename formats, should
@@ -186,6 +200,8 @@ class MessageReceiver(object):
             risetime = datetime.strptime(risestr, "%Y%m%d%H%M%S")
             pname = pass_name(risetime, satellite)
             satellite = satellite.replace("_", "-")
+            if satellite in self._excluded_platforms:
+                return None
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop('satellite', None)
             swath["platform_name"] = satellite
@@ -218,6 +234,10 @@ class MessageReceiver(object):
             else:
                 raise ValueError(
                     "Unrecognized satellite ID: " + pds["apid1"][:3])
+
+            if satellite in self._excluded_platforms:
+                return None
+
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop('satellite', None)
             swath['platform_name'] = satellite
@@ -245,47 +265,44 @@ class MessageReceiver(object):
             swath["type"] = "binary"
             swath["data_processing_level"] = "0"
 
-        # NPP RDRs
+        # NPP/JPSS RDRs
         elif filename.startswith("R") and filename.endswith(".h5"):
             # Occassionaly RT-STPS produce files with a nonstandard file
             # naming, lacking the 'RNSCA' field. We will try to deal with this
             # below (Adam - 2013-06-04):
             mda = {}
-            idx_start = 0
             mda["format"] = filename[0]
-            if filename.startswith("RATMS-RNSCA"):
-                mda["sensor"] = "atms"
-            elif filename.startswith("RCRIS-RNSCA"):
-                mda["sensor"] = "cris"
-            elif filename.startswith("RNSCA-RVIRS"):
-                mda["sensor"] = "viirs"
-            else:
-                if filename.startswith("RATMS_npp"):
-                    mda["sensor"] = "atms"
-                elif filename.startswith("RCRIS_npp"):
-                    mda["sensor"] = "cris"
+            for prefix in JPSS_INSTRUMENTS_FROM_FILENAMES:
+                if filename.startswith(prefix):
+                    mda["sensor"] = JPSS_INSTRUMENTS_FROM_FILENAMES[prefix]
+                    start_time_items = filename.strip(prefix).split('_')[1:3]
+                    end_time_item = filename.strip(prefix).split('_')[3]
+                    satellite = JPSS_PLATFORM_NAME.get(filename.strip(prefix).split('_')[0],
+                                                       None)
+                    orbit = filename.strip(prefix).split('_')[4].strip('b')
                 else:
                     LOGGER.warning("Seems to be a NPP/JPSS RDR "
                                    "file but name is not standard!")
                     LOGGER.warning("filename = %s", filename)
                     return None
-                idx_start = -6
+
+            #satellite = "Suomi-NPP"
+            if not satellite or satellite in self._excluded_platforms:
+                LOGGER.debug("Platform name %s is excluded...", str(satellite))
+                return None
 
             mda["start_time"] = \
-                datetime.strptime(filename[idx_start + 16:idx_start + 33],
-                                  "d%Y%m%d_t%H%M%S")
+                datetime.strptime(start_time_items[0] + start_time_items[1],
+                                  "d%Y%m%dt%H%M%S")
             end_time = \
-                datetime.strptime(filename[idx_start + 16:idx_start + 25] +
-                                  " " +
-                                  filename[
-                                      idx_start + 35:idx_start + 42],
-                                  "d%Y%m%d e%H%M%S")
+                datetime.strptime(start_time_items[0] + end_time_item,
+                                  "d%Y%m%de%H%M%S")
             if mda["start_time"] > end_time:
                 end_time += timedelta(days=1)
-            mda["orbit"] = filename[idx_start + 45:idx_start + 50]
+            mda["orbit"] = orbit
+
             # FIXME: swath start and end time is granule dependent.
             # Get the end time as well! - Adam 2013-06-03:
-            satellite = "Suomi-NPP"
             start_time = mda["start_time"]
             pname = pass_name(start_time, "NPP")
 
@@ -434,13 +451,13 @@ class GMCSubscriber(object):
         self.loop = False
 
 
-def receive_from_zmq(host, port, station, environment, days=1):
+def receive_from_zmq(host, port, station, environment, excluded_platforms, days=1):
     """Receive 2met! messages from zeromq.
     """
 
     # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
     sock = GMCSubscriber(host, port)
-    msg_rec = MessageReceiver(host)
+    msg_rec = MessageReceiver(host, excluded_platforms)
 
     with Publish("receiver", 0, ["HRPT 0", "PDS", "RDR", "EPS 0"]) as pub:
         for rawmsg in sock.recv():
