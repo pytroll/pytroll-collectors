@@ -298,10 +298,10 @@ class MessageReceiver(object):
 
             mda["start_time"] = \
                 datetime.strptime(start_time_items[0] + start_time_items[1],
-                                  "d%Y%m%dt%H%M%S")
+                                  "d%Y%m%dt%H%M%S%f")
             end_time = \
                 datetime.strptime(start_time_items[0] + end_time_item,
-                                  "d%Y%m%de%H%M%S")
+                                  "d%Y%m%de%H%M%S%f")
             if mda["start_time"] > end_time:
                 end_time += timedelta(days=1)
             mda["orbit"] = orbit
