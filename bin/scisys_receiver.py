@@ -40,7 +40,7 @@ if __name__ == '__main__':
                         default="unknown")
     parser.add_argument("-x", "--excluded_satellites", nargs='*',
                         help="List of platform names to exclude",
-                        default=None)
+                        default=[])
     parser.add_argument("-e", "--environment",
                         help="Name of the environment (e.g. dev, test, oper)",
                         default="dev")
