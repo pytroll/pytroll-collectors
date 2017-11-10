@@ -20,8 +20,8 @@ time_name = start_time
 # Comma separated list of tag names in the pattern that vary between different
 # segments of the same time slot
 variable_tags = proctime,proc_decimal
-# Listen to messages coming from these IP addresses and port
-addresses = tcp://192.168.0.101:12345 tcp://192.168.0.102:12345
+# Listen to messages coming from these extra IP addresses and port
+# addresses = tcp://192.168.0.101:12345 tcp://192.168.0.102:12345
 # Publish messages via this port.  If not set, random free port is used
 # publish_port = 12345
 
