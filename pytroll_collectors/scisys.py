@@ -141,11 +141,14 @@ class MessageReceiver(object):
     """Interprets received messages between stop reception and file dispatch.
     """
 
-    def __init__(self, emitter, excluded_satellite_list):
+    def __init__(self, emitter, excluded_satellite_list=None):
         self._received_passes = PassRecorder()
         self._distributed_files = {}
         self._emitter = emitter
-        self._excluded_platforms = excluded_satellite_list
+        if excluded_satellite_list is not None:
+            self._excluded_platforms = excluded_satellite_list
+        else:
+            self._excluded_platforms = []
 
     def add_pass(self, message):
         """Formats pass info and adds it to the object.
@@ -279,7 +282,8 @@ class MessageReceiver(object):
                     mda["sensor"] = JPSS_INSTRUMENTS_FROM_FILENAMES[prefix]
                     start_time_items = filename.strip(prefix).split('_')[1:3]
                     end_time_item = filename.strip(prefix).split('_')[3]
-                    satellite = JPSS_PLATFORM_NAME.get(filename.strip(prefix).split('_')[0],
+                    satellite = JPSS_PLATFORM_NAME.get(
+                        filename.strip(prefix).split('_')[0],
                                                        None)
                     orbit = filename.strip(prefix).split('_')[4].strip('b')
                     file_ok = True
@@ -291,7 +295,7 @@ class MessageReceiver(object):
                 LOGGER.warning("filename = %s", filename)
                 return None
 
-            #satellite = "Suomi-NPP"
+            # satellite = "Suomi-NPP"
             if not satellite or satellite in self._excluded_platforms:
                 LOGGER.debug("Platform name %s is excluded...", str(satellite))
                 return None
