@@ -31,6 +31,8 @@ from PIL import Image, ImageFont
 from trollsift import parse
 from pytroll_collectors import image_scaler as sca
 
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class TestImageScaler(unittest.TestCase):
 
@@ -362,6 +364,8 @@ class TestImageScaler(unittest.TestCase):
         with self.assertRaises(KeyError):
             scaler._get_mandatory_config_items()
         scaler.subject = '/scaler'
+        # Set path so that valid mpop.cfg and areas.def are found
+        os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'data')
         scaler._get_mandatory_config_items()
         self.assertTrue(scaler.areaname == self.config.get('/scaler',
                                                            'areaname'))
