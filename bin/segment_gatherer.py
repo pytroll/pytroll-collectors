@@ -58,9 +58,10 @@ class SegmentGatherer(object):
         topics = config.get(section, 'topics').split()
 
         try:
-            nameserver = config.get(section, 'nameserver')
+            nameservers = config.get(section, 'nameserver')
+            nameservers = nameservers.split()
         except (NoOptionError, ValueError):
-            nameserver = "localhost"
+            nameservers = []
 
         try:
             addresses = config.get(section, 'addresses')
@@ -73,11 +74,10 @@ class SegmentGatherer(object):
         except NoOptionError:
             publish_port = 0
 
-        self._listener = ListenerContainer(topics=topics, addresses=addresses,
-                                           nameserver=nameserver)
+        self._listener = ListenerContainer(topics=topics, addresses=addresses)
         self._publisher = publisher.NoisyPublisher("segment_gatherer",
                                                    port=publish_port,
-                                                   nameserver=nameserver)
+                                                   nameservers=nameservers)
         self._subject = config.get(section, "publish_topic")
         self._pattern = config.get(section, 'pattern')
         self._parser = Parser(self._pattern)
