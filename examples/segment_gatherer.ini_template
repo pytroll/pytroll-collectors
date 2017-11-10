@@ -21,7 +21,7 @@ time_name = start_time
 # segments of the same time slot
 variable_tags = proctime,proc_decimal
 # Listen to messages coming from these IP addresses and port
-addresses = 192.168.0.101:12345 192.168.0.102:12345
+addresses = tcp://192.168.0.101:12345 tcp://192.168.0.102:12345
 # Publish messages via this port.  If not set, random free port is used
 # publish_port = 12345
 
