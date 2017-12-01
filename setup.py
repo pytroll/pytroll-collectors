@@ -25,6 +25,12 @@
 """
 from setuptools import setup
 import imp
+import os
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+# Set PPP_CONFIG_DIR so that valid mpop.cfg and areas.def are found
+os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors',
+                                            'tests', 'data')
 
 version = imp.load_source(
     'pytroll_collectors.version', 'pytroll_collectors/version.py')

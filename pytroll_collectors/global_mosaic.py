@@ -61,7 +61,7 @@ def read_image(fname, tslot, adef, lon_limits=None):
         try:
             img = np.array(Image.open(fname)).astype(np.float32)
         except (IOError, TypeError):
-            logging.error("Reading image failed agains, skipping!")
+            logging.error("Reading image failed again, skipping!")
             return None
 
     mask = img[:, :, 3]

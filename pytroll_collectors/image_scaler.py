@@ -376,7 +376,7 @@ class ImageScaler(object):
             self.areaname = self.config.get(self.subject, 'areaname')
             try:
                 self.area_def = get_area_def(self.areaname)
-            except IOError:
+            except (IOError, NoOptionError):
                 self.area_def = None
                 logging.warning("Area definition not available")
             self.in_pattern = self.config.get(self.subject, 'in_pattern')

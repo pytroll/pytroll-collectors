@@ -1,0 +1,8 @@
+REGION: euron1 {
+        NAME:           Northern Europe - 1km
+        PCS_ID:         ps60wgs84
+        PCS_DEF:        proj=stere,ellps=WGS84,lat_0=90,lon_0=0,lat_ts=60
+        XSIZE:          3072
+        YSIZE:          3072
+        AREA_EXTENT:    (-1000000.0, -4500000.0, 2072000.0, -1428000.0)
+};
