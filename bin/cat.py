@@ -204,9 +204,12 @@ if __name__ == '__main__':
     cfg.read(opts.config)
     config = dict(cfg.items(opts.config_item))
 
+    if 'service' not in config:
+        config['service'] = ''
+
     try:
         with Publish("cat") as pub:
-            with Subscribe('', config["topic"], True) as sub:
+            with Subscribe(config['service'], config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
