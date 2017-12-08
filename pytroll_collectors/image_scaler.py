@@ -127,7 +127,7 @@ class ImageScaler(object):
         topics = config.sections()
         self.listener = ListenerContainer(topics=topics)
         self._loop = True
-        self._overlays = {}
+
         if GSHHS_DATA_ROOT:
             self._cw = ContourWriter(GSHHS_DATA_ROOT)
         else:
@@ -238,20 +238,13 @@ class ImageScaler(object):
                             "unable to add coastlines")
             return img
 
-        if self.subject not in self._overlays and self.area_def is not None:
-            logging.debug("Adding overlay to cache")
-            self._overlays[self.subject] = self._cw.add_overlay_from_config(
-                self.overlay_config, self.area_def)
-        elif self.area_def is None:
+        if self.area_def is None:
             logging.warning("Area definition not available, "
                             "can't add overlays!")
         else:
-            logging.debug("Using overlay from cache")
-
-        try:
-            return add_image_as_overlay(img, self._overlays[self.subject])
-        except ValueError:
-            return img
+            return add_overlay_from_config(img, self._cw,
+                                           self.overlay_config,
+                                           self.area_def)
 
     def save_images(self, img):
         """Save image(s)"""
@@ -260,7 +253,6 @@ class ImageScaler(object):
         num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
         for i in range(num):
             img_out = img.copy()
-
             # Crop the image
             try:
                 img_out = crop_image(img_out, self.crops[i])
@@ -384,7 +376,7 @@ class ImageScaler(object):
             self.areaname = self.config.get(self.subject, 'areaname')
             try:
                 self.area_def = get_area_def(self.areaname)
-            except IOError:
+            except (IOError, NoOptionError):
                 self.area_def = None
                 logging.warning("Area definition not available")
             self.in_pattern = self.config.get(self.subject, 'in_pattern')
@@ -563,14 +555,30 @@ def crop_image(img, crop):
     """Crop the given image"""
     try:
         # Adjust limits so that they don't exceed image dimensions
+        # crop = (left, up, right, bottom)
         if crop is not None:
             crop = list(crop)
+            # Left edge
             if crop[0] < 0:
                 crop[0] = 0
+            # Upper edge
             if crop[1] < 0:
                 crop[1] = 0
+            # Right edge. Wrap around if exceedes image width
             if crop[2] > img.size[0]:
-                crop[2] = img.size[0]
+                # Create a new image
+                img_new = Image.new(img.mode, (crop[2], img.size[1]))
+                # Paste original image to top-left corner of the new image
+                img_new.paste(img)
+                # Paste a crop from the left edge to the right edge of the
+                # new image
+                img_new.paste(img.crop((0, 0,
+                                       crop[2] - img.size[0], img.size[1])),
+                              (img.size[0], 0))
+                # Replace original image with the extended image
+                img = img_new.copy()
+                del img_new
+            # Bottom edge
             if crop[3] > img.size[1]:
                 crop[3] = img.size[1]
             img_wrk = img.crop(crop)
@@ -863,6 +871,15 @@ def add_image_as_overlay(img, overlay):
         logging.info("Overlay needs to have same channels as the "
                      "image, AND an alpha channel")
         raise ValueError
+    img.paste(overlay, mask=overlay)
+
+    return img
+
+
+def add_overlay_from_config(img, cw_, overlay_config, area_def):
+    """Add overlay from confit to the given image"""
+    logging.info("Adding overlays")
+    overlay = cw_.add_overlay_from_config(overlay_config, area_def)
     img.paste(overlay, mask=overlay)
 
     return img

@@ -1,6 +1,148 @@
 Changelog
 =========
 
+v0.6.0 (2017-12-08)
+-------------------
+
+Fix
+~~~
+
+- Bugfix: yaml config reading. [Adam.Dybbroe]
+
+Other
+~~~~~
+
+- Update changelog. [Panu Lahtinen]
+
+- Bump version: 0.5.1 → 0.6.0. [Panu Lahtinen]
+
+- Merge pull request #8 from TAlonglong/develop. [Panu Lahtinen]
+
+  Develop
+
+- Bin/geo_gatherer.py possible to configure services used with
+  ListenerContainer. Possible config of providing_server, skipping all
+  messages not from the providing-server. [Trygve Aspenes]
+
+- Bin/cat.py possible to configure service used with Subscribe. [Trygve
+  Aspenes]
+
+- Merge remote-tracking branch 'upstream/develop' into develop. [Trygve
+  Aspenes]
+
+- Pytroll_collectors/trigger.py propagate nameserver into the system.
+  [Trygve Aspenes]
+
+- Bin/gatherer.py handling nameserver. [Trygve Aspenes]
+
+- Pytroll_collectors/region_collector.py if tle_platform_name in
+  metadata use this as platform name. Need to introduce this to handle
+  when TLE platform name differs form given platform name. [Trygve
+  Aspenes]
+
+- Pytroll_collectors/region_collector.py adding end_time based on
+  start_time and duration of not given. [Trygve Aspenes]
+
+- Merge pull request #7 from pytroll/feature-listener-port. [Panu
+  Lahtinen]
+
+  Expose listener addresses to segment gatherer
+
+- Set PPP_CONFIG_DIR in setup.py, not in unit test. [Panu Lahtinen]
+
+- Catch NoOptionError for area definition, as it's not required for PIL
+  images. [Panu Lahtinen]
+
+- Fix areaname. [Panu Lahtinen]
+
+- Add areas.def and mpop.cfg files. [Panu Lahtinen]
+
+- Set PPP_CONFIG_DIR. [Panu Lahtinen]
+
+- Use mpop built-in area. [Panu Lahtinen]
+
+- Fix tests: add milliseconds to start and end times. [Panu Lahtinen]
+
+- Make excluded_satellite_list kwarg. [Panu Lahtinen]
+
+- Fix typo in error message. [Panu Lahtinen]
+
+- Comment out extra listener addresses. [Panu Lahtinen]
+
+- Add required "tcp://"s to example config. [Panu Lahtinen]
+
+- Revert renaming: "nameserver" back to "nameservers" [Panu Lahtinen]
+
+- Expose listener addresses, publish_port and rename nameservers to
+  nameserver. [Panu Lahtinen]
+
+- Bugfix, take care of tenths of seconds in RDR filename. [Adam.Dybbroe]
+
+- Bugfix list of excluded satellites, default is an empty list.
+  [Adam.Dybbroe]
+
+- Bugfix. [Adam.Dybbroe]
+
+- Add debug message. [Adam.Dybbroe]
+
+- Prepare for JPSS-1 and add platform exlude list. [Adam.Dybbroe]
+
+- Bugfix. [Adam.Dybbroe]
+
+- Change to use yaml configuration file, and add post-hook (e.g for
+  nagios monitoring) [Adam.Dybbroe]
+
+- Copy file fisrt to a temporary filename, then move it to the correct
+  name on the same directory. [Adam.Dybbroe]
+
+- More debug info. [Adam.Dybbroe]
+
+- Add zipcollector runner. [Adam.Dybbroe]
+
+- Check that next_img is not None before trying to use it. [Panu
+  Lahtinen]
+
+- Retry reading image once after 5 s wait. [Panu Lahtinen]
+
+- Merge pull request #6 from pytroll/feature-wrapping-crop. [Panu
+  Lahtinen]
+
+  Add cropping for areas wrapping around from right edge to left edge
+
+- Add cropping for areas wrapping around from right edge to left edge.
+  [Panu Lahtinen]
+
+- Merge pull request #5 from pytroll/feature_no_memory_cache. [Panu
+  Lahtinen]
+
+  Do not cache overlays in memory
+
+- Do not cache overlays in memory. [Panu Lahtinen]
+
+- Merge pull request #4 from pytroll/feature_publishercontainer. [Panu
+  Lahtinen]
+
+  Feature publisher
+
+- Add published message to log when file is written. [Panu Lahtinen]
+
+- Use NoisyPublisher directly. [Panu Lahtinen]
+
+- Stop compositor daemon. [Panu Lahtinen]
+
+- Add new message settings. [Panu Lahtinen]
+
+- Remove obsolete and unused file. [Panu Lahtinen]
+
+- Use posttroll.publish.PublisherContainer for sending messages. [Panu
+  Lahtinen]
+
+- Fix comparison of parsed filename parts. [Panu Lahtinen]
+
+  The comparison was made incorrectly against the class attribute, not
+  local variable
+
+
 v0.5.1 (2017-04-06)
 -------------------
 

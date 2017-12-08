@@ -8,6 +8,7 @@ import datetime as dt
 import Queue
 import gc
 import os.path
+import time
 
 try:
     import scipy.ndimage as ndi
@@ -54,8 +55,14 @@ def read_image(fname, tslot, adef, lon_limits=None):
     # Convert to float32 to save memory in later steps
     try:
         img = np.array(Image.open(fname)).astype(np.float32)
-    except IOError:
-        return None
+    except (IOError, TypeError):
+        logging.error("Reading image %s failed, retrying once.", fname)
+        time.sleep(5)
+        try:
+            img = np.array(Image.open(fname)).astype(np.float32)
+        except (IOError, TypeError):
+            logging.error("Reading image failed again, skipping!")
+            return None
 
     mask = img[:, :, 3]
 
@@ -87,6 +94,8 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 
         if img is None:
             img = next_img
+        elif next_img is None:
+            continue
         else:
             logger.debug("Creating mask")
             img_mask = reduce(np.ma.mask_or,

@@ -69,9 +69,17 @@ class RegionCollector(object):
 
         # Check if input data is being waited for
 
-        platform = granule_metadata['platform_name']
+        if "tle_platform_name" in granule_metadata:
+            platform = granule_metadata['tle_platform_name']
+        else:
+            platform = granule_metadata['platform_name']
 
         start_time = granule_metadata['start_time']
+        if ("end_time" not in granule_metadata and
+            self.granule_duration is not None):
+            granule_metadata["end_time"] = (granule_metadata["start_time"] +
+                                            self.granule_duration)
+
         end_time = granule_metadata['end_time']
 
         if start_time > end_time:

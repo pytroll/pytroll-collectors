@@ -183,6 +183,11 @@ def setup(decoder):
         except NoOptionError:
             publish_topic = None
 
+        try:
+            nameserver = CONFIG.get(section, "nameserver")
+        except NoOptionError:
+            nameserver = "localhost"
+
         if observer_class in ["PollingObserver", "Observer"]:
             LOGGER.debug("Using %s for %s", observer_class, section)
             granule_trigger = \
@@ -199,7 +204,7 @@ def setup(decoder):
                 collectors, terminator,
                 CONFIG.get(section, 'service').split(','),
                 CONFIG.get(section, 'topics').split(','),
-                publish_topic=publish_topic)
+                publish_topic=publish_topic, nameserver=nameserver)
         granule_triggers.append(granule_trigger)
 
     return granule_triggers

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014 SMHI
+# Copyright (c) 2012, 2013, 2014, 2017 SMHI
 
 # Author(s):
 
@@ -38,11 +38,16 @@ if __name__ == '__main__':
     parser.add_argument("port", help="Port to listen to", type=int)
     parser.add_argument("-s", "--station", help="Name of the station",
                         default="unknown")
+    parser.add_argument("-x", "--excluded_satellites", nargs='*',
+                        help="List of platform names to exclude",
+                        default=[])
     parser.add_argument("-e", "--environment",
                         help="Name of the environment (e.g. dev, test, oper)",
                         default="dev")
     parser.add_argument("-l", "--log", help="File to log to", default=None)
     opts = parser.parse_args()
+
+    no_sats = opts.excluded_satellites
 
     if opts.log:
         import logging.handlers
@@ -63,7 +68,7 @@ if __name__ == '__main__':
 
     try:
         receive_from_zmq(opts.host, opts.port,
-                         opts.station, opts.environment, 1)
+                         opts.station, opts.environment, no_sats, 1)
     except KeyboardInterrupt:
         pass
     except:

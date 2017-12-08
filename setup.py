@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013, 2014, 2015, 2016 Martin Raspaud
+# Copyright (c) 2013-2017 Martin Raspaud
 
 # Author(s):
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +25,12 @@
 """
 from setuptools import setup
 import imp
+import os
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+# Set PPP_CONFIG_DIR so that valid mpop.cfg and areas.def are found
+os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors',
+                                            'tests', 'data')
 
 version = imp.load_source(
     'pytroll_collectors.version', 'pytroll_collectors/version.py')
@@ -52,7 +59,8 @@ setup(name="pytroll_collectors",
                'bin/catter.py',
                'bin/scisys_receiver.py',
                'bin/create_global_mosaic.py',
-               'bin/scale_images.py'
+               'bin/scale_images.py',
+               'bin/zipcollector_runner.py'
                ],
       data_files=[],
       zip_safe=False,

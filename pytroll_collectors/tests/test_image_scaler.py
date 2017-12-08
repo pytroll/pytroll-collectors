@@ -20,7 +20,6 @@
 import unittest
 import datetime as dt
 import tempfile
-import os
 import os.path
 from ConfigParser import ConfigParser
 from mock import patch
@@ -98,9 +97,16 @@ class TestImageScaler(unittest.TestCase):
         res = sca.crop_image(self.img_rgb.copy(), (3, 3, 7, 7))
         self.assertEqual(res.size[0], 4)
         self.assertEqual(res.size[1], 4)
-        res = sca.crop_image(self.img_rgb.copy(), (-3, -3, 700, 700))
-        self.assertEqual(res.size[0], 100)
+        # Test wrapping, ie. append data from left edge of the image to the
+        # right edge
+        res = sca.crop_image(self.img_rgb.copy(), (-3, -3, 120, 700))
+        self.assertEqual(res.size[0], 120)
         self.assertEqual(res.size[1], 100)
+        # All the pixels of the left edge of the  "extended" are needs to
+        # match the left edge of the originating image
+        for i in range(self.img_rgb.size[1]):
+            self.assertEqual(self.img_rgb.getpixel((0, i)),
+                             res.getpixel((100, i)))
 
     def test_resize_image(self):
         res = sca.resize_image(self.img_rgb.copy(), (30, 30))
@@ -355,6 +361,7 @@ class TestImageScaler(unittest.TestCase):
         with self.assertRaises(KeyError):
             scaler._get_mandatory_config_items()
         scaler.subject = '/scaler'
+
         scaler._get_mandatory_config_items()
         self.assertTrue(scaler.areaname == self.config.get('/scaler',
                                                            'areaname'))
