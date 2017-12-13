@@ -188,6 +188,12 @@ def setup(decoder):
         except NoOptionError:
             nameserver = "localhost"
 
+        try:
+            publish_message_after_each_reception = CONFIG.get(section, "publish_message_after_each_reception")
+            LOGGER.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
+        except NoOptionError:
+            publish_message_after_each_reception = False
+
         if observer_class in ["PollingObserver", "Observer"]:
             LOGGER.debug("Using %s for %s", observer_class, section)
             granule_trigger = \
@@ -204,7 +210,8 @@ def setup(decoder):
                 collectors, terminator,
                 CONFIG.get(section, 'service').split(','),
                 CONFIG.get(section, 'topics').split(','),
-                publish_topic=publish_topic, nameserver=nameserver)
+                publish_topic=publish_topic, nameserver=nameserver,
+                publish_message_after_each_reception=publish_message_after_each_reception)
         granule_triggers.append(granule_trigger)
 
     return granule_triggers

@@ -74,13 +74,14 @@ class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events.
     """
 
-    def __init__(self, collectors, terminator, decoder, publish_topic=None):
+    def __init__(self, collectors, terminator, decoder, publish_topic=None, publish_message_after_each_reception=False):
         Thread.__init__(self)
         Trigger.__init__(self, collectors, terminator,
                          publish_topic=publish_topic)
         self.decoder = decoder
         self._running = True
         self.new_file = Event()
+        self.publish_message_after_each_reception = publish_message_after_each_reception
 
     def _do(self, pathname):
         mda = self.decoder(pathname)
@@ -114,12 +115,26 @@ class FileTrigger(Trigger, Thread):
                     LOG.debug("Area: %s, timeout: %s",
                               next_timeout[0].region,
                               str(next_timeout[1]))
-                    self.terminator(next_timeout[0].finish(),
-                                    publish_topic=self.publish_topic)
+                    if self.publish_message_after_each_reception:
+                        #If this options is given:
+                        #Dont send message as it is assumed this was send
+                        #when the last message was received.
+                        #Only clean up the collector.
+                        next_timeout[0].finish()
+                    else:
+                        self.terminator(next_timeout[0].finish(),
+                                        publish_topic=self.publish_topic)
                 else:
                     LOG.debug("Waiting %s seconds until timeout",
                               str(total_seconds(next_timeout[1] -
                                                 datetime.utcnow())))
+                    if self.publish_message_after_each_reception:
+                        #If this option is given:
+                        #Publish message after each new file is reveived
+                        #and added to the collection
+                        #but don't clean up the collection as new files will be added until timeout
+                        self.terminator(next_timeout[0].finish_without_reset(),
+                                        publish_topic=self.publish_topic)
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()
@@ -379,11 +394,12 @@ class PostTrollTrigger(FileTrigger):
     """
 
     def __init__(self, collectors, terminator, services, topics,
-                 publish_topic=None, nameserver="localhost"):
+                 publish_topic=None, nameserver="localhost", publish_message_after_each_reception=False):
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
-                             publish_topic=publish_topic)
+                             publish_topic=publish_topic,
+                             publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
         """Start the posttroll trigger.

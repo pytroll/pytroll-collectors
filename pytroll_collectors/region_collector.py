@@ -246,6 +246,12 @@ class RegionCollector(object):
         self.cleanup()
         return granules
 
+    def finish_without_reset(self):
+        '''Finish collection, add area ID to metadata, DON'T cleanup and return
+        granule metadata.
+        '''
+        return self.granules
+
 
 def read_granule_metadata(filename):
     """Read granule metadata.
