@@ -276,9 +276,7 @@ class MessageReceiver(object):
                     mda["sensor"] = JPSS_INSTRUMENTS_FROM_FILENAMES[prefix]
                     start_time_items = filename.strip(prefix).split('_')[1:3]
                     end_time_item = filename.strip(prefix).split('_')[3]
-                    satellite = JPSS_PLATFORM_NAME.get(
-                        filename.strip(prefix).split('_')[0],
-                                                       None)
+                    satellite = JPSS_PLATFORM_NAME.get(filename.strip(prefix).split('_')[0], None)
                     orbit = filename.strip(prefix).split('_')[4].strip('b')
                     file_ok = True
                     break
@@ -396,8 +394,9 @@ class MessageReceiver(object):
             if is_uri_on_server(url, strict=True):
                 return self.handle_distrib(url)
         elif message.body.startswith(dispatch_prefix2):
-            filename, arr, url = message.body[len(dispatch_prefix):].split(" ")
+            filename, arr, url = message.body[len(dispatch_prefix2):].split(" ")
             del arr
+            LOGGER.debug("filename = <%s> url = <%s>", filename, url)
             url = compose_dest_url(filename, url)
             if is_uri_on_server(url, strict=True):
                 return self.handle_distrib(url)
