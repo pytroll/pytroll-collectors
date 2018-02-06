@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015, 2017 SMHI
+# Copyright (c) 2012-2018 Pytroll Developers
 
 # Author(s):
 
@@ -186,19 +186,13 @@ class MessageReceiver(object):
         for key in oldies:
             del self._received_passes[key]
 
-    def handle_distrib(self, message):
-        """React to a file dispatch message.
-        """
-
-        # As a new reception may have started before the dispatch is done
-        # we cannot use the metadata from the last received pass.
-        # Thus, we have to check the filenames to find the correct pass and its metadata
-        # Martin & Adam, 2017-11-07
-        pathname1, pathname2 = message.split(" ")
-        dummy, filename = os.path.split(pathname1)
+    def handle_distrib(self, url):
+        """React to a file dispatch message."""
+        url = urlsplit(url)
+        dummy, filename = os.path.split(url.path)
         # TODO: Should not make any assumptions on filename formats, should
         # load a description of it from a config file instead.
-        if pathname1.endswith(".hmf"):
+        if filename.endswith(".hmf"):
             risestr, satellite = filename[:-4].split("_", 1)
             risetime = datetime.strptime(risestr, "%Y%m%d%H%M%S")
             pname = pass_name(risetime, satellite)
@@ -364,12 +358,6 @@ class MessageReceiver(object):
         else:
             return None
 
-        if pathname2.endswith(filename):
-            uri = pathname2
-        else:
-            uri = os.path.join(pathname2, filename)
-
-        url = urlsplit(uri)
         if url.scheme in ["", "file"]:
             scheme = "ssh"
             netloc = self._emitter
@@ -392,20 +380,38 @@ class MessageReceiver(object):
         return swath
 
     def receive(self, message):
-        """Receive the messages and triage them.
-        """
+        """Receive the messages and triage them."""
         metadata_stop = "STOPRC Stop reception: "
         metadata_start = "STRTRC Start reception: Satellite"
         dispatch_prefix = "FILDIS File Dispatch: "
+        dispatch_prefix2 = "SUCTRN "
         if (message.body.startswith(metadata_stop) or
                 message.body.startswith(metadata_start)):
             self.add_pass(message.body.split(":", 1)[1].strip())
             return None
         elif message.body.startswith(dispatch_prefix):
             # Check hostname in message:
-            url = message.body[len(dispatch_prefix):].split(" ")[1]
+            filename, url = message.body[len(dispatch_prefix):].split(" ")
+            url = compose_dest_url(filename, url)
             if is_uri_on_server(url, strict=True):
-                return self.handle_distrib(message.body[len(dispatch_prefix):])
+                return self.handle_distrib(url)
+        elif message.body.startswith(dispatch_prefix2):
+            filename, arr, url = message.body[len(dispatch_prefix):].split(" ")
+            del arr
+            url = compose_dest_url(filename, url)
+            if is_uri_on_server(url, strict=True):
+                return self.handle_distrib(url)
+
+
+def compose_dest_url(source, dest):
+    """Take the filename from *source* and append it to *dest* if needed."""
+    filename = os.path.split(source)[1]
+    if not dest.endswith(filename):
+        dest = urlsplit(dest)
+        dest = urlunsplit((dest[0], dest[1],
+                           os.path.join(dest[2], filename),
+                           dest[3], dest[4]))
+    return dest
 
 
 class GMCSubscriber(object):
