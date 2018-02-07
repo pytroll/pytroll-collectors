@@ -401,10 +401,11 @@ class MessageReceiver(object):
                 return self.handle_distrib(url)
         elif message.body.startswith(dispatch_prefix2):
             filename, arr, url = message.body[len(dispatch_prefix2):].split(" ")
-            url = 'file://' + url.replace(':', '')
+            url = 'ftp://' + url.replace(':', '')
             del arr
             LOGGER.debug("filename = <%s> url = <%s>", filename, url)
             url = compose_dest_url(filename, url)
+            LOGGER.debug("url = %s", url)
             if is_uri_on_server(url, strict=True):
                 return self.handle_distrib(url)
 
@@ -502,9 +503,9 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms, days=
                 msg_rec.clean_passes(days)
 
 
-# if __name__ == '__main__':
-#     rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.121.1.245:/tmp</body></message>'
-#     string = TwoMetMessage(rawmsg)
-#     msg_rec = MessageReceiver('merlin')
-#     ret = msg_rec.receive(string)
-#     print ret
+if __name__ == '__main__':
+    rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.120.1.66:/tmp</body></message>'
+    string = TwoMetMessage(rawmsg)
+    msg_rec = MessageReceiver('merlin')
+    ret = msg_rec.receive(string)
+    print ret
