@@ -55,7 +55,9 @@ JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
                                    "RCRIS_": "cris"}
 JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
                       'jpss1': 'NOAA-20',
-                      'noaa20': 'NOAA-20'}
+                      'noaa20': 'NOAA-20',
+                      'j01': 'NOAA-20',
+                      'j02': 'NOAA-21'}
 
 
 class TwoMetMessage(object):
@@ -190,6 +192,7 @@ class MessageReceiver(object):
         """React to a file dispatch message."""
         url = urlsplit(url)
         dummy, filename = os.path.split(url.path)
+        LOGGER.debug("filename = %s", filename)
         # TODO: Should not make any assumptions on filename formats, should
         # load a description of it from a config file instead.
         if filename.endswith(".hmf"):
@@ -287,7 +290,7 @@ class MessageReceiver(object):
                 LOGGER.warning("filename = %s", filename)
                 return None
 
-            # satellite = "Suomi-NPP"
+            # satellite = "Suomi-NPP, NOAA-20, NOAA-21,..."
             if not satellite or satellite in self._excluded_platforms:
                 LOGGER.debug("Platform name %s is excluded...", str(satellite))
                 return None
@@ -356,6 +359,9 @@ class MessageReceiver(object):
         else:
             return None
 
+        import pdb
+        pdb.set_trace()
+
         if url.scheme in ["", "file"]:
             scheme = "ssh"
             netloc = self._emitter
@@ -372,6 +378,9 @@ class MessageReceiver(object):
                                          url.path,
                                          url.query,
                                          url.fragment))
+        else:
+            LOGGER.debug("url.scheme not expected: %s", url.scheme)
+
         swath["uid"] = os.path.split(url.path)[1]
         swath["uri"] = uri
         swath['variant'] = 'DR'
@@ -395,7 +404,10 @@ class MessageReceiver(object):
                 return self.handle_distrib(url)
         elif message.body.startswith(dispatch_prefix2):
             filename, arr, url = message.body[len(dispatch_prefix2):].split(" ")
+            url = 'file://' + url.replace(':', '')
             del arr
+            import pdb
+            pdb.set_trace()
             LOGGER.debug("filename = <%s> url = <%s>", filename, url)
             url = compose_dest_url(filename, url)
             if is_uri_on_server(url, strict=True):
@@ -493,3 +505,11 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms, days=
             pub.send(msg)
             if days:
                 msg_rec.clean_passes(days)
+
+
+if __name__ == '__main__':
+    rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.121.1.245:/tmp</body></message>'
+    string = TwoMetMessage(rawmsg)
+    msg_rec = MessageReceiver('merlin')
+    ret = msg_rec.receive(string)
+    print ret
