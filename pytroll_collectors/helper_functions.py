@@ -173,12 +173,6 @@ def is_uri_on_server(uri, strict=False):
     url = urlparse(uri)
     LOG.debug("URL: %s", str(url))
     try:
-        if url.scheme in get_local_ips():
-            return True
-    except (socket.gaierror, TypeError):
-        LOG.debug("Failed checking if the url.scheme is on this server")
-
-    try:
         url_ip = socket.gethostbyname(url.hostname)
         LOG.debug("url_ip: %s", url_ip)
     except (socket.gaierror, TypeError):
