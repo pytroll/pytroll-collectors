@@ -35,7 +35,10 @@ import logging.handlers
 import os
 import os.path
 from posttroll import message, publisher
-from mpop.projector import get_area_def
+try:
+    from satpy.resample import get_area_def
+except ImportError:
+    from mpop.projector import get_area_def
 
 LOGGER = logging.getLogger(__name__)
 CONFIG = RawConfigParser()
