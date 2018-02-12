@@ -59,6 +59,10 @@ JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
                       'j01': 'NOAA-20',
                       'j02': 'NOAA-21'}
 
+SCISYS_NAMES = {'Suomi-NPP': 'NPP',
+                'NOAA-20': 'NOAA 20',
+                'NOAA-21': 'NOAA 21'}
+
 
 class TwoMetMessage(object):
 
@@ -308,7 +312,7 @@ class MessageReceiver(object):
             # FIXME: swath start and end time is granule dependent.
             # Get the end time as well! - Adam 2013-06-03:
             start_time = mda["start_time"]
-            pname = pass_name(start_time, "NPP")
+            pname = pass_name(start_time, SCISYS_NAMES.get(satellite))
 
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop("satellite", None)
@@ -505,6 +509,8 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms, days=
 
 if __name__ == '__main__':
     rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.120.1.66:/tmp</body></message>'
+    rawmsg = '<message timestamp="2018-02-12T11:14:06" sequence="9194" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN 20180212110043_NOAA_19.hmf -&gt; 192.168.122.1:/tmp</body></message>'
+
     string = TwoMetMessage(rawmsg)
     msg_rec = MessageReceiver('merlin')
     ret = msg_rec.receive(string)
