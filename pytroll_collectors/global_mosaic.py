@@ -52,6 +52,10 @@ def calc_pixel_mask_limits(adef, lon_limits):
 
 def read_image(fname, tslot, adef, lon_limits=None):
     """Read image to numpy array"""
+
+    modes = {2: 'LA', 4: 'RGBA'}
+    cranges = {2: ((0, 1), (0, 1)), 4: ((0, 1), (0, 1), (0, 1), (0, 1))}
+
     # Convert to float32 to save memory in later steps
     try:
         img = np.array(Image.open(fname)).astype(np.float32)
@@ -64,7 +68,7 @@ def read_image(fname, tslot, adef, lon_limits=None):
             logging.error("Reading image failed again, skipping!")
             return None
 
-    mask = img[:, :, 3]
+    mask = img[:, :, -1]
 
     # Mask overlapping areas away
     if lon_limits:
@@ -78,11 +82,13 @@ def read_image(fname, tslot, adef, lon_limits=None):
     mask = mask == 0
 
     chans = []
-    for i in range(4):
+    for i in range(img.shape[-1]):
         chans.append(np.ma.masked_where(mask, img[:, :, i] / 255.))
 
-    return GeoImage(chans, adef, tslot, fill_value=None, mode="RGBA",
-                    crange=((0, 1), (0, 1), (0, 1), (0, 1)))
+    mode = modes[img.shape[-1]]
+    crange = cranges[img.shape[-1]]
+    return GeoImage(chans, adef, tslot, fill_value=None, mode=mode,
+                    crange=crange)
 
 
 def create_world_composite(fnames, tslot, adef, sat_limits,
@@ -122,7 +128,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             dtype = img.channels[0].dtype
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
-            for i in range(3):
+            for i in range(len(img.channels)):
                 logger.debug("Merging channel %d", i)
                 if blend and ndi:
                     if blend["scale"]:
@@ -153,10 +159,10 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 
                 img.channels[i] = np.ma.masked_where(chmask, chdata)
 
-            chdata = np.max(np.dstack((img.channels[3].data,
-                                       next_img.channels[3].data)),
+            chdata = np.max(np.dstack((img.channels[-1].data,
+                                       next_img.channels[-1].data)),
                             2)
-            img.channels[3] = np.ma.masked_where(chmask, chdata)
+            img.channels[-1] = np.ma.masked_where(chmask, chdata)
 
     return img
 
