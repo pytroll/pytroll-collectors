@@ -31,7 +31,7 @@ LON_LIMITS = {'Meteosat-11': [-37.5, 20.75],
               'GOES-15': [-177.15, -105.],
               'GOES-13': [-105., -37.5],
               'Meteosat-7': [41.5, 41.50001],  # placeholder
-              'GOES-R': [-90., -90.0001]  # placeholder
+              'GOES-16': [-90., -90.0001]  # placeholder
               }
 
 
