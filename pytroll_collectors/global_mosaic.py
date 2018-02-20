@@ -14,6 +14,10 @@ try:
     import scipy.ndimage as ndi
 except ImportError:
     ndi = None
+try:
+    from osgeo import gdal
+except ImportError:
+    gdal = None
 
 from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
@@ -50,6 +54,17 @@ def calc_pixel_mask_limits(adef, lon_limits):
         return [[0, left_limit], [right_limit, adef.shape[1]]]
 
 
+def read_gdal(fname):
+    """"""
+    fid = gdal.Open(fname)
+    if fid is None:
+        raise IOError
+    img = fid.ReadAsArray()
+    img = np.rollaxis(np.rollaxis(img, -1), -1).astype(np.float32)
+
+    return img
+
+
 def read_image(fname, tslot, adef, lon_limits=None):
     """Read image to numpy array"""
 
@@ -58,12 +73,18 @@ def read_image(fname, tslot, adef, lon_limits=None):
 
     # Convert to float32 to save memory in later steps
     try:
-        img = np.array(Image.open(fname)).astype(np.float32)
+        if gdal is not None:
+            img = read_gdal(fname)
+        else:
+            img = np.array(Image.open(fname)).astype(np.float32)
     except (IOError, TypeError):
         logging.error("Reading image %s failed, retrying once.", fname)
         time.sleep(5)
         try:
-            img = np.array(Image.open(fname)).astype(np.float32)
+            if gdal is not None:
+                img = read_gdal(fname)
+            else:
+                img = np.array(Image.open(fname)).astype(np.float32)
         except (IOError, TypeError):
             logging.error("Reading image failed again, skipping!")
             return None
