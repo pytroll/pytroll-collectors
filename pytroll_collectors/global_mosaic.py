@@ -232,18 +232,19 @@ class WorldCompositeDaemon(object):
             try:
                 msg = self._listener.output_queue.get(True, 1)
             except KeyboardInterrupt:
-                self._listener.stop()
-                self._publisher.stop()
                 self._loop = False
-                return
+                break
             except Queue.Empty:
                 continue
 
-            if msg.type == "file":
+            if msg is not None and msg.type == "file":
                 self._handle_message(msg)
 
             num = gc.collect()
             self.logger.info("%d objects garbage collected", num)
+
+        self._listener.stop()
+        self._publisher.stop()
 
     def _set_message_settings(self):
         """Set message settings from config"""
