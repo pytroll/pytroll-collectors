@@ -233,6 +233,8 @@ class WorldCompositeDaemon(object):
                 msg = self._listener.output_queue.get(True, 1)
             except KeyboardInterrupt:
                 self._listener.stop()
+                self._publisher.stop()
+                self._loop = False
                 return
             except Queue.Empty:
                 continue
