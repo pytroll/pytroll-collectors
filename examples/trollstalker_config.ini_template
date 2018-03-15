@@ -49,7 +49,7 @@ history=10
 [hrit]
 topic=/HRIT/topic/or/something/
 directory=/path/to/satellite/data/
-filepattern={path}H-000-{platform_name:_<6s}-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-__
+filepattern={path}H-000-{platform_name:_<6s}-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__
 instruments=seviri
 stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
 loglevel=DEBUG
