@@ -99,7 +99,8 @@ def arg_parse():
     parser.add_argument("-v", "--verbose", help="print debug messages too",
                         action="store_true")
     parser.add_argument("-c", "--config", help="config file to be used")
-    parser.add_argument("-C", "--config_item", help="config item to use")
+    parser.add_argument("-C", "--config_item",
+                        help="config item to use with .ini files")
 
     return parser.parse_args()
 
@@ -109,9 +110,15 @@ def main():
 
     args = arg_parse()
 
-    config = RawConfigParser()
-    config.read(args.config)
-    config = ini_to_dict(config, args.config_item)
+    if args.config_item:
+        config = RawConfigParser()
+        config.read(args.config)
+        config = ini_to_dict(config, args.config_item)
+    else:
+        import yaml
+
+        with open(args.config, 'r') as fid:
+            config = yaml.read(fid)
 
     print "Setting timezone to UTC"
     os.environ["TZ"] = "UTC"
