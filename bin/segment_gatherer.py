@@ -118,7 +118,7 @@ def main():
         import yaml
 
         with open(args.config, 'r') as fid:
-            config = yaml.read(fid)
+            config = yaml.load(fid)
 
     print "Setting timezone to UTC"
     os.environ["TZ"] = "UTC"
