@@ -327,10 +327,12 @@ class SegmentGatherer(object):
     def process(self, msg):
         """Process message"""
         mda = None
+        # Find the correct parser for this file
         for key in self._config['patterns']:
             parser = self._parsers[key]
             try:
                 mda = parser.parse(msg.data["uid"])
+                break
             except ValueError:
                 continue
         if mda is None:
