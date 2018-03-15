@@ -40,7 +40,7 @@ def ini_to_dict(config, section):
         nameservers = config.get(section, 'nameserver')
         nameservers = nameservers.split()
     except (NoOptionError, ValueError):
-        nameservers = []
+        nameservers = None
     posttroll['nameservers'] = nameservers
 
     try:
