@@ -24,9 +24,10 @@
 """
 
 import unittest
+import datetime as dt
 
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict
-from helper_functions import read_yaml
+from pytroll_collectors.helper_functions import read_yaml
 
 CONFIG_SINGLE = read_yaml("data/segments_single.yaml")
 # CONFIG_DOUBLE = read_yaml("data/segments_double.yaml")
@@ -37,12 +38,23 @@ class TestSegmentGatherer(unittest.TestCase):
     def setUp(self):
         """Setting up the testing
         """
-        gy1 = SegmentGatherer(CONFIG_SIGLE)
-        # gy2 = SegmentGatherer(CONFIG_DOUBLE)
-        # gini = SegmentGatherer(CONFIG_INI)
+        self.gyml1 = SegmentGatherer(CONFIG_SINGLE)
+        # self.gyml2 = SegmentGatherer(CONFIG_DOUBLE)
+        # self.gini = SegmentGatherer(CONFIG_INI)
 
-    def test_patterns(self):
-        pass
+    def test_init(self):
+        self.assertTrue(self.gyml1._config == CONFIG_SINGLE)
+        self.assertTrue(self.gyml1._subject is None)
+        self.assertEqual(self.gyml1._patterns.keys(), ['msg'])
+        self.assertEqual(self.gyml1._parsers.keys(), ['msg'])
+        self.assertEqual(len(self.gyml1.slots.keys()), 0)
+        self.assertEqual(self.gyml1.time_name, 'start_time')
+        self.assertFalse(self.gyml1._loop)
+        self.assertEqual(self.gyml1._time_tolerance, 30)
+        self.assertEqual(self.gyml1._timeliness.total_seconds(), 10)
+        self.assertEqual(self.gyml1._listener, None)
+        self.assertEqual(self.gyml1._publisher, None)
+
 
     def tearDown(self):
         """Closing down
