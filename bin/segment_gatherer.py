@@ -28,6 +28,7 @@ import time
 
 from pytroll_collectors.segments import SegmentGatherer
 from pytroll_collectors.segments import ini_to_dict
+from pytroll_collectors.helper_functions import read_yaml
 
 def arg_parse():
     '''Handle input arguments.
@@ -53,10 +54,7 @@ def main():
     if args.config_item:
         config = ini_to_dict(args.config, args.config_item)
     else:
-        import yaml
-
-        with open(args.config, 'r') as fid:
-            config = yaml.load(fid)
+        config = read_yaml(args.config)
 
     print "Setting timezone to UTC"
     os.environ["TZ"] = "UTC"
