@@ -466,67 +466,6 @@ def _copy_without_ignore_items(the_dict, ignored_keys=['ignore']):
     return new_dict
 
 
-def arg_parse():
-    '''Handle input arguments.
-    '''
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log",
-                        help="File to log to (defaults to stdout)",
-                        default=None)
-    parser.add_argument("-v", "--verbose", help="print debug messages too",
-                        action="store_true")
-    parser.add_argument("-c", "--config", help="config file to be used")
-    parser.add_argument("-C", "--config_item", help="config item to use")
-
-    return parser.parse_args()
-
-
-def main():
-    '''Main. Parse cmdline, read config etc.'''
-
-    args = arg_parse()
-
-    config = RawConfigParser()
-    config.read(args.config)
-
-    print "Setting timezone to UTC"
-    os.environ["TZ"] = "UTC"
-    time.tzset()
-
-    handlers = []
-    if args.log:
-        handlers.append(
-            logging.handlers.TimedRotatingFileHandler(args.log,
-                                                      "midnight",
-                                                      backupCount=7))
-
-    handlers.append(logging.StreamHandler())
-
-    if args.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-    for handler in handlers:
-        handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
-                                               " %(name)s] %(message)s",
-                                               '%Y-%m-%d %H:%M:%S'))
-        handler.setLevel(loglevel)
-        logging.getLogger('').setLevel(loglevel)
-        logging.getLogger('').addHandler(handler)
-
-    logging.getLogger("posttroll").setLevel(logging.INFO)
-    logger = logging.getLogger("segment_gatherer")
-
-    gatherer = SegmentGatherer(config, args.config_item)
-    gatherer.set_logger(logger)
-    gatherer.run()
-
-
-if __name__ == "__main__":
-    main()
-
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
     from ConfigParser import NoOptionError, RawConfigParser
