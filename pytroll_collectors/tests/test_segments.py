@@ -25,13 +25,16 @@
 
 import unittest
 import datetime as dt
+import os
+import os.path
 
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict
 from pytroll_collectors.helper_functions import read_yaml
 
-CONFIG_SINGLE = read_yaml("data/segments_single.yaml")
-# CONFIG_DOUBLE = read_yaml("data/segments_double.yaml")
-# CONFIG_INI = ini_to_dict("data/segments.ini", "msg")
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
+# CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
+# CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini", "msg"))
 
 class TestSegmentGatherer(unittest.TestCase):
 
