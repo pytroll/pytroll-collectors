@@ -527,8 +527,13 @@ def main():
 if __name__ == "__main__":
     main()
 
-def ini_to_dict(config, section):
+def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
+    from ConfigParser import NoOptionError, RawConfigParser
+
+    config = RawConfigParser()
+    config.read(fname)
+
     conf = {}
     conf['posttroll'] = {}
     posttroll = conf['posttroll']
