@@ -25,20 +25,21 @@
 
 import unittest
 
-from pytroll_collectors.segments import SegmentGatherer
+from pytroll_collectors.segments import SegmentGatherer, ini_to_dict
 from helper_functions import read_yaml
 
 CONFIG_SINGLE = read_yaml("data/segments_single.yaml")
 # CONFIG_DOUBLE = read_yaml("data/segments_double.yaml")
-
+# CONFIG_INI = ini_to_dict("data/segments.ini", "msg")
 
 class TestSegmentGatherer(unittest.TestCase):
 
     def setUp(self):
         """Setting up the testing
         """
-        g1 = SegmentGatherer(CONFIG_SIGLE)
-        # g2 = SegmentGatherer(CONFIG_DOUBLE)
+        gy1 = SegmentGatherer(CONFIG_SIGLE)
+        # gy2 = SegmentGatherer(CONFIG_DOUBLE)
+        # gini = SegmentGatherer(CONFIG_INI)
 
     def test_patterns(self):
         pass
