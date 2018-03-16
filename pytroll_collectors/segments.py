@@ -58,9 +58,7 @@ class SegmentGatherer(object):
 
     def __init__(self, config):
         self._config = config
-
-        self._subject = config['posttroll']['publish_topic']
-
+        self._subject = None
         self._patterns = config['patterns']
 
         self._time_tolerance = config.get("time_tolerance", 30)
@@ -299,6 +297,7 @@ class SegmentGatherer(object):
 
     def _setup_messaging(self):
         """Setup messaging"""
+        self._subject = config['posttroll']['publish_topic']
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
         publish_port = self._config['posttroll'].get('publish_port', 0)
