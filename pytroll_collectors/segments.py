@@ -38,9 +38,10 @@ from posttroll.listener import ListenerContainer
 from trollsift import Parser, compose
 
 SLOT_NOT_READY = 0
-SLOT_READY = 1
-SLOT_READY_BUT_WAIT_FOR_MORE = 2
-SLOT_OBSOLETE_TIMEOUT = 3
+SLOT_NONCRITICAL_NOT_READY = 1
+SLOT_READY = 2
+SLOT_READY_BUT_WAIT_FOR_MORE = 3
+SLOT_OBSOLETE_TIMEOUT = 4
 
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 REMOVE_TAGS = {'path', 'segment'}
@@ -98,15 +99,25 @@ class SegmentGatherer(object):
         self.slots[time_slot] = {}
         slot = self.slots[time_slot]
         slot['metadata'] = metadata.copy()
+        slot['timeout'] = None
 
         # Critical files that are required, otherwise production will fail.
         # If there are no critical files, empty set([]) is used.
         patterns = self._config['patterns']
-        slot['critical_files'] = set([])
-        slot['wanted_files'] = set([])
-        slot['all_files'] = set([])
         for key in patterns:
-            required = patterns.get("required", False)
+            self.slots[time_slot][key] = {}
+            slot = self.slots[time_slot][key]
+            is_critical_set = patterns[key].get("is_critical_set", False)
+            slot['is_critical_set'] = is_critical_set
+            slot['critical_files'] = set([])
+            slot['wanted_files'] = set([])
+            slot['all_files'] = set([])
+            slot['received_files'] = set([])
+            slot['delayed_files'] = dict()
+            slot['missing_files'] = set([])
+            slot['files_till_premature_publish'] = \
+                    self._num_files_premature_publish
+
             critical_segments = patterns[key].get("critical_files", None)
             if critical_segments:
                 fname_set = self._compose_filenames(key, time_slot,
@@ -115,7 +126,7 @@ class SegmentGatherer(object):
 
             else:
                 fname_set = self._compose_filenames(key, time_slot, ':')
-                if required:
+                if is_critical_set:
                     # If critical segments are not defined, but the
                     # file based on this pattern is required, add it
                     # to critical files
@@ -137,12 +148,6 @@ class SegmentGatherer(object):
                                                     all_segments)
                 slot['all_files'].update(fname_set)
 
-        slot['received_files'] = set([])
-        slot['delayed_files'] = dict()
-        slot['missing_files'] = set([])
-        slot['timeout'] = None
-        slot['files_till_premature_publish'] = \
-            self._num_files_premature_publish
 
     def _compose_filenames(self, key, time_slot, itm_str):
         """Compose filename set()s based on a pattern and item string.
@@ -184,7 +189,9 @@ class SegmentGatherer(object):
         data = self.slots[time_slot]
 
         # Diagnostic logging about delayed ...
-        delayed_files = data['delayed_files']
+        delayed_files = {}
+        for key in self._parsers:
+            delayed_files.update(data[key]['delayed_files'])
         if len(delayed_files) > 0:
             file_str = ''
             for key in delayed_files:
@@ -192,10 +199,12 @@ class SegmentGatherer(object):
             self.logger.warning("Files received late: %s",
                                 file_str.strip(', '))
 
+        # ... and missing files
         if missing_files_check:
-            # and missing files
-            missing_files = data['all_files'].difference(
-                data['received_files'])
+            missing_files = set([])
+            for key in self._parsers:
+                missing_files = data[key]['all_files'].difference(
+                    data[key]['received_files'])
             if len(missing_files) > 0:
                 self.logger.warning("Missing files: %s",
                                     ', '.join(missing_files))
@@ -217,62 +226,80 @@ class SegmentGatherer(object):
         """Set logger."""
         self.logger = logger
 
-    def update_timeout(self, slot):
-        slot['timeout'] = dt.datetime.utcnow() + self._timeliness
-        time_slot = str(slot['metadata'][self.time_name])
+    def update_timeout(self, time_slot):
+        timeout = dt.datetime.utcnow() + self._timeliness
+        self.slots[time_slot]['timeout'] = timeout
         self.logger.info("Setting timeout to %s for slot %s.",
-                         str(slot['timeout']),
-                         time_slot)
+                         str(timeout), time_slot)
 
-    def slot_ready(self, slot):
+    def slot_ready(self, time_slot):
         """Determine if slot is ready to be published."""
-        # If no files have been collected, return False
-        if len(slot['received_files']) == 0:
-            return SLOT_NOT_READY
-
-        time_slot = str(slot['metadata'][self.time_name])
-
-        wanted_and_critical_files = slot[
-            'wanted_files'].union(slot['critical_files'])
-        num_wanted_and_critical_files_received = len(
-            wanted_and_critical_files & slot['received_files'])
-
-        self.logger.debug("Got %s wanted or critical files in slot %s.",
-                          num_wanted_and_critical_files_received,
-                          time_slot)
-
-        if num_wanted_and_critical_files_received \
-                == slot['files_till_premature_publish']:
-            slot['files_till_premature_publish'] = -1
-            return SLOT_READY_BUT_WAIT_FOR_MORE
-
-        # If all wanted files have been received, return True
-        if wanted_and_critical_files.issubset(
-                slot['received_files']):
-            self.logger.info("All files received for slot %s.",
-                             time_slot)
-            return SLOT_READY
+        slot = self.slots[time_slot]
 
         if slot['timeout'] is None:
-            self.update_timeout(slot)
+            self.update_timeout(time_slot)
+            return SLOT_NOT_READY
 
-        if slot['timeout'] < dt.datetime.utcnow():
-            if slot['critical_files'].issubset(slot['received_files']):
-                # All critical files have been received
-                # Timeout reached, collection ready
-                self.logger.info("Timeout occured, required files received "
-                                 "for slot %s.", time_slot)
+        status = {}
+        num_files = {}
+        for key in self._parsers:
+            # Default
+            status[key] = SLOT_NOT_READY
+            if not slot[key]['is_critical_set']:
+                status[key] = SLOT_NONCRITICAL_NOT_READY
+            #if len(slot[key]['received_files']) == 0:
+                # and
+                # slot[key]['is_critical_set']):
+            #    status[key] = SLOT_NOT_READY
+
+            wanted_and_critical_files = slot[key][
+                'wanted_files'].union(slot[key]['critical_files'])
+            num_wanted_and_critical = len(
+                wanted_and_critical_files & slot[key]['received_files'])
+
+            num_files[key] = num_wanted_and_critical
+
+            if num_wanted_and_critical == \
+               slot[key]['files_till_premature_publish']:
+                slot[key]['files_till_premature_publish'] = -1
+                status[key] = SLOT_READY_BUT_WAIT_FOR_MORE
+
+            if wanted_and_critical_files.issubset(
+                    slot[key]['received_files']):
+                status[key] = SLOT_READY
+
+#            if slot[key]['critical_files'].issubset(slot[key]['received_files']):
+#                status[key] = SLOT_READY
+
+        # Determine overall status
+        return self.get_collection_status(status, slot['timeout'], time_slot)
+
+    def get_collection_status(self, status, timeout, time_slot):
+        """Determine the overall status of the collection"""
+        if len(status) == 0:
+            return SLOT_NOT_READY
+
+        if dt.datetime.utcnow() > timeout:
+            if SLOT_NONCRITICAL_NOT_READY in status.values():
                 return SLOT_READY
             else:
-                # Timeout reached, collection is obsolete
                 self.logger.warning("Timeout occured and required files "
                                     "were not present, data discarded for "
                                     "slot %s.",
                                     time_slot)
                 return SLOT_OBSOLETE_TIMEOUT
 
-        # Timeout not reached, wait for more files
-        return SLOT_NOT_READY
+        if SLOT_NOT_READY in status.values():
+            return SLOT_NOT_READY
+        if SLOT_NONCRITICAL_NOT_READY in status.values():
+            return SLOT_NONCRITICAL_NOT_READY
+        if all([val == SLOT_READY for val in status.values()]):
+            self.logger.info("Timeout occured, required files received "
+                             "for slot %s.", time_slot)
+            return SLOT_READY
+        if SLOT_READY_BUT_WAIT_FOR_MORE in status.values():
+            return SLOT_READY_BUT_WAIT_FOR_MORE
+
 
     def run(self):
         """Run SegmentGatherer"""
@@ -283,7 +310,7 @@ class SegmentGatherer(object):
             slots = self.slots.copy()
             for slot in slots:
                 slot = str(slot)
-                status = self.slot_ready(slots[slot])
+                status = self.slot_ready(slot)
                 if status == SLOT_READY:
                     # Collection ready, publish and remove
                     self._publish(slot)
@@ -356,54 +383,63 @@ class SegmentGatherer(object):
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
             self._init_data(metadata)
-        slot = self.slots[time_slot]
+
         uri = urlparse(msg.data['uri']).path
         uid = msg.data['uid']
 
-        if os.path.exists(uri) and uid in slot['all_files']:
-            slot['metadata']['dataset'].append({'uri': uri,
-                                                'uid': uid})
-            slot['received_files'].add(uid)
-            self.update_timeout(slot)
-        else:
-            return
+        key = self.key_from_fname(uid)
+        slot = self.slots[time_slot][key]
+        meta = self.slots[time_slot]['metadata']
 
         # Check if this file has been received already
-        for key in self._config['patterns']:
-            # Replace variable tags (such as processing time) with
-            # wildcards, as these can't be forecasted.
-            ignored_keys = \
-                self._config['patterns'][key].get('variable_tags', [])
-            mda = _copy_without_ignore_items(mda,
-                                             ignored_keys=ignored_keys)
 
-            mask = self._parsers[key].globify(mda)
-            if mask in slot['received_files']:
-                return
+        # Replace variable tags (such as processing time) with
+        # wildcards, as these can't be forecasted.
+        ignored_keys = \
+            self._config['patterns'][key].get('variable_tags', [])
+        mda = _copy_without_ignore_items(mda,
+                                         ignored_keys=ignored_keys)
+
+        mask = self._parsers[key].globify(mda)
+        if mask in slot['received_files']:
+            return
+        if mask not in slot['all_files']:
+            return
+
+        # self.update_timeout(time_slot)
+        timeout = self.slots[time_slot]['timeout']
 
         # Add uid and uri
-        slot['metadata']['dataset'].append({'uri': msg.data['uri'],
-                                            'uid': msg.data['uid']})
+        meta['dataset'].append({'uri': uri, 'uid': uid})
 
         # Collect all sensors, not only the latest
         if type(msg.data["sensor"]) not in (tuple, list, set):
             msg.data["sensor"] = [msg.data["sensor"]]
         for sensor in msg.data["sensor"]:
-            if "sensor" not in slot["metadata"]:
-                slot["metadata"]["sensor"] = []
-            if sensor not in slot["metadata"]["sensor"]:
-                slot["metadata"]["sensor"].append(sensor)
+            if "sensor" not in meta:
+                meta["sensor"] = []
+            if sensor not in meta["sensor"]:
+                meta["sensor"].append(sensor)
 
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
         if len(slot['critical_files']) > 0 and \
            slot['critical_files'].issubset(slot['received_files']):
-            delay = dt.datetime.utcnow() - (slot['timeout'] - self._timeliness)
+            delay = dt.datetime.utcnow() - (timeout - self._timeliness)
             if delay.total_seconds() > 0:
-                slot['delayed_files'][msg.data['uid']] = delay.total_seconds()
+                slot['delayed_files']['uid'] = delay.total_seconds()
 
         # Add to received files
         slot['received_files'].add(mask)
+
+    def key_from_fname(self, uid):
+        """"""
+        for key in self._parsers:
+            try:
+                _ = self._parsers[key].parse(uid)
+                return key
+            except ValueError:
+                pass
 
     def _find_time_slot(self, time_obj):
         """Find time slot and return the slot as a string.  If no slots are
