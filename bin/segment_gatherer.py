@@ -25,7 +25,6 @@ import os
 import logging
 import logging.handlers
 import time
-from ConfigParser import NoOptionError, RawConfigParser
 
 from pytroll_collectors.segments import SegmentGatherer
 from pytroll_collectors.segments import ini_to_dict
@@ -52,9 +51,7 @@ def main():
     args = arg_parse()
 
     if args.config_item:
-        config = RawConfigParser()
-        config.read(args.config)
-        config = ini_to_dict(config, args.config_item)
+        config = ini_to_dict(args.config, args.config_item)
     else:
         import yaml
 
