@@ -526,3 +526,61 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def ini_to_dict(config, section):
+    """Convert *section* of .ini *config* to dictionary."""
+    conf = {}
+    conf['posttroll'] = {}
+    posttroll = conf['posttroll']
+    posttroll['topics'] = config.get(section, 'topics').split()
+    try:
+        nameservers = config.get(section, 'nameserver')
+        nameservers = nameservers.split()
+    except (NoOptionError, ValueError):
+        nameservers = None
+    posttroll['nameservers'] = nameservers
+
+    try:
+        addresses = config.get(section, 'addresses')
+        addresses = addresses.split()
+    except (NoOptionError, ValueError):
+        addresses = None
+    posttroll['addresses'] = addresses
+
+    try:
+        publish_port = config.get(section, 'publish_port')
+    except NoOptionError:
+        publish_port = 0
+    posttroll['publish_port'] = publish_port
+
+    posttroll['publish_topic'] = config.get(section, "publish_topic")
+
+    conf['patterns'] = {section: {}}
+    patterns = conf['patterns'][section]
+    patterns['pattern'] = config.get(section, 'pattern')
+    patterns['critical_files'] = config.get(section, 'critical_files')
+    patterns['wanted_files'] = config.get(section, 'wanted_files')
+    patterns['all_files'] = config.get(section, 'all_files')
+    patterns['is_critical_set'] = False
+    try:
+        patterns['variable_tags'] = config.get(section, 'variable_tags')
+    except NoOptionError:
+        patterns['variable_tags'] = []
+
+    try:
+        conf['time_tolerance'] = config.getint(section, "time_tolerance")
+    except NoOptionError:
+        conf['time_tolerance'] = 30
+    try:
+        # Seconds
+        conf['timeliness'] = config.getint(section, "timeliness")
+    except (NoOptionError, ValueError):
+        conf['timeliness'] = 1200
+
+    try:
+        conf['num_files_premature_publish'] = \
+            config.getint(section, "num_files_premature_publish")
+    except (NoOptionError, ValueError):
+        conf['num_files_premature_publish'] = -1
+
+    return conf
