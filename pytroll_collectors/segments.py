@@ -52,17 +52,13 @@ class SegmentGatherer(object):
     """Gatherer for geostationary satellite segments and multifile polar
     satellite granules."""
 
+    _listener = None
+    _publisher = None
+
+
     def __init__(self, config):
         self._config = config
-        topics = config['posttroll'].get('topics')
-        addresses = config['posttroll'].get('addresses')
-        publish_port = config['posttroll'].get('publish_port', 0)
-        nameservers = config['posttroll'].get('nameservers', [])
 
-        self._listener = ListenerContainer(topics=topics, addresses=addresses)
-        self._publisher = publisher.NoisyPublisher("segment_gatherer",
-                                                   port=publish_port,
-                                                   nameservers=nameservers)
         self._subject = config['posttroll']['publish_topic']
 
         self._patterns = config['patterns']
@@ -301,9 +297,22 @@ class SegmentGatherer(object):
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
 
+    def _setup_messaging(self):
+        """Setup messaging"""
+        topics = self._config['posttroll'].get('topics')
+        addresses = self._config['posttroll'].get('addresses')
+        publish_port = self._config['posttroll'].get('publish_port', 0)
+        nameservers = self._config['posttroll'].get('nameservers', [])
+        self._listener = ListenerContainer(topics=topics, addresses=addresses)
+        self._publisher = publisher.NoisyPublisher("segment_gatherer",
+                                                   port=publish_port,
+                                                   nameservers=nameservers)
+        self._publisher.start()
+
     def run(self):
         """Run SegmentGatherer"""
-        self._publisher.start()
+        self._setup_messaging()
+
         self._loop = True
         while self._loop:
             # Check if there are slots ready for publication
