@@ -64,7 +64,7 @@ def ini_to_dict(config, section):
     patterns['critical_files'] = config.get(section, 'critical_files')
     patterns['wanted_files'] = config.get(section, 'wanted_files')
     patterns['all_files'] = config.get(section, 'all_files')
-    patterns['required'] = False
+    patterns['is_critical_set'] = False
     try:
         patterns['variable_tags'] = config.get(section, 'variable_tags')
     except NoOptionError:
