@@ -112,13 +112,12 @@ class SegmentGatherer(object):
                 self._num_files_premature_publish
 
             critical_segments = patterns[key].get("critical_files", None)
+            fname_set = self._compose_filenames(key, time_slot,
+                                                critical_segments)
             if critical_segments:
-                fname_set = self._compose_filenames(key, time_slot,
-                                                    critical_segments)
                 slot['critical_files'].update(fname_set)
 
             else:
-                fname_set = self._compose_filenames(key, time_slot, ':')
                 if is_critical_set:
                     # If critical segments are not defined, but the
                     # file based on this pattern is required, add it
@@ -131,21 +130,21 @@ class SegmentGatherer(object):
 
             # These segments are wanted, but not critical to production
             wanted_segments = patterns[key].get("wanted_files", None)
-            if wanted_segments is None:
-                wanted_segments = ':'
             slot['wanted_files'].update(
                 self._compose_filenames(key, time_slot, wanted_segments))
 
             # Name of all the files
             all_segments = patterns[key].get("all_files", None)
-            if all_segments is None:
-                all_segments = ':'
             slot['all_files'].update(
                 self._compose_filenames(key, time_slot, all_segments))
 
     def _compose_filenames(self, key, time_slot, itm_str):
         """Compose filename set()s based on a pattern and item string.
         itm_str is formated like ':PRO,:EPI' or 'VIS006:8,VIS008:1-8,...'"""
+
+        # Handle missing itm_str
+        if itm_str is None:
+            itm_str = ':'
 
         # Empty set
         result = set()
