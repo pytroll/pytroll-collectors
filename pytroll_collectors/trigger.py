@@ -128,7 +128,8 @@ class FileTrigger(Trigger, Thread):
                     LOG.debug("Waiting %s seconds until timeout",
                               str(total_seconds(next_timeout[1] -
                                                 datetime.utcnow())))
-                    if self.publish_message_after_each_reception:
+                    LOG.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
+                    if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
                         #If this option is given:
                         #Publish message after each new file is reveived
                         #and added to the collection

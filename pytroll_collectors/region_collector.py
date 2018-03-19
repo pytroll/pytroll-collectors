@@ -55,6 +55,7 @@ class RegionCollector(object):
         self.timeliness = timeliness
         self.timeout = None
         self.granule_duration = granule_duration
+        self.last_file_added = False
 
     def __call__(self, granule_metadata):
         return self.collect(granule_metadata)
@@ -96,11 +97,13 @@ class RegionCollector(object):
         LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
 
+        self.last_file_added = False
         for ptime in self.planned_granule_times:
             if abs(start_time - ptime) < timedelta(seconds=3) and \
                ptime not in self.granule_times:
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
+                self.last_file_added = True
                 LOG.info("Added %s (%s) granule to area %s",
                          platform,
                          str(start_time),
@@ -146,6 +149,7 @@ class RegionCollector(object):
         if granule_pass.area_coverage(self.region) > 0:
             self.granule_times.add(start_time)
             self.granules.append(granule_metadata)
+            self.last_file_added = True
 
             # Computation of the predicted granules within the region
 
@@ -251,6 +255,11 @@ class RegionCollector(object):
         granule metadata.
         '''
         return self.granules
+
+    def is_last_file_added(self):
+        '''Return if last file was added to the region
+        '''
+        return self.last_file_added
 
 
 def read_granule_metadata(filename):
