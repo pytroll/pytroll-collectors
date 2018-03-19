@@ -55,7 +55,6 @@ class SegmentGatherer(object):
     _listener = None
     _publisher = None
 
-
     def __init__(self, config):
         self._config = config
         self._subject = None
@@ -110,7 +109,7 @@ class SegmentGatherer(object):
             slot['delayed_files'] = dict()
             slot['missing_files'] = set([])
             slot['files_till_premature_publish'] = \
-                    self._num_files_premature_publish
+                self._num_files_premature_publish
 
             critical_segments = patterns[key].get("critical_files", None)
             if critical_segments:
@@ -141,7 +140,6 @@ class SegmentGatherer(object):
                 fname_set = self._compose_filenames(key, time_slot,
                                                     all_segments)
                 slot['all_files'].update(fname_set)
-
 
     def _compose_filenames(self, key, time_slot, itm_str):
         """Compose filename set()s based on a pattern and item string.
@@ -241,7 +239,7 @@ class SegmentGatherer(object):
             status[key] = SLOT_NOT_READY
             if not slot[key]['is_critical_set']:
                 status[key] = SLOT_NONCRITICAL_NOT_READY
-            #if len(slot[key]['received_files']) == 0:
+            # if len(slot[key]['received_files']) == 0:
                 # and
                 # slot[key]['is_critical_set']):
             #    status[key] = SLOT_NOT_READY
@@ -294,10 +292,9 @@ class SegmentGatherer(object):
         if SLOT_READY_BUT_WAIT_FOR_MORE in status.values():
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
-
     def _setup_messaging(self):
         """Setup messaging"""
-        self._subject = config['posttroll']['publish_topic']
+        self._subject = self._config['posttroll']['publish_topic']
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
         publish_port = self._config['posttroll'].get('publish_port', 0)
