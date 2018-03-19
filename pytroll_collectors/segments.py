@@ -272,6 +272,11 @@ class SegmentGatherer(object):
         if len(status) == 0:
             return SLOT_NOT_READY
 
+        if all([val == SLOT_READY for val in status.values()]):
+            self.logger.info("Required files received "
+                             "for slot %s.", time_slot)
+            return SLOT_READY
+
         if dt.datetime.utcnow() > timeout:
             if SLOT_NONCRITICAL_NOT_READY in status.values():
                 return SLOT_READY
@@ -286,10 +291,6 @@ class SegmentGatherer(object):
             return SLOT_NOT_READY
         if SLOT_NONCRITICAL_NOT_READY in status.values():
             return SLOT_NONCRITICAL_NOT_READY
-        if all([val == SLOT_READY for val in status.values()]):
-            self.logger.info("Timeout occured, required files received "
-                             "for slot %s.", time_slot)
-            return SLOT_READY
         if SLOT_READY_BUT_WAIT_FOR_MORE in status.values():
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
