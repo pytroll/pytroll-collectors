@@ -130,16 +130,18 @@ class SegmentGatherer(object):
                 slot['all_files'].update(fname_set)
 
             # These segments are wanted, but not critical to production
-            wanted_segments = patterns[key].get("wanted_files", ':')
+            wanted_segments = patterns[key].get("wanted_files", None)
+            if wanted_segments is None:
+                wanted_segments = ':'
             slot['wanted_files'].update(
                 self._compose_filenames(key, time_slot, wanted_segments))
 
             # Name of all the files
             all_segments = patterns[key].get("all_files", None)
-            if all_segments:
-                fname_set = self._compose_filenames(key, time_slot,
-                                                    all_segments)
-                slot['all_files'].update(fname_set)
+            if all_segments is None:
+                all_segments = ':'
+            slot['all_files'].update(
+                self._compose_filenames(key, time_slot, all_segments))
 
     def _compose_filenames(self, key, time_slot, itm_str):
         """Compose filename set()s based on a pattern and item string.
