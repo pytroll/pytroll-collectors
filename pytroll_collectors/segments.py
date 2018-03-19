@@ -278,7 +278,8 @@ class SegmentGatherer(object):
             return SLOT_READY
 
         if dt.datetime.utcnow() > timeout:
-            if SLOT_NONCRITICAL_NOT_READY in status.values():
+            if (SLOT_NONCRITICAL_NOT_READY in status.values() or
+                    SLOT_READY_BUT_WAIT_FOR_MORE in status.values()):
                 return SLOT_READY
             else:
                 self.logger.warning("Timeout occured and required files "
