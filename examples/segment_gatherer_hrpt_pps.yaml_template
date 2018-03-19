@@ -1,0 +1,38 @@
+patterns:
+  hrpt:
+    pattern:
+      "hrpt_{platform_name}_{nominal_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b"
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: true
+    variable_tags: []
+  pps:
+    pattern:
+      "S_NWC_CMA_{platform_name}_{orbit_number:05d}_{start_time:%Y%m%dT%H%M}{start_seconds:%02d}{start_tenths:%01d}Z_{end_time:%Y%m%dT%H%M}{end_seconds:%02d}{end_tenths:%01d}.nc"
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: false
+    variable_tags: []
+
+
+timeliness:
+  180
+time_name:
+  start_time
+time_tolerance:
+  30
+
+posttroll:
+  topics:
+    - /stalker/new/file/yay
+    - /stalker/foo
+  publish_topic:
+    /segment-foo/bar
+  publish_port:
+    0
+  nameservers:
+    null
+  addresses:
+    null
