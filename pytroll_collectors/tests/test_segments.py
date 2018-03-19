@@ -44,12 +44,14 @@ CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
 # CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
 # CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini", "msg"))
 
+
 class TestSegmentGatherer(unittest.TestCase):
 
     def setUp(self):
         """Setting up the testing
         """
-        self.mda = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "orig_platform_name": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"]}
+        self.mda = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "orig_platform_name": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
+            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"]}
 
         self.gyml1 = SegmentGatherer(CONFIG_SINGLE)
         # self.gyml2 = SegmentGatherer(CONFIG_DOUBLE)
@@ -149,16 +151,73 @@ class TestSegmentGatherer(unittest.TestCase):
         status = {}
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
 
-        status = {'msg': SLOT_NOT_READY}
+        status = {'foo': SLOT_NOT_READY}
         self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
-        status = {'msg': SLOT_NOT_READY}
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
 
-        status = {'msg': SLOT_READY}
+        status = {'foo': SLOT_NONCRITICAL_NOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_NONCRITICAL_NOT_READY)
+
+        status = {'foo': SLOT_READY}
         self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str), SLOT_READY)
 
-        
+        status = {'foo': SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_READY_BUT_WAIT_FOR_MORE)
+
+        # More than one fileset
+
+        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_NOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
+
+        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_NONCRITICAL_NOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
+
+        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
+
+        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
+
+        status = {'foo': SLOT_NONCRITICAL_NOT_READY,
+                  'bar': SLOT_NONCRITICAL_NOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_NONCRITICAL_NOT_READY)
+
+        status = {'foo': SLOT_NONCRITICAL_NOT_READY, 'bar': SLOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_NONCRITICAL_NOT_READY)
+
+        status = {'foo': SLOT_NONCRITICAL_NOT_READY,
+                  'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_NONCRITICAL_NOT_READY)
+
+        status = {'foo': SLOT_READY, 'bar': SLOT_READY}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str), SLOT_READY)
+
+        status = {'foo': SLOT_READY, 'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_READY_BUT_WAIT_FOR_MORE)
+
+        status = {'foo': SLOT_READY_BUT_WAIT_FOR_MORE,
+                  'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
+        self.assertEqual(func(status, future, slot_str),
+                         SLOT_READY_BUT_WAIT_FOR_MORE)
 
     def tearDown(self):
         """Closing down
