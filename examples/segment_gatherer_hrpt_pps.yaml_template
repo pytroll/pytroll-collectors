@@ -1,28 +1,33 @@
 patterns:
   hrpt:
     pattern:
-      "hrpt_{platform_name}_{nominal_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b"
+      "hrpt_{platform_name}_{start_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b"
     critical_files: null
     wanted_files: null
     all_files: null
     is_critical_set: true
-    variable_tags: []
+    variable_tags: ['platform_name', ]
   pps:
     pattern:
-      "S_NWC_CMA_{platform_name}_{orbit_number:05d}_{start_time:%Y%m%dT%H%M}{start_seconds:%02d}{start_tenths:%01d}Z_{end_time:%Y%m%dT%H%M}{end_seconds:%02d}{end_tenths:%01d}.nc"
+      "S_NWC_CMA_{platform_name}_{orbit_number:05d}_{start_time:%Y%m%dT%H%M}{start_seconds:02d}{start_tenths:01d}Z_{end_time:%Y%m%dT%H%M}{end_seconds:02d}{end_tenths:01d}Z.nc"
     critical_files: null
     wanted_files: null
     all_files: null
     is_critical_set: false
-    variable_tags: []
-
+    variable_tags:
+      - platform_name
+      - start_seconds
+      - start_tenths
+      - end_time
+      - end_seconds
+      - end_tenths
 
 timeliness:
   180
 time_name:
   start_time
 time_tolerance:
-  30
+  60
 
 posttroll:
   topics:
