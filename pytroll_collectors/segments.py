@@ -85,19 +85,24 @@ class SegmentGatherer(object):
         """Init wanted, all and critical files"""
         # Init metadata struct
         metadata = mda.copy()
-        metadata['dataset'] = []
 
         time_slot = str(metadata[self.time_name])
         self.logger.debug("Adding new slot: %s", time_slot)
         self.slots[time_slot] = {}
-        slot = self.slots[time_slot]
-        slot['metadata'] = metadata.copy()
-        slot['timeout'] = None
+        self.slots[time_slot]['metadata'] = metadata.copy()
+        self.slots[time_slot]['timeout'] = None
 
         # Critical files that are required, otherwise production will fail.
         # If there are no critical files, empty set([]) is used.
         patterns = self._config['patterns']
+        if len(patterns) == 1:
+            self.slots[time_slot]['metadata']['dataset'] = []
+        else:
+            self.slots[time_slot]['metadata']['collection'] = {}
         for key in patterns:
+            if len(patterns) > 1:
+                self.slots[time_slot]['metadata']['collection'][key] = \
+                    {'dataset': [], 'sensor': []}
             self.slots[time_slot][key] = {}
             slot = self.slots[time_slot][key]
             is_critical_set = patterns[key].get("is_critical_set", False)
@@ -172,6 +177,7 @@ class SegmentGatherer(object):
             for seg in segments:
                 meta['segment'] = seg
                 fname = self._parsers[key].globify(meta)
+
                 result.add(fname)
 
         return result
@@ -209,7 +215,10 @@ class SegmentGatherer(object):
             except KeyError:
                 pass
 
-        msg = message.Message(self._subject, "dataset", data['metadata'])
+        if len(self._parsers) == 1:
+            msg = message.Message(self._subject, "dataset", data['metadata'])
+        else:
+            msg = message.Message(self._subject, "collection", data['metadata'])
         self.logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
 
@@ -240,10 +249,6 @@ class SegmentGatherer(object):
             status[key] = SLOT_NOT_READY
             if not slot[key]['is_critical_set']:
                 status[key] = SLOT_NONCRITICAL_NOT_READY
-            # if len(slot[key]['received_files']) == 0:
-                # and
-                # slot[key]['is_critical_set']):
-            #    status[key] = SLOT_NOT_READY
 
             wanted_and_critical_files = slot[key][
                 'wanted_files'].union(slot[key]['critical_files'])
@@ -260,9 +265,6 @@ class SegmentGatherer(object):
             if wanted_and_critical_files.issubset(
                     slot[key]['received_files']):
                 status[key] = SLOT_READY
-
-#            if slot[key]['critical_files'].issubset(slot[key]['received_files']):
-#                status[key] = SLOT_READY
 
         # Determine overall status
         return self.get_collection_status(status, slot['timeout'], time_slot)
@@ -366,29 +368,19 @@ class SegmentGatherer(object):
     def process(self, msg):
         """Process message"""
         mda = None
+
+        uid = msg.data['uid']
+
         # Find the correct parser for this file
-        for key in self._config['patterns']:
-            parser = self._parsers[key]
-            try:
-                mda = parser.parse(msg.data["uid"])
-                break
-            except ValueError:
-                continue
-        if mda is None:
+        key = self.key_from_fname(uid)
+        if key is None:
             self.logger.debug("Unknown file, skipping.")
             return
 
-        metadata = {}
+        parser = self._parsers[key]
+        mda = parser.parse(msg.data["uid"])
 
-        # Use values parsed from the filename as basis
-        for key in mda:
-            if key not in DO_NOT_COPY_KEYS:
-                metadata[key] = mda[key]
-
-        # Update with data given in the message
-        for key in msg.data:
-            if key not in DO_NOT_COPY_KEYS:
-                metadata[key] = msg.data[key]
+        metadata = copy_metadata(mda, msg)
 
         time_slot = self._find_time_slot(metadata["start_time"])
 
@@ -396,14 +388,15 @@ class SegmentGatherer(object):
         if time_slot not in self.slots:
             self._init_data(metadata)
 
-        uri = urlparse(msg.data['uri']).path
-        uid = msg.data['uid']
+        # Check if this file has been received already
+        self.add_file(time_slot, key, mda, msg.data)
 
-        key = self.key_from_fname(uid)
+    def add_file(self, time_slot, key, mda, msg_data):
+        """Add file to the correct filelist"""
+        uri = urlparse(msg_data['uri']).path
+        uid = msg_data['uid']
         slot = self.slots[time_slot][key]
         meta = self.slots[time_slot]['metadata']
-
-        # Check if this file has been received already
 
         # Replace variable tags (such as processing time) with
         # wildcards, as these can't be forecasted.
@@ -416,22 +409,26 @@ class SegmentGatherer(object):
         if mask in slot['received_files']:
             return
         if mask not in slot['all_files']:
+            self.logger.debug("%s not in %s", mask, slot['all_files'])
             return
 
         # self.update_timeout(time_slot)
         timeout = self.slots[time_slot]['timeout']
 
         # Add uid and uri
-        meta['dataset'].append({'uri': uri, 'uid': uid})
+        if len(self._patterns) == 1:
+            meta['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = meta.get('sensors', [])
+        else:
+            meta['collection'][key]['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = meta['collection'][key].get('sensors', [])
 
         # Collect all sensors, not only the latest
-        if type(msg.data["sensor"]) not in (tuple, list, set):
-            msg.data["sensor"] = [msg.data["sensor"]]
-        for sensor in msg.data["sensor"]:
-            if "sensor" not in meta:
-                meta["sensor"] = []
-            if sensor not in meta["sensor"]:
-                meta["sensor"].append(sensor)
+        if type(msg_data["sensor"]) not in (tuple, list, set):
+            msg_data["sensor"] = [msg_data["sensor"]]
+        for sensor in msg_data["sensor"]:
+            if sensor not in sensors:
+                sensors.append(sensor)
 
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
@@ -466,11 +463,13 @@ class SegmentGatherer(object):
         return str(time_obj)
 
 
-def _copy_without_ignore_items(the_dict, ignored_keys=['ignore']):
+def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
     """
     get a copy of *the_dict* without entries having substring
     'ignore' in key
     """
+    if not isinstance(ignored_keys, (list, tuple, set)):
+        ignored_keys = [ignored_keys, ]
     new_dict = {}
     for (key, val) in list(the_dict.items()):
         if key not in ignored_keys:
@@ -540,3 +539,19 @@ def ini_to_dict(fname, section):
         conf['num_files_premature_publish'] = -1
 
     return conf
+
+
+def copy_metadata(mda, msg):
+    """Copy metada from filename and message to a combined dictionary"""
+    metadata = {}
+    # Use values parsed from the filename as basis
+    for key in mda:
+        if key not in DO_NOT_COPY_KEYS:
+            metadata[key] = mda[key]
+
+    # Update with data given in the message
+    for key in msg.data:
+        if key not in DO_NOT_COPY_KEYS:
+            metadata[key] = msg.data[key]
+
+    return metadata
