@@ -41,7 +41,9 @@ from pytroll_collectors.segments import (SLOT_NOT_READY,
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
-# CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
+CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
+CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
+                                       "data/segments_double_no_segments.yaml"))
 # CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini", "msg"))
 
 
@@ -50,33 +52,43 @@ class TestSegmentGatherer(unittest.TestCase):
     def setUp(self):
         """Setting up the testing
         """
-        self.mda = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "orig_platform_name": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
+        self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "orig_platform_name": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"]}
 
-        self.gyml1 = SegmentGatherer(CONFIG_SINGLE)
-        # self.gyml2 = SegmentGatherer(CONFIG_DOUBLE)
+        self.mda_iodc = {"segment": "EPI", "uid": "H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "orig_platform_name": "MSG2", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
+            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "platform_name": "Meteosat-9", "channel_name": "", "path": "", "sensor": ["seviri"]}
+
+        self.mda_pps = {"end_tenths": 4, "uid": "S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "orig_platform_name": "metopb", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "start_tenths": 7, "orbit_number": 28538, "uri":
+                        "/home/lahtinep/data/satellite/hrpt-pps/S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "start_seconds": 38, "platform_name": "Metop-B", "end_seconds": 54, "end_time": dt.datetime(2018, 3, 19, 10, 9, 0), "path": "", "sensor": ["avhrr/3"]}
+
+        self.mda_hrpt = {"uid": "hrpt_metop01_20180319_0955_28538.l1b", "orig_platform_name": "metop01", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "orbit_number":
+                         28538, "uri": "/home/lahtinep/data/satellite/new/hrpt_metop01_20180319_0955_28538.l1b", "platform_name": "Metop-B", "path": "", "sensor": ["avhrr/3"]}
+
+        self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
+        self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
+        self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         # self.gini = SegmentGatherer(CONFIG_INI)
 
     def test_init(self):
-        self.assertTrue(self.gyml1._config == CONFIG_SINGLE)
-        self.assertTrue(self.gyml1._subject is None)
-        self.assertEqual(self.gyml1._patterns.keys(), ['msg'])
-        self.assertEqual(self.gyml1._parsers.keys(), ['msg'])
-        self.assertEqual(len(self.gyml1.slots.keys()), 0)
-        self.assertEqual(self.gyml1.time_name, 'start_time')
-        self.assertFalse(self.gyml1._loop)
-        self.assertEqual(self.gyml1._time_tolerance, 30)
-        self.assertEqual(self.gyml1._timeliness.total_seconds(), 10)
-        self.assertEqual(self.gyml1._listener, None)
-        self.assertEqual(self.gyml1._publisher, None)
+        self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
+        self.assertTrue(self.msg0deg._subject is None)
+        self.assertEqual(self.msg0deg._patterns.keys(), ['msg'])
+        self.assertEqual(self.msg0deg._parsers.keys(), ['msg'])
+        self.assertEqual(len(self.msg0deg.slots.keys()), 0)
+        self.assertEqual(self.msg0deg.time_name, 'start_time')
+        self.assertFalse(self.msg0deg._loop)
+        self.assertEqual(self.msg0deg._time_tolerance, 30)
+        self.assertEqual(self.msg0deg._timeliness.total_seconds(), 10)
+        self.assertEqual(self.msg0deg._listener, None)
+        self.assertEqual(self.msg0deg._publisher, None)
 
     def test_init_data(self):
-        mda = self.mda.copy()
-        self.gyml1._init_data(mda)
+        mda = self.mda_msg0deg.copy()
+        self.msg0deg._init_data(mda)
 
         slot_str = str(mda["start_time"])
-        self.assertEqual(self.gyml1.slots.keys()[0], slot_str)
-        slot = self.gyml1.slots[slot_str]
+        self.assertEqual(self.msg0deg.slots.keys()[0], slot_str)
+        slot = self.msg0deg.slots[slot_str]
         for key in mda:
             self.assertEqual(slot['metadata'][key], mda[key])
         self.assertEqual(slot['timeout'], None)
@@ -94,59 +106,84 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(slot['msg']['wanted_files']), 10)
         self.assertEqual(len(slot['msg']['all_files']), 10)
 
+        # Tests using two filesets
+        self.msg0deg_iodc._init_data(mda)
+        slot = self.msg0deg_iodc.slots[slot_str]
+        self.assertTrue('collection' in slot['metadata'])
+        for key in self.msg0deg_iodc._patterns:
+            self.assertTrue('dataset' in slot['metadata']['collection'][key])
+            self.assertTrue('sensor' in slot['metadata']['collection'][key])
+
     def test_compose_filenames(self):
-        mda = self.mda.copy()
-        self.gyml1._init_data(mda)
+        mda = self.mda_msg0deg.copy()
+        self.msg0deg._init_data(mda)
         slot_str = str(mda["start_time"])
-        fname_set = self.gyml1._compose_filenames(
+        fname_set = self.msg0deg._compose_filenames(
             'msg', slot_str,
-            self.gyml1._config['patterns']['msg']['critical_files'])
+            self.msg0deg._config['patterns']['msg']['critical_files'])
         self.assertTrue(fname_set, set)
         self.assertEqual(len(fname_set), 2)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set)
-        fname_set = self.gyml1._compose_filenames('msg', slot_str, None)
+        fname_set = self.msg0deg._compose_filenames('msg', slot_str, None)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-_________-201611281100-__" in fname_set)
         # Check that MSG segments can be given as range, and the
         # result is same as with explicit segment names
-        fname_set_range = self.gyml1._compose_filenames(
+        fname_set_range = self.msg0deg._compose_filenames(
             'msg', slot_str,
-            self.gyml1._config['patterns']['msg']['wanted_files'])
-        fname_set_explicit = self.gyml1._compose_filenames(
+            self.msg0deg._config['patterns']['msg']['wanted_files'])
+        fname_set_explicit = self.msg0deg._compose_filenames(
             'msg', slot_str,
-            self.gyml1._config['patterns']['msg']['all_files'])
+            self.msg0deg._config['patterns']['msg']['all_files'])
         self.assertEqual(len(fname_set_range), len(fname_set_explicit))
         self.assertEqual(len(fname_set_range.difference(fname_set_explicit)), 0)
 
-        # TODO: Test *variable_tags*
+        # Tests using to filesets with no segments
+        mda = self.mda_hrpt.copy()
+        self.hrpt_pps._init_data(mda)
+        slot_str = str(mda["start_time"])
+        fname_set = self.hrpt_pps._compose_filenames(
+            'hrpt', slot_str,
+            self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
+        self.assertEqual(len(fname_set), 1)
+        fname_set = self.hrpt_pps._compose_filenames(
+            'pps', slot_str,
+            self.hrpt_pps._config['patterns']['pps']['critical_files'])
+        self.assertEqual(len(fname_set), 1)
 
     def test_set_logger(self):
         logger = logging.getLogger('foo')
-        self.gyml1.set_logger(logger)
-        self.assertTrue(logger is self.gyml1.logger)
+        self.msg0deg.set_logger(logger)
+        self.assertTrue(logger is self.msg0deg.logger)
 
     def test_update_timeout(self):
-        mda = self.mda.copy()
+        mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
-        self.gyml1._init_data(mda)
+        self.msg0deg._init_data(mda)
         now = dt.datetime.utcnow()
-        self.gyml1.update_timeout(slot_str)
-        diff = self.gyml1.slots[slot_str]['timeout'] - now
+        self.msg0deg.update_timeout(slot_str)
+        diff = self.msg0deg.slots[slot_str]['timeout'] - now
         self.assertAlmostEqual(diff.total_seconds(), 10.0, places=3)
 
     def test_slot_ready(self):
-        mda = self.mda.copy()
+        mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
+        self.msg0deg._init_data(mda)
+        func = self.msg0deg.slot_ready
+        self.assertTrue(self.msg0deg.slots[slot_str]['timeout'] is None)
+        res = func(slot_str)
+        self.assertEqual(res, SLOT_NOT_READY)
+        self.assertTrue(self.msg0deg.slots[slot_str]['timeout'] is not None)
         # TODO
 
     def test_get_collection_status(self):
-        mda = self.mda.copy()
+        mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
 
         now = dt.datetime.utcnow()
         future = now + dt.timedelta(minutes=1)
         past = now - dt.timedelta(minutes=1)
-        func = self.gyml1.get_collection_status
+        func = self.msg0deg.get_collection_status
 
         status = {}
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
@@ -218,6 +255,59 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str),
                          SLOT_READY_BUT_WAIT_FOR_MORE)
+
+    def test_add_file(self):
+        # Single fileset
+        msg_data = self.mda_msg0deg.copy()
+        col = self.msg0deg
+        col._init_data(msg_data)
+        time_slot = col.slots.keys()[0]
+        key = CONFIG_SINGLE['patterns'].keys()[0]
+        mda = col._parsers[key].parse(msg_data['uid'])
+        res = col.add_file(time_slot, key, mda, msg_data)
+        self.assertTrue(res is None)
+        self.assertEqual(len(col.slots[time_slot][key]['received_files']), 1)
+        meta = col.slots[time_slot]['metadata']
+        self.assertEqual(len(meta['dataset']), 1)
+        self.assertTrue('uri' in meta['dataset'][0])
+        self.assertTrue('uid' in meta['dataset'][0])
+
+        # Two filesets
+        msg_data = {'msg': self.mda_msg0deg.copy(), 'iodc': self.mda_iodc.copy()}
+        col = self.msg0deg_iodc
+        col._init_data(msg_data['msg'])
+        time_slot = str(msg_data['msg']['start_time'])
+        i = 0
+        for key in CONFIG_DOUBLE['patterns']:
+            mda = col._parsers[key].parse(msg_data[key]['uid'])
+            res = col.add_file(time_slot, key, mda, msg_data[key])
+            self.assertTrue(res is None)
+            self.assertEqual(len(col.slots[time_slot][key]['received_files']),
+                             1)
+            meta = col.slots[time_slot]['metadata']
+            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
+            self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
+            self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
+            i += 1
+
+        # Two filesets without segments
+        msg_data = {'hrpt': self.mda_hrpt.copy(),
+                    'pps': self.mda_pps.copy()}
+        col = self.hrpt_pps
+        col._init_data(msg_data['hrpt'])
+        time_slot = str(msg_data['hrpt']['start_time'])
+        i = 0
+        for key in CONFIG_NO_SEG['patterns']:
+            mda = col._parsers[key].parse(msg_data[key]['uid'])
+            res = col.add_file(time_slot, key, mda, msg_data[key])
+            self.assertTrue(res is None)
+            self.assertEqual(len(col.slots[time_slot][key]['received_files']),
+                             1)
+            meta = col.slots[time_slot]['metadata']
+            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
+            self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
+            self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
+            i += 1
 
     def tearDown(self):
         """Closing down
