@@ -44,7 +44,7 @@ CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
 CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
 CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
                                        "data/segments_double_no_segments.yaml"))
-# CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini", "msg"))
+CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 
 
 class TestSegmentGatherer(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
-        # self.gini = SegmentGatherer(CONFIG_INI)
+        self.msg_ini = SegmentGatherer(CONFIG_INI)
 
     def test_init(self):
         self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
@@ -113,6 +113,13 @@ class TestSegmentGatherer(unittest.TestCase):
         for key in self.msg0deg_iodc._patterns:
             self.assertTrue('dataset' in slot['metadata']['collection'][key])
             self.assertTrue('sensor' in slot['metadata']['collection'][key])
+
+        # Test using .ini config
+        self.msg_ini._init_data(mda)
+        slot = self.msg_ini.slots[slot_str]
+        self.assertEqual(len(slot['msg']['critical_files']), 2)
+        self.assertEqual(len(slot['msg']['wanted_files']), 38)
+        self.assertEqual(len(slot['msg']['all_files']), 114)
 
     def test_compose_filenames(self):
         mda = self.mda_msg0deg.copy()
@@ -308,6 +315,29 @@ class TestSegmentGatherer(unittest.TestCase):
             self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
             self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
             i += 1
+
+    def test_ini_to_dict(self):
+        config = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
+        self.assertTrue('patterns' in config)
+        self.assertTrue('posttroll' in config)
+        self.assertTrue('time_tolerance' in config)
+        self.assertTrue('timeliness' in config)
+        self.assertTrue('num_files_premature_publish' in config)
+
+        self.assertTrue('topics' in config['posttroll'])
+        self.assertTrue('nameservers' in config['posttroll'])
+        self.assertTrue('addresses' in config['posttroll'])
+        self.assertTrue('topics' in config['posttroll'])
+        self.assertTrue('publish_port' in config['posttroll'])
+        self.assertTrue('publish_topic' in config['posttroll'])
+
+        self.assertTrue('msg' in config['patterns'])
+        self.assertTrue('pattern' in config['patterns']['msg'])
+        self.assertTrue('critical_files' in config['patterns']['msg'])
+        self.assertTrue('wanted_files' in config['patterns']['msg'])
+        self.assertTrue('all_files' in config['patterns']['msg'])
+        self.assertTrue('is_critical_set' in config['patterns']['msg'])
+        self.assertTrue('variable_tags' in config['patterns']['msg'])
 
     def tearDown(self):
         """Closing down
