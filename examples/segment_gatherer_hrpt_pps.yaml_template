@@ -1,3 +1,7 @@
+
+# Example showing how to collect multiple files which are not by themselves
+# segmented
+
 patterns:
   hrpt:
     pattern:
@@ -14,6 +18,8 @@ patterns:
     wanted_files: null
     all_files: null
     is_critical_set: false
+    # These tags are not available for the other pattern, or can be written
+    # in different way (like platform_name)
     variable_tags:
       - platform_name
       - start_seconds
@@ -22,10 +28,13 @@ patterns:
       - end_seconds
       - end_tenths
 
+# Time in seconds from the first arrived file until timeout
 timeliness:
   180
+# Time tag used in ALL of the patterns
 time_name:
   start_time
+# The time, shown by "time_name", can differ by time_tolerance seconds
 time_tolerance:
   60
 
