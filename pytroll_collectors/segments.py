@@ -436,7 +436,7 @@ class SegmentGatherer(object):
            slot['critical_files'].issubset(slot['received_files']):
             delay = dt.datetime.utcnow() - (timeout - self._timeliness)
             if delay.total_seconds() > 0:
-                slot['delayed_files']['uid'] = delay.total_seconds()
+                slot['delayed_files'][uid] = delay.total_seconds()
 
         # Add to received files
         slot['received_files'].add(mask)
