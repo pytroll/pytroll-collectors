@@ -57,7 +57,7 @@ class EventHandler(ProcessEvent):
 
     def __init__(self, topic, instrument, posttroll_port=0, filepattern=None,
                  aliases=None, tbus_orbit=False, history=0, granule_length=0,
-                 custom_vars=None, nameservers=[]):
+                 custom_vars=None, nameservers=[], watchManager=None):
         super(EventHandler, self).__init__()
 
         self._pub = NoisyPublisher("trollstalker", posttroll_port, topic,
@@ -74,6 +74,8 @@ class EventHandler(ProcessEvent):
         self.tbus_orbit = tbus_orbit
         self.granule_length = granule_length
         self._deque = deque([], history)
+        self._watchManager = watchManager
+        self._watched_dirs = dict()
 
     def stop(self):
         '''Stop publisher.
@@ -115,6 +117,23 @@ class EventHandler(ProcessEvent):
         LOGGER.debug("trigger: IN_MODIFY")
         self.process(event)
 
+    def process_IN_DELETE(self, event):
+        """On delete."""
+        if (event.mask & pyinotify.IN_ISDIR ):
+            try:
+                try:
+                    self._watchManager.rm_watch(self._watched_dirs[event.pathname], quiet=False)
+                except pyinotify.WatchManagerError:
+                    #As the directory is deleted prior removing the watch will cause a error message
+                    #from pyinotify. This is ok, so just pass the exception.
+                    LOGGER.debug("Removed watch: {}".format(event.pathname))
+                    pass
+                finally:
+                    del self._watched_dirs[event.pathname]
+            except KeyError:
+                LOGGER.warning("Dir {} not watched by inotify. Can not delete watch.".format(event.pathname))
+        return
+
     def process(self, event):
         '''Process the event'''
         # New file created and closed
@@ -132,6 +151,15 @@ class EventHandler(ProcessEvent):
                 else:
                     LOGGER.info("Data has been published recently, skipping.")
             self.__clean__()
+        elif (event.mask & pyinotify.IN_ISDIR):
+            tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
+                     pyinotify.IN_CREATE | pyinotify.IN_DELETE)
+            try:
+                self._watched_dirs.update(self._watchManager.add_watch(event.pathname, tmask))
+                LOGGER.debug("Added watch on dir: {}".format(event.pathname))
+            except AttributeError:
+                LOGGER.error("No watchmanager given. Can not add watch on {}".format(event.pathname))
+                pass
 
     def create_message(self):
         """Create broadcasted message
@@ -145,9 +173,16 @@ class EventHandler(ProcessEvent):
         try:
             LOGGER.debug("filter: %s\t event: %s",
                          self.file_parser.fmt, event.pathname)
+            pathname_join = os.path.basename(event.pathname)
+            if 'origin_inotify_base_dir_skip_levels' in self.custom_vars:
+                pathname_list = event.pathname.split('/')
+                pathname_join = "/".join(pathname_list[int(self.custom_vars['origin_inotify_base_dir_skip_levels']):])
+            else:
+                LOGGER.debug("No origin_inotify_base_dir_skip_levels in self.custom_vars")
+
             self.info = OrderedDict()
             self.info.update(self.file_parser.parse(
-                os.path.basename(event.pathname)))
+                    pathname_join))
             LOGGER.debug("Extracted: %s", str(self.info))
         except ValueError:
             # Filename didn't match pattern, so empty the info dict
@@ -250,7 +285,8 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
                                  history=history,
                                  granule_length=granule_length,
                                  custom_vars=custom_vars,
-                                 nameservers=nameservers)
+                                 nameservers=nameservers,
+                                 watchManager=manager)
 
     notifier = NewThreadedNotifier(manager, event_handler)
 
