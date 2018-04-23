@@ -429,6 +429,7 @@ class SegmentGatherer(object):
         for sensor in msg_data["sensor"]:
             if sensor not in sensors:
                 sensors.append(sensor)
+        meta['sensor'] = sensors
 
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
