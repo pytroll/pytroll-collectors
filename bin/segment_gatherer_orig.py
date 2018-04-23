@@ -326,8 +326,10 @@ class SegmentGatherer(object):
                 continue
 
             if msg.type == "file":
-                if self._providing_server and self._providing_server != msg.host:
+                if (self._providing_server and
+                    self._providing_server != msg.host):
                     continue
+
                 self.logger.info("New message received: %s", str(msg))
                 self.process(msg)
 
