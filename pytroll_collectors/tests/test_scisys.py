@@ -48,23 +48,23 @@ input_dispatch_atms = '<message timestamp="2013-02-18T09:24:21" sequence="27100"
     hostname=hostname)
 
 viirs = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
-         'start_time': datetime.datetime(2013, 2, 18, 9, 8, 10),
+         'start_time': datetime.datetime(2013, 2, 18, 9, 8, 10, 300000),
          'data_processing_level': '0', 'orbit_number': 6796,
          'uri': 'ssh://{hostname}/tmp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5'.format(hostname=hostname),
          'uid': 'RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5',
          'sensor': 'viirs',
-         'end_time': datetime.datetime(2013, 2, 18, 9, 21, 25),
+         'end_time': datetime.datetime(2013, 2, 18, 9, 21, 25, 600000),
          'type': 'HDF5', 'variant': 'DR'}
 
 atms = {'platform_name': 'Suomi-NPP', 'format': 'RDR', 'start_time':
-        datetime.datetime(2013, 2, 18, 9, 8, 19),
+        datetime.datetime(2013, 2, 18, 9, 8, 19, 400000),
         'data_processing_level': '0', 'orbit_number': 6796, 'uri':
         'ssh://{hostname}/tmp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5'.format(
             hostname=hostname),
         'uid':
         'RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5',
         'sensor': 'atms',
-        'end_time': datetime.datetime(2013, 2, 18, 9, 21, 5),
+        'end_time': datetime.datetime(2013, 2, 18, 9, 21, 5, 500000),
         'type': 'HDF5', 'variant': 'DR'}
 
 stoprc_terra = '<message timestamp="2014-10-30T21:03:50" sequence="6153" severity="INFO" messageID="0" type="2met.message" sourcePU="SMHI-Linux" sourceSU="POESAcquisition" sourceModule="POES" sourceInstance="1"><body>STOPRC Stop reception: Satellite: TERRA, Orbit number: 79082, Risetime: 2014-10-30 20:49:50, Falltime: 2014-10-30 21:03:50</body></message>'
@@ -119,10 +119,10 @@ fildis_npp2 = '<message timestamp="2014-10-31T09:06:25" sequence="216010" severi
 msg_npp2 = {"orbit_number": 15591,
             "uid": "RCRIS-RNSCA_npp_d20141031_t0905166_e0905484_b00001_c20141031090623200000_nfts_drl.h5",
             "format": "RDR", "sensor": "cris",
-            "start_time": datetime.datetime(2014, 10, 31, 9, 5, 16),
+            "start_time": datetime.datetime(2014, 10, 31, 9, 5, 16, 600000),
             "uri": "ssh://{hostname}//tmp/RCRIS-RNSCA_npp_d20141031_t0905166_e0905484_b00001_c20141031090623200000_nfts_drl.h5".format(hostname=hostname),
             "platform_name": "Suomi-NPP",
-            "end_time": datetime.datetime(2014, 10, 31, 9, 5, 48),
+            "end_time": datetime.datetime(2014, 10, 31, 9, 5, 48, 400000),
             "type": "HDF5", "data_processing_level": "0", 'variant': 'DR'}
 
 

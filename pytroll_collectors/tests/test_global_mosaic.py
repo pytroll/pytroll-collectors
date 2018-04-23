@@ -108,7 +108,7 @@ class TestGlobalMosaic(unittest.TestCase):
             """Compare data and masks for each channel"""
             # Smallest step for 8-bit input data
             min_step = 1. / 255.
-            for i in range(4):
+            for i in range(len(img1.channels)):
                 diff = np.abs(img1.channels[i] - img2.channels[i])
                 self.assertTrue(np.all(diff <= min_step))
 
@@ -122,6 +122,7 @@ class TestGlobalMosaic(unittest.TestCase):
         # Check that attributes are set correctly
         self.assertEqual(result.area, correct.area)
         self.assertEqual(result.time_slot, correct.time_slot)
+        self.assertEqual(result.shape, correct.shape)
 
         _compare_images(result, correct)
 
@@ -131,6 +132,7 @@ class TestGlobalMosaic(unittest.TestCase):
                                            blend=None, img=None)
         correct = gm.read_image(self.unblended,
                                 self.tslot, self.adef, lon_limits=None)
+        self.assertEqual(result.shape, correct.shape)
         _compare_images(result, correct)
 
         # Two satellites, erosion and smoothing, no scaling
@@ -140,6 +142,7 @@ class TestGlobalMosaic(unittest.TestCase):
                                            blend=blend, img=None)
         correct = gm.read_image(self.blended_not_scaled,
                                 self.tslot, self.adef, lon_limits=None)
+        self.assertEqual(result.shape, correct.shape)
         _compare_images(result, correct)
 
         # Two satellites, erosion, smoothing and scaling
@@ -149,6 +152,7 @@ class TestGlobalMosaic(unittest.TestCase):
                                            blend=blend, img=None)
         correct = gm.read_image(self.blended_scaled,
                                 self.tslot, self.adef, lon_limits=None)
+        self.assertEqual(result.shape, correct.shape)
         _compare_images(result, correct)
 
         # Stop nameserver

@@ -20,7 +20,6 @@
 import unittest
 import datetime as dt
 import tempfile
-import os
 import os.path
 from ConfigParser import ConfigParser
 from mock import patch
@@ -362,6 +361,7 @@ class TestImageScaler(unittest.TestCase):
         with self.assertRaises(KeyError):
             scaler._get_mandatory_config_items()
         scaler.subject = '/scaler'
+
         scaler._get_mandatory_config_items()
         self.assertTrue(scaler.areaname == self.config.get('/scaler',
                                                            'areaname'))

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014, 2015
+# Copyright (c) 2014-2018
 #
 # Author(s):
 #
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 #
 #
 # This program is free software: you can redistribute it and/or modify
@@ -34,7 +35,7 @@ import socket
 
 from trollsift import compose
 
-LOGGER = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 def create_aligned_datetime_var(var_pattern, info_dict):
@@ -170,8 +171,10 @@ def is_uri_on_server(uri, strict=False):
     for the path to be considered valid.
     """
     url = urlparse(uri)
+    LOG.debug("URL: %s", str(url))
     try:
         url_ip = socket.gethostbyname(url.hostname)
+        LOG.debug("url_ip: %s", url_ip)
     except (socket.gaierror, TypeError):
         if strict:
             return False

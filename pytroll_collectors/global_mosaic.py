@@ -14,6 +14,10 @@ try:
     import scipy.ndimage as ndi
 except ImportError:
     ndi = None
+try:
+    from osgeo import gdal
+except ImportError:
+    gdal = None
 
 from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
@@ -31,7 +35,7 @@ LON_LIMITS = {'Meteosat-11': [-37.5, 20.75],
               'GOES-15': [-177.15, -105.],
               'GOES-13': [-105., -37.5],
               'Meteosat-7': [41.5, 41.50001],  # placeholder
-              'GOES-R': [-90., -90.0001]  # placeholder
+              'GOES-16': [-90., -90.0001]  # placeholder
               }
 
 
@@ -50,21 +54,42 @@ def calc_pixel_mask_limits(adef, lon_limits):
         return [[0, left_limit], [right_limit, adef.shape[1]]]
 
 
+def read_gdal(fname):
+    """"""
+    fid = gdal.Open(fname)
+    if fid is None:
+        raise IOError
+    img = fid.ReadAsArray()
+    img = np.rollaxis(np.rollaxis(img, -1), -1).astype(np.float32)
+
+    return img
+
+
 def read_image(fname, tslot, adef, lon_limits=None):
     """Read image to numpy array"""
+
+    modes = {2: 'LA', 4: 'RGBA'}
+    cranges = {2: ((0, 1), (0, 1)), 4: ((0, 1), (0, 1), (0, 1), (0, 1))}
+
     # Convert to float32 to save memory in later steps
     try:
-        img = np.array(Image.open(fname)).astype(np.float32)
+        if gdal is not None:
+            img = read_gdal(fname)
+        else:
+            img = np.array(Image.open(fname)).astype(np.float32)
     except (IOError, TypeError):
         logging.error("Reading image %s failed, retrying once.", fname)
         time.sleep(5)
         try:
-            img = np.array(Image.open(fname)).astype(np.float32)
+            if gdal is not None:
+                img = read_gdal(fname)
+            else:
+                img = np.array(Image.open(fname)).astype(np.float32)
         except (IOError, TypeError):
-            logging.error("Reading image failed agains, skipping!")
+            logging.error("Reading image failed again, skipping!")
             return None
 
-    mask = img[:, :, 3]
+    mask = img[:, :, -1]
 
     # Mask overlapping areas away
     if lon_limits:
@@ -78,11 +103,13 @@ def read_image(fname, tslot, adef, lon_limits=None):
     mask = mask == 0
 
     chans = []
-    for i in range(4):
+    for i in range(img.shape[-1]):
         chans.append(np.ma.masked_where(mask, img[:, :, i] / 255.))
 
-    return GeoImage(chans, adef, tslot, fill_value=None, mode="RGBA",
-                    crange=((0, 1), (0, 1), (0, 1), (0, 1)))
+    mode = modes[img.shape[-1]]
+    crange = cranges[img.shape[-1]]
+    return GeoImage(chans, adef, tslot, fill_value=None, mode=mode,
+                    crange=crange)
 
 
 def create_world_composite(fnames, tslot, adef, sat_limits,
@@ -122,7 +149,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             dtype = img.channels[0].dtype
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
-            for i in range(3):
+            for i in range(len(img.channels)):
                 logger.debug("Merging channel %d", i)
                 if blend and ndi:
                     if blend["scale"]:
@@ -153,10 +180,10 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 
                 img.channels[i] = np.ma.masked_where(chmask, chdata)
 
-            chdata = np.max(np.dstack((img.channels[3].data,
-                                       next_img.channels[3].data)),
+            chdata = np.max(np.dstack((img.channels[-1].data,
+                                       next_img.channels[-1].data)),
                             2)
-            img.channels[3] = np.ma.masked_where(chmask, chdata)
+            img.channels[-1] = np.ma.masked_where(chmask, chdata)
 
     return img
 
@@ -205,16 +232,19 @@ class WorldCompositeDaemon(object):
             try:
                 msg = self._listener.output_queue.get(True, 1)
             except KeyboardInterrupt:
-                self._listener.stop()
-                return
+                self._loop = False
+                break
             except Queue.Empty:
                 continue
 
-            if msg.type == "file":
+            if msg is not None and msg.type == "file":
                 self._handle_message(msg)
 
             num = gc.collect()
             self.logger.info("%d objects garbage collected", num)
+
+        self._listener.stop()
+        self._publisher.stop()
 
     def _set_message_settings(self):
         """Set message settings from config"""
