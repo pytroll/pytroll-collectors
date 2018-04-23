@@ -198,3 +198,13 @@ def is_uri_on_server(uri, strict=False):
             except OSError:
                 return False
     return True
+
+
+def read_yaml(fname):
+    """Read YAML file"""
+    import yaml
+
+    with open(fname, 'r') as fid:
+        data = yaml.load(fid)
+
+    return data
