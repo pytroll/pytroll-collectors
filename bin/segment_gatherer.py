@@ -74,7 +74,13 @@ class SegmentGatherer(object):
         except NoOptionError:
             publish_port = 0
 
-        self._listener = ListenerContainer(topics=topics, addresses=addresses)
+        try:
+            services = config.get(section, 'services').split()
+        except (NoOptionError, ValueError):
+            services = ""
+            
+        self._listener = ListenerContainer(topics=topics, addresses=addresses
+                                           services=services)
         self._publisher = publisher.NoisyPublisher("segment_gatherer",
                                                    port=publish_port,
                                                    nameservers=nameservers)
@@ -103,6 +109,9 @@ class SegmentGatherer(object):
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
+        self._providing_server = None
+        if config.has_option(section, 'providing_server'):
+            self._providing_server = config.get(section, 'providing_server')
 
     def _clear_data(self, time_slot):
         """Clear data."""
@@ -317,6 +326,8 @@ class SegmentGatherer(object):
                 continue
 
             if msg.type == "file":
+                if self._providing_server and self._providing_server != msg.host:
+                    continue
                 self.logger.info("New message received: %s", str(msg))
                 self.process(msg)
 
