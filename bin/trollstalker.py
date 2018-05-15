@@ -399,7 +399,7 @@ def main():
         config['name'] = args.configuration_file
 
         topic = topic or config['topic']
-        monitored_dirs = monitored_dirs or config['directory']
+        monitored_dirs = monitored_dirs or config['directory'].split(",")
         filepattern = filepattern or config['filepattern']
         try:
             posttroll_port = posttroll_port or int(config['posttroll_port'])
