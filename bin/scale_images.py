@@ -28,9 +28,9 @@ import os
 import time
 import logging
 try:
-    from ConfigParser import ConfigParser, NoOptionError, NoSectionError
+    from configparser import RawConfigParser, NoOptionError, NoSectionError
 except ImportError:
-    from configparser import ConfigParser, NoOptionError, NoSectionError
+    from ConfigParser import RawConfigParser, NoOptionError, NoSectionError
 
 from pytroll_collectors.image_scaler import ImageScaler
 

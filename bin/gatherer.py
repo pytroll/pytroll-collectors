@@ -24,7 +24,10 @@
 """Gather granule messages to send them in a bunch.
 """
 
-from ConfigParser import RawConfigParser, NoOptionError
+try:
+    from configparser import RawConfigParser, NoOptionError
+except ImportError:
+    from ConfigParser import RawConfigParser, NoOptionError
 from trollsift import Parser, compose
 from datetime import timedelta, datetime
 from pytroll_collectors import trigger

@@ -26,7 +26,10 @@
 from posttroll.subscriber import Subscribe
 from posttroll.publisher import Publish
 from posttroll.message import Message
-from ConfigParser import RawConfigParser, NoOptionError
+try:
+    from configparser import RawConfigParser, NoOptionError
+except ImportError:
+    from ConfigParser import RawConfigParser, NoOptionError
 import logging
 from trollsift import compose
 from datetime import datetime, timedelta

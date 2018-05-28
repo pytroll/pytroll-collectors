@@ -33,7 +33,10 @@ import time
 from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
 from trollsift import Parser
-from ConfigParser import ConfigParser
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 import logging
 import logging.config
 import os.path

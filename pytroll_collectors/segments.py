@@ -480,7 +480,10 @@ def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
 
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
-    from ConfigParser import NoOptionError, RawConfigParser
+    try:
+        from configparser import RawConfigParser, NoOptionError
+    except ImportError:
+        from ConfigParser import RawConfigParser, NoOptionError
 
     config = RawConfigParser()
     config.read(fname)

@@ -31,7 +31,10 @@ import os.path
 import Queue
 import time
 from collections import OrderedDict
-from ConfigParser import NoOptionError, RawConfigParser
+try:
+    from configparser import RawConfigParser, NoOptionError
+except ImportError:
+    from ConfigParser import RawConfigParser, NoOptionError
 from urlparse import urlparse, urlunparse
 
 from posttroll import message, publisher

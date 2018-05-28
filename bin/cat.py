@@ -28,7 +28,10 @@
 import argparse
 import logging
 import logging.config
-from ConfigParser import RawConfigParser, NoOptionError
+try:
+    from configparser import RawConfigParser, NoOptionError
+except ImportError:
+    from ConfigParser import RawConfigParser, NoOptionError
 from trollsift.parser import compose
 from subprocess import Popen, PIPE
 import threading
