@@ -29,7 +29,10 @@ import os
 import datetime as dt
 import re
 import logging
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 import netifaces
 import socket
 

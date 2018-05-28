@@ -40,7 +40,10 @@ import socket
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 from time import sleep
-from urlparse import SplitResult, urlsplit, urlunsplit
+try:
+    from urllib.parse import SplitResult, urlsplit, urlunsplit
+except ImportError:
+    from urlparse import SplitResult, urlsplit, urlunsplit
 
 from posttroll.message import Message
 from posttroll.publisher import Publish

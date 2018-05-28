@@ -30,7 +30,10 @@ import logging
 import logging.config
 import datetime as dt
 import glob
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import gc

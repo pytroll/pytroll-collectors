@@ -35,7 +35,10 @@ try:
     from configparser import RawConfigParser, NoOptionError
 except ImportError:
     from ConfigParser import RawConfigParser, NoOptionError
-from urlparse import urlparse, urlunparse
+try:
+    from urllib.parse import urlparse, urlunparse
+except ImportError:
+    from urlparse import urlparse, urlunparse
 
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer

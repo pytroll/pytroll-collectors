@@ -45,7 +45,10 @@ if ENV_MODE is None:
     ENV_MODE = "offline"
 
 import sys
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 import posttroll.subscriber
 from posttroll.publisher import Publish
 from datetime import timedelta
