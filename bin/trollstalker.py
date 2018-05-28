@@ -285,7 +285,7 @@ def parse_vars(config):
 def main():
     '''Main(). Commandline parsing and stalker startup.'''
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 
@@ -353,8 +353,8 @@ def main():
         config_fname = args.configuration_file
 
         if "template" in config_fname:
-            print "Template file given as trollstalker logging config," \
-                " aborting!"
+            print("Template file given as trollstalker logging config,"
+                  " aborting!")
             sys.exit()
 
         config = ConfigParser()

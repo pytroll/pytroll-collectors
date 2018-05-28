@@ -230,7 +230,7 @@ def main():
     opts = arg_parse()
     CONFIG.read(opts.config)
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 

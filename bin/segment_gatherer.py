@@ -30,6 +30,7 @@ from pytroll_collectors.segments import SegmentGatherer
 from pytroll_collectors.segments import ini_to_dict
 from pytroll_collectors.helper_functions import read_yaml
 
+
 def arg_parse():
     '''Handle input arguments.
     '''
@@ -56,7 +57,7 @@ def main():
     else:
         config = read_yaml(args.config)
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 

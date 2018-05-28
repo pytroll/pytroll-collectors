@@ -514,4 +514,4 @@ if __name__ == '__main__':
     string = TwoMetMessage(rawmsg)
     msg_rec = MessageReceiver('merlin')
     ret = msg_rec.receive(string)
-    print ret
+    print(ret)

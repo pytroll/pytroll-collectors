@@ -78,7 +78,7 @@ class SegmentGatherer(object):
             services = config.get(section, 'services').split()
         except (NoOptionError, ValueError):
             services = ""
-            
+
         self._listener = ListenerContainer(topics=topics, addresses=addresses
                                            services=services)
         self._publisher = publisher.NoisyPublisher("segment_gatherer",
@@ -327,7 +327,7 @@ class SegmentGatherer(object):
 
             if msg.type == "file":
                 if (self._providing_server and
-                    self._providing_server != msg.host):
+                        self._providing_server != msg.host):
                     continue
 
                 self.logger.info("New message received: %s", str(msg))
@@ -479,7 +479,7 @@ def main():
     config = RawConfigParser()
     config.read(args.config)
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 

@@ -145,8 +145,6 @@ def process_message(msg, config):
         LOG.info('Pass too short, skipping: %s to %s', str(data["start_time"]), str(data["end_time"]))
         return
 
-
-
     output_file = compose(pattern, data)
 
     with bunzipped(input_files) as files_to_read:
@@ -222,5 +220,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         logging.shutdown()
     finally:
-        print "Thank you for using pytroll/cat!" \
-              "See you soon on pytroll.org."
+        print("Thank you for using pytroll/cat!"
+              "See you soon on pytroll.org.")

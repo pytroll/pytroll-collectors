@@ -85,16 +85,16 @@ def get_arguments():
     args = parser.parse_args()
 
     if args.config_file == '':
-        print "Configuration file required! zipcollector.py <file>"
+        print("Configuration file required! zipcollector.py <file>")
         sys.exit()
     if args.service == '':
-        print "Service required! Use command-line switch -s <service>"
+        print("Service required! Use command-line switch -s <service>")
         sys.exit()
     else:
         service = args.service.lower()
 
     if 'template' in args.config_file:
-        print "Template file given as master config, aborting!"
+        print("Template file given as master config, aborting!")
         sys.exit()
 
     return service, args.config_file

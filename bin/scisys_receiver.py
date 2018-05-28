@@ -74,5 +74,5 @@ if __name__ == '__main__':
     except:
         logger.exception("Something wrong happened...")
     finally:
-        print ("Thank you for using pytroll/receiver."
-               " See you soon on pytroll.org!")
+        print("Thank you for using pytroll/receiver."
+              " See you soon on pytroll.org!")
