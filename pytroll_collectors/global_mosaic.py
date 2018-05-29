@@ -21,7 +21,7 @@ except ImportError:
 
 from trollsift import compose
 from mpop.imageo.geo_image import GeoImage
-from mpop.projector import get_area_def
+from satpy.resample import get_area_def
 from posttroll.listener import ListenerContainer
 from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
