@@ -31,10 +31,7 @@ import os.path
 import Queue
 import time
 from collections import OrderedDict
-try:
-    from urllib.parse import urlparse, urlunparse
-except ImportError:
-    from urlparse import urlparse, urlunparse
+from six.moves.urllib.parse import urlparse, urlunparse
 
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer

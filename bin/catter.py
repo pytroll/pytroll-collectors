@@ -23,18 +23,16 @@
 """Concatenate granules at low level if needed.
 """
 
-from posttroll.subscriber import Subscribe
-from posttroll.publisher import Publish
-from posttroll.message import Message
-try:
-    from configparser import RawConfigParser, NoOptionError
-except ImportError:
-    from ConfigParser import RawConfigParser, NoOptionError
 import logging
-from trollsift import compose
 from datetime import datetime, timedelta
 import bz2
 import os.path
+
+from posttroll.subscriber import Subscribe
+from posttroll.publisher import Publish
+from posttroll.message import Message
+from trollsift import compose
+from six.moves.configparser import RawConfigParser, NoOptionError
 
 logger = logging.getLogger(__name__)
 

@@ -22,18 +22,13 @@
 import Queue
 import os
 import os.path
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from six.moves.configparser import RawConfigParser, NoOptionError
 import logging
 import logging.config
 import datetime as dt
 import glob
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import gc
@@ -42,7 +37,7 @@ from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
 from trollsift.parser import _extract_parsedef as extract_parsedef
-from mpop.projector import get_area_def
+from satpy.resample import get_area_def
 from mpop.imageo.formats.tifffile import imread
 
 try:

@@ -23,10 +23,7 @@
 """Gather GEO stationary segments and send them in a bunch as a dataset.
 """
 
-try:
-    from configparser import RawConfigParser, NoOptionError
-except ImportError:
-    from ConfigParser import RawConfigParser, NoOptionError
+from six.moves.configparser import RawConfigParser, NoOptionError
 import time
 import logging
 import logging.handlers

@@ -30,17 +30,15 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from posttroll.publisher import NoisyPublisher
-from posttroll.message import Message
-from trollsift import Parser
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
+from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os.path
 import datetime as dt
+
+from posttroll.publisher import NoisyPublisher
+from posttroll.message import Message
+from trollsift import Parser
 
 LOGGER = logging.getLogger(__name__)
 

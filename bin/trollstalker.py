@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pytroll_collectors import helper_functions
 
 # Copyright (c) 2013, 2014, 2015
 
@@ -31,13 +30,7 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from posttroll.publisher import NoisyPublisher
-from posttroll.message import Message
-from trollsift import Parser, compose
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 import logging
 import logging.config
 import os
@@ -45,6 +38,11 @@ import os.path
 import re
 import datetime as dt
 from collections import deque, OrderedDict
+
+from posttroll.publisher import NoisyPublisher
+from posttroll.message import Message
+from trollsift import Parser, compose
+from pytroll_collectors import helper_functions
 
 LOGGER = logging.getLogger(__name__)
 

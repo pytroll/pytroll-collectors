@@ -28,20 +28,18 @@
 import argparse
 import logging
 import logging.config
-try:
-    from configparser import RawConfigParser, NoOptionError
-except ImportError:
-    from ConfigParser import RawConfigParser, NoOptionError
-from trollsift.parser import compose
+from six.moves.configparser import RawConfigParser, NoOptionError
 from subprocess import Popen, PIPE
 import threading
 import os
-from posttroll.publisher import Publish
-from posttroll.subscriber import Subscribe
-from posttroll.message import Message
 import tempfile
 from bz2 import BZ2File
 from datetime import datetime, timedelta
+
+from trollsift.parser import compose
+from posttroll.publisher import Publish
+from posttroll.subscriber import Subscribe
+from posttroll.message import Message
 
 LOG = logging.getLogger(__name__)
 

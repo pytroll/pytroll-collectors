@@ -27,10 +27,8 @@ import sys
 import os
 import time
 import logging
-try:
-    from configparser import RawConfigParser, NoOptionError, NoSectionError
-except ImportError:
-    from ConfigParser import RawConfigParser, NoOptionError, NoSectionError
+from six.moves.configparser import (RawConfigParser, NoOptionError,
+                                    NoSectionError)
 
 from pytroll_collectors.image_scaler import ImageScaler
 

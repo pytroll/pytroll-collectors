@@ -45,13 +45,11 @@ if ENV_MODE is None:
     ENV_MODE = "offline"
 
 import sys
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
+from datetime import timedelta
+
 import posttroll.subscriber
 from posttroll.publisher import Publish
-from datetime import timedelta
 from trollsift.parser import compose
 
 PLATFORM_NAME = {'Meteosat-10': 'met10',
