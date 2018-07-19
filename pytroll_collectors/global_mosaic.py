@@ -15,12 +15,12 @@ try:
 except ImportError:
     ndi = None
 try:
-    from osgeo import gdal
+    import rasterio
 except ImportError:
-    gdal = None
+    rasterio = None
 
 from trollsift import compose
-from mpop.imageo.geo_image import GeoImage
+from trollimage.xrimage import XRImage
 from satpy.resample import get_area_def
 from posttroll.listener import ListenerContainer
 from posttroll.publisher import NoisyPublisher
@@ -54,13 +54,10 @@ def calc_pixel_mask_limits(adef, lon_limits):
         return [[0, left_limit], [right_limit, adef.shape[1]]]
 
 
-def read_gdal(fname):
+def read_rasterio(fname):
     """"""
-    fid = gdal.Open(fname)
-    if fid is None:
-        raise IOError
-    img = fid.ReadAsArray()
-    img = np.rollaxis(np.rollaxis(img, -1), -1).astype(np.float32)
+    with rasterio.open(fname) as fid:
+        img = fid.read().astype(np.float32)
 
     return img
 
@@ -71,20 +68,20 @@ def read_image(fname, tslot, adef, lon_limits=None):
     modes = {2: 'LA', 4: 'RGBA'}
     cranges = {2: ((0, 1), (0, 1)), 4: ((0, 1), (0, 1), (0, 1), (0, 1))}
 
-    # Convert to float32 to save memory in later steps
-    try:
-        if gdal is not None:
-            img = read_gdal(fname)
+    def _read(fname):
+        if rasterio is not None:
+            img = read_rasterio(fname)
         else:
             img = np.array(Image.open(fname)).astype(np.float32)
+        return img
+
+    try:
+        img = _read(fname)
     except (IOError, TypeError):
         logging.error("Reading image %s failed, retrying once.", fname)
         time.sleep(5)
         try:
-            if gdal is not None:
-                img = read_gdal(fname)
-            else:
-                img = np.array(Image.open(fname)).astype(np.float32)
+            img = _read(fname)
         except (IOError, TypeError):
             logging.error("Reading image failed again, skipping!")
             return None
