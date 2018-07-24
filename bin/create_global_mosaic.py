@@ -36,8 +36,10 @@ def main():
     try:
         compositor.run()
     finally:
-        compositor._listener.stop()
-        compositor._publisher.stop()
+        if compositor._listener is not None:
+            compositor._listener.stop()
+        if compositor._publisher is not None:
+            compositor._publisher.stop()
 
 
 if __name__ == "__main__":
