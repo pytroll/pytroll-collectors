@@ -57,7 +57,7 @@ def read_satpy(fname):
     return scn['image']
 
 
-def read_image(fname, tslot, adef, lon_limits=None):
+def read_image(fname, adef, lon_limits=None):
     """Read image to numpy array"""
 
     try:
@@ -105,7 +105,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
     """Create world composite from files *fnames*"""
     for fname in fnames:
         logger.info("Reading image %s", fname)
-        next_img = read_image(fname, tslot, adef, sat_limits)
+        next_img = read_image(fname, adef, sat_limits)
 
         if img is None:
             img = next_img
@@ -373,7 +373,7 @@ class WorldCompositeDaemon(object):
         file_parts = self._get_fname_parts(slot, composite)
         fname_out = file_parts["uri"]
 
-        img = self._get_existing_image(fname_out, slot)
+        img = self._get_existing_image(fname_out)
 
         self.logger.info("Creating composite")
         scn['img'] = create_world_composite(fnames,
@@ -402,12 +402,12 @@ class WorldCompositeDaemon(object):
 
         return file_parts
 
-    def _get_existing_image(self, fname_out, slot):
+    def _get_existing_image(self, fname_out):
         """Read an existing image and return it.  If the image doesn't exist,
         return None"""
         # Check if we already have an image with this filename
         if os.path.exists(fname_out):
-            img = read_image(fname_out, slot, self.adef.area_id)
+            img = read_image(fname_out, self.adef.area_id)
             self.logger.info("Existing image was read: %s", fname_out)
         else:
             img = None
