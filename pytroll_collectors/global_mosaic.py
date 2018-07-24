@@ -5,7 +5,7 @@ from PIL import Image
 import logging
 import logging.handlers
 import datetime as dt
-import Queue
+from six.moves.queue import Queue, Empty as queue_empty
 import gc
 import os.path
 import time
@@ -14,13 +14,9 @@ try:
     import scipy.ndimage as ndi
 except ImportError:
     ndi = None
-try:
-    import rasterio
-except ImportError:
-    rasterio = None
 
 from trollsift import compose
-from trollimage.xrimage import XRImage
+from satpy import Scene
 from satpy.resample import get_area_def
 from posttroll.listener import ListenerContainer
 from posttroll.publisher import NoisyPublisher
@@ -54,59 +50,54 @@ def calc_pixel_mask_limits(adef, lon_limits):
         return [[0, left_limit], [right_limit, adef.shape[1]]]
 
 
-def read_rasterio(fname):
-    """"""
-    with rasterio.open(fname) as fid:
-        img = fid.read().astype(np.float32)
-
-    return img
+def read_satpy(fname):
+    """Read image data using SatPy."""
+    scn = Scene(reader='generic_image', filenames=[fname, ])
+    scn.load(['image'])
+    return scn['image']
 
 
 def read_image(fname, tslot, adef, lon_limits=None):
     """Read image to numpy array"""
 
-    modes = {2: 'LA', 4: 'RGBA'}
-    cranges = {2: ((0, 1), (0, 1)), 4: ((0, 1), (0, 1), (0, 1), (0, 1))}
-
-    def _read(fname):
-        if rasterio is not None:
-            img = read_rasterio(fname)
-        else:
-            img = np.array(Image.open(fname)).astype(np.float32)
-        return img
-
     try:
-        img = _read(fname)
+        img = read_satpy(fname)
     except (IOError, TypeError):
         logging.error("Reading image %s failed, retrying once.", fname)
         time.sleep(5)
         try:
-            img = _read(fname)
+            img = read_satpy(fname)
         except (IOError, TypeError):
             logging.error("Reading image failed again, skipping!")
             return None
 
-    mask = img[:, :, -1]
+    # Read the image into memory
+    img = img.compute()
+
+    # Set the area definition, if not already there (eg. PNG images)
+    if 'area' not in img.attrs:
+        img.attrs['area'] = adef
+
+    # Get the masked area
+    mask = np.isnan(img[0, :, :])
 
     # Mask overlapping areas away
     if lon_limits:
         for sat in lon_limits:
             if sat in fname:
-                mask_limits = calc_pixel_mask_limits(adef, lon_limits[sat])
+                mask_limits = calc_pixel_mask_limits(img.attrs['area'],
+                                                     lon_limits[sat])
                 for lim in mask_limits:
-                    mask[:, lim[0]:lim[1]] = 0
+                    mask[:, lim[0]:lim[1]] = True
                 break
 
-    mask = mask == 0
+    # Mask the data
+    for i in range(img.bands.size):
+        band = np.array(img[i, :, :])
+        band[mask] = np.nan
+        img[i, :, :] = band
 
-    chans = []
-    for i in range(img.shape[-1]):
-        chans.append(np.ma.masked_where(mask, img[:, :, i] / 255.))
-
-    mode = modes[img.shape[-1]]
-    crange = cranges[img.shape[-1]]
-    return GeoImage(chans, adef, tslot, fill_value=None, mode=mode,
-                    crange=crange)
+    return img
 
 
 def create_world_composite(fnames, tslot, adef, sat_limits,
@@ -122,67 +113,94 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             continue
         else:
             logger.debug("Creating mask")
-            img_mask = reduce(np.ma.mask_or,
-                              [chn.mask for chn in img.channels])
-            next_img_mask = reduce(np.ma.mask_or,
-                                   [chn.mask for chn in next_img.channels])
+            img_mask = np.isnan(np.array(img[0, :, :]))
+            next_img_mask = np.isnan(np.array(next_img[0, :, :]))
 
             chmask = np.logical_and(img_mask, next_img_mask)
 
             if blend and ndi:
                 logger.debug("Creating blend mask")
-                scaled_erosion_size = \
-                    blend["erosion_width"] * (float(img.width) / 1000.0)
-                scaled_smooth_width = \
-                    blend["smooth_width"] * (float(img.width) / 1000.0)
-                alpha = np.ones(next_img_mask.shape, dtype='float')
-                alpha[next_img_mask] = 0.0
-                smooth_alpha = ndi.uniform_filter(
-                    ndi.grey_erosion(alpha, size=(scaled_erosion_size,
-                                                  scaled_erosion_size)),
-                    scaled_smooth_width)
-                smooth_alpha[img_mask] = alpha[img_mask]
+                smooth_alpha = get_smoothing(img, img_mask, next_img_mask,
+                                             blend)
+            else:
+                smooth_alpha = None
 
-            dtype = img.channels[0].dtype
+            dtype = img.dtype
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
-            for i in range(len(img.channels)):
+            for i in range(img.bands.size):
+                band = np.array(img[i, :, :])
+                next_band = np.array(next_img[i, :, :])
                 logger.debug("Merging channel %d", i)
                 if blend and ndi:
-                    if blend["scale"]:
-                        chmask2 = np.invert(chmask)
-                        idxs = img.channels[i] == 0
-                        chmask2[idxs] = False
-                        if np.sum(chmask2) == 0:
-                            scaling = 1.0
-                        else:
-                            scaling = \
-                                np.nanmean(next_img.channels[i][chmask2]) / \
-                                np.nanmean(img.channels[i][chmask2])
-                            if not np.isfinite(scaling):
-                                scaling = 1.0
-                        if scaling == 0.0:
-                            scaling = 1.0
-                    else:
-                        scaling = 1.0
-
-                    chdata = \
-                        next_img.channels[i].data * smooth_alpha / scaling + \
-                        img.channels[i].data * (1 - smooth_alpha)
+                    chdata = blend_images(chmask, band, next_band, blend,
+                                          smooth_alpha)
                 else:
                     # Be sure that that also overlapping data is updated
                     img_mask[~next_img_mask & ~img_mask] = True
-                    chdata[img_mask] = next_img.channels[i].data[img_mask]
-                    chdata[next_img_mask] = img.channels[i].data[next_img_mask]
+                    chdata[img_mask] = next_band[img_mask]
+                    chdata[next_img_mask] = band[next_img_mask]
 
-                img.channels[i] = np.ma.masked_where(chmask, chdata)
+                chdata[chmask] = np.nan
+                img[i, :, :] = chdata
 
-            chdata = np.max(np.dstack((img.channels[-1].data,
-                                       next_img.channels[-1].data)),
-                            2)
-            img.channels[-1] = np.ma.masked_where(chmask, chdata)
+            # chdata = np.max(np.dstack((img.channels[-1].data,
+            #                            next_img.channels[-1].data)),
+            #                 2)
+            # img.channels[-1] = np.ma.masked_where(chmask, chdata)
 
     return img
+
+
+def blend_images(chmask, band, next_band, blend, smooth_alpha):
+    """Blend two images together"""
+    if blend["scale"]:
+        scaling = get_scaling_factor(chmask, band, next_band)
+    else:
+        scaling = 1.0
+
+    chdata = \
+        next_band * smooth_alpha / scaling + \
+        band * (1 - smooth_alpha)
+
+    return chdata
+
+
+def get_scaling_factor(chmask, band, next_band):
+    """Get a scaling factor that scales the image brightnesses between the
+    to images."""
+    chmask2 = np.invert(chmask)
+    idxs = band == 0
+    chmask2[idxs] = False
+    if np.sum(chmask2) == 0:
+        scaling = 1.0
+    else:
+        scaling = \
+            np.nanmean(next_band[chmask2]) / \
+            np.nanmean(band[chmask2])
+    if not np.isfinite(scaling):
+        scaling = 1.0
+    if scaling == 0.0:
+        scaling = 1.0
+
+    return scaling
+
+
+def get_smoothing(img, img_mask, next_img_mask, blend):
+    """Calculate smoothing for the overlapping parts of two images"""
+    scaled_erosion_size = \
+        blend["erosion_width"] * (float(img['x'].size) / 1000.0)
+    scaled_smooth_width = \
+        blend["smooth_width"] * (float(img['y'].size) / 1000.0)
+    alpha = np.ones(next_img_mask.shape, dtype='float')
+    alpha[next_img_mask] = 0.0
+    smooth_alpha = ndi.uniform_filter(
+        ndi.grey_erosion(alpha, size=(scaled_erosion_size,
+                                      scaled_erosion_size)),
+        scaled_smooth_width)
+    smooth_alpha[img_mask] = alpha[img_mask]
+
+    return smooth_alpha
 
 
 class WorldCompositeDaemon(object):
@@ -198,10 +216,10 @@ class WorldCompositeDaemon(object):
         self.config = config
         self.slots = {}
         # Structure of self.slots is:
-        # slots = {tslot: {composite: {"img": None,
+        # slots = {datetime(): {composite: {"img": None,
         #                              "num": 0},
-        #                  "timeout": None}}
-
+        #                       "timeout": None}}
+        self._parse_settings()
         self._listener = ListenerContainer(topics=config["topics"])
         self._set_message_settings()
         self._publisher = \
@@ -222,7 +240,9 @@ class WorldCompositeDaemon(object):
         self._loop = True
 
         while self._loop:
-            self._check_timeouts_and_save()
+            if self._check_timeouts_and_save():
+                num = gc.collect()
+                self.logger.debug("%d objects garbage collected", num)
 
             # Get new messages from the listener
             msg = None
@@ -231,14 +251,11 @@ class WorldCompositeDaemon(object):
             except KeyboardInterrupt:
                 self._loop = False
                 break
-            except Queue.Empty:
+            except queue_empty:
                 continue
 
             if msg is not None and msg.type == "file":
                 self._handle_message(msg)
-
-            num = gc.collect()
-            self.logger.info("%d objects garbage collected", num)
 
         self._listener.stop()
         self._publisher.stop()
@@ -293,10 +310,38 @@ class WorldCompositeDaemon(object):
         self.slots[tslot][composite]["num"] += 1
 
     def _check_timeouts_and_save(self):
-        """Check timeouts, save completed images and cleanup slots."""
+        """Check timeouts, save completed images, and cleanup slots."""
         # Number of expected images
         num_expected = self.config["num_expected"]
 
+        # Check timeouts and completed composites
+        check_time = dt.datetime.utcnow()
+
+        saved = False
+        empty_slots = []
+        slots = self.slots.copy()
+        for slot in slots:
+            composites = tuple(slots[slot].keys())
+            for composite in composites:
+                if (check_time > slots[slot][composite]["timeout"] or
+                        slots[slot][composite]["num"] == num_expected):
+                    fnames = slots[slot][composite]["fnames"]
+                    self._create_global_mosaic(fnames, slot, composite)
+                    saved = True
+
+            # Collect empty slots
+            if len(slots[slot]) == 0:
+                empty_slots.append(slot)
+
+        for slot in empty_slots:
+            self.logger.debug("Removing empty time slot: %s",
+                              str(slot))
+            del self.slots[slot]
+
+        return saved
+
+    def _parse_settings(self):
+        """Parse static settings from config"""
         lon_limits = LON_LIMITS.copy()
         try:
             lon_limits.update(self.config["lon_limits"])
@@ -304,83 +349,77 @@ class WorldCompositeDaemon(object):
             pass
         except TypeError:
             lon_limits = None
+        self.config["lon_limits"] = lon_limits
 
         try:
             blend = self.config["blend_settings"]
         except KeyError:
             blend = None
+        self.config["blend"] = blend
 
         # Get image save options
         try:
-            compression = self.config["save_settings"].get('compression', 6)
-            tags = self.config["save_settings"].get('tags', None)
-            fformat = self.config["save_settings"].get('fformat', None)
-            gdal_options = self.config["save_settings"].get('gdal_options',
-                                                            None)
-            blocksize = self.config["save_settings"].get('blocksize', 0)
+            save_kwargs = self.config["save_settings"]
         except KeyError:
-            compression = 6
-            tags = None
-            fformat = None
-            gdal_options = None
-            blocksize = 0
+            save_kwargs = {}
+        self.config["save_settings"] = save_kwargs
 
-        # Check timeouts and completed composites
-        check_time = dt.datetime.utcnow()
 
-        empty_slots = []
-        for slot in self.slots:
-            for composite in self.slots[slot].keys():
-                if (check_time > self.slots[slot][composite]["timeout"] or
-                        self.slots[slot][composite]["num"] == num_expected):
-                    file_parts = {'composite': composite,
-                                  'nominal_time': slot,
-                                  'areaname': self.adef.area_id}
-                    self.logger.info("Building composite %s for slot %s",
-                                     composite, str(slot))
-                    fnames = self.slots[slot][composite]["fnames"]
-                    fname_out = compose(self.config["out_pattern"],
-                                        file_parts)
-                    file_parts['uri'] = fname_out
-                    file_parts['uid'] = os.path.basename(fname_out)
+    def _create_global_mosaic(self, fnames, slot, composite):
+        """Create and save global mosaic."""
+        self.logger.info("Building composite %s for slot %s",
+                         composite, str(slot))
+        scn = Scene()
+        file_parts = self._get_fname_parts(slot, composite)
+        fname_out = file_parts["uri"]
 
-                    # Check if we already have an image with this filename
-                    img = read_image(fname_out, slot,
-                                     self.adef.area_id)
-                    if img:
-                        self.logger.info("Existing image was read: %s",
-                                         fname_out)
+        img = self._get_existing_image(fname_out, slot)
 
-                    self.logger.info("Creating composite")
-                    img = create_world_composite(fnames,
-                                                 slot,
-                                                 self.adef,
-                                                 lon_limits,
-                                                 blend=blend,
-                                                 img=img,
-                                                 logger=self.logger)
+        self.logger.info("Creating composite")
+        scn['img'] = create_world_composite(fnames,
+                                            slot,
+                                            self.adef,
+                                            self.config["lon_limits"],
+                                            blend=self.config["blend"],
+                                            img=img,
+                                            logger=self.logger)
+        self.logger.info("Saving %s", fname_out)
+        scn.save_dataset('img', filename=fname_out,
+                         **self.config["save_settings"])
+        self._send_message(file_parts)
+        del self.slots[slot][composite]
 
-                    self.logger.info("Saving %s", fname_out)
-                    img.save(fname_out, compression=compression,
-                             tags=tags, fformat=fformat,
-                             gdal_options=gdal_options,
-                             blocksize=blocksize)
-                    msg = Message(compose(self.publish_topic, file_parts),
-                                  "file", file_parts)
-                    self._publisher.send(str(msg))
-                    self.logger.info("Sending message: %s", str(msg))
-                    del self.slots[slot][composite]
-                    del img
-                    img = None
+    def _get_fname_parts(self, slot, composite):
+        """Get filename part dictionary"""
+        file_parts = {'composite': composite,
+                      'nominal_time': slot,
+                      'areaname': self.adef.area_id}
 
-            # Collect empty slots
-            if len(self.slots[slot]) == 0:
-                empty_slots.append(slot)
+        fname_out = compose(self.config["out_pattern"],
+                            file_parts)
+        file_parts['uri'] = fname_out
+        file_parts['uid'] = os.path.basename(fname_out)
 
-        for slot in empty_slots:
-            self.logger.debug("Removing empty time slot: %s",
-                              str(slot))
-            del self.slots[slot]
+        return file_parts
+
+    def _get_existing_image(self, fname_out, slot):
+        """Read an existing image and return it.  If the image doesn't exist,
+        return None"""
+        # Check if we already have an image with this filename
+        if os.path.exists(fname_out):
+            img = read_image(fname_out, slot, self.adef.area_id)
+            self.logger.info("Existing image was read: %s", fname_out)
+        else:
+            img = None
+
+        return img
+
+    def _send_message(self, file_parts):
+        """Send a message"""
+        msg = Message(compose(self.publish_topic, file_parts),
+                      "file", file_parts)
+        self._publisher.send(str(msg))
+        self.logger.info("Sending message: %s", str(msg))
 
     def stop(self):
         """Stop"""
