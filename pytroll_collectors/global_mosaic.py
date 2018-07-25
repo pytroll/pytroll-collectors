@@ -38,7 +38,7 @@ LON_LIMITS = {'Meteosat-11': [-37.5, 20.75],
 def calc_pixel_mask_limits(adef, lon_limits):
     """Calculate pixel intervals from longitude ranges."""
     # We'll assume global grid from -180 to 180 longitudes
-    scale = 360. / adef.shape[1]  # degrees per pixel
+    scale = 360. / adef.x_size  # degrees per pixel
 
     left_limit = int((lon_limits[0] + 180) / scale)
     right_limit = int((lon_limits[1] + 180) / scale)
@@ -47,7 +47,7 @@ def calc_pixel_mask_limits(adef, lon_limits):
     if right_limit < left_limit:
         return [[right_limit, left_limit]]
     else:
-        return [[0, left_limit], [right_limit, adef.shape[1]]]
+        return [[0, left_limit], [right_limit, adef.x_size]]
 
 
 def read_satpy(fname):
@@ -60,23 +60,22 @@ def read_satpy(fname):
 def read_image(fname, adef, lon_limits=None):
     """Read image to numpy array"""
 
+    if not os.path.exists(fname):
+        logging.error("Image %s doesn't exist.", fname)
+        return None
     try:
         img = read_satpy(fname)
-    except (IOError, TypeError):
+    except ValueError:
         logging.error("Reading image %s failed, retrying once.", fname)
         time.sleep(5)
         try:
             img = read_satpy(fname)
-        except (IOError, TypeError):
+        except ValueError:
             logging.error("Reading image failed again, skipping!")
             return None
 
     # Read the image into memory
     img = img.compute()
-
-    # Set the area definition, if not already there (eg. PNG images)
-    if 'area' not in img.attrs:
-        img.attrs['area'] = adef
 
     # Get the masked area
     mask = np.isnan(img[0, :, :])
@@ -85,7 +84,7 @@ def read_image(fname, adef, lon_limits=None):
     if lon_limits:
         for sat in lon_limits:
             if sat in fname:
-                mask_limits = calc_pixel_mask_limits(img.attrs['area'],
+                mask_limits = calc_pixel_mask_limits(adef,
                                                      lon_limits[sat])
                 for lim in mask_limits:
                     mask[:, lim[0]:lim[1]] = True
@@ -96,6 +95,10 @@ def read_image(fname, adef, lon_limits=None):
         band = np.array(img[i, :, :])
         band[mask] = np.nan
         img[i, :, :] = band
+
+    # Set the area definition, if not already there (eg. PNG images)
+    if 'area' not in img.attrs:
+        img.attrs['area'] = adef
 
     return img
 
@@ -148,7 +151,7 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             #                            next_img.channels[-1].data)),
             #                 2)
             # img.channels[-1] = np.ma.masked_where(chmask, chdata)
-
+            img.attrs['area'] = adef
     return img
 
 
@@ -159,9 +162,13 @@ def blend_images(chmask, band, next_band, blend, smooth_alpha):
     else:
         scaling = 1.0
 
-    chdata = \
-        next_band * smooth_alpha / scaling + \
-        band * (1 - smooth_alpha)
+    mask = np.isfinite(band) & np.isfinite(next_band)
+    band_mask = np.isnan(band)
+    chdata = band
+    chdata[band_mask] = next_band[band_mask]
+    chdata[mask] = \
+        next_band[mask] * smooth_alpha[mask] / scaling + \
+        band[mask] * (1 - smooth_alpha[mask])
 
     return chdata
 
