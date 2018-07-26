@@ -99,9 +99,9 @@ class TestGlobalMosaic(unittest.TestCase):
             self.assertTrue(np.nanmax(diff) <= min_step)
 
         # All satellites with built-in longitude limits
-        result = gm.create_world_composite(self.sat_fnames, self.tslot,
+        result = gm.create_world_composite(self.sat_fnames,
                                            self.adef, gm.LON_LIMITS,
-                                           blend=None, img=None)
+                                           img=None)
         correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
 
         # Check that attributes are set correctly
@@ -111,9 +111,9 @@ class TestGlobalMosaic(unittest.TestCase):
         _compare_images(result, correct)
 
         # All satellites with no longitude limits
-        result = gm.create_world_composite(self.sat_fnames, self.tslot,
+        result = gm.create_world_composite(self.sat_fnames,
                                            self.adef, gm.LON_LIMITS,
-                                           blend=None, img=None)
+                                           img=None)
         correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
         self.assertEqual(result.shape, correct.shape)
         _compare_images(result, correct)
