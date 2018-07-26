@@ -21,8 +21,11 @@ import unittest
 import datetime as dt
 import tempfile
 import os.path
-from ConfigParser import ConfigParser
-from mock import patch
+from six.moves.configparser import RawConfigParser, NoSectionError
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
 
 import numpy as np
 from PIL import Image, ImageFont
@@ -42,7 +45,7 @@ class TestImageScaler(unittest.TestCase):
                                mode='RGBA')
 
     # Read config
-    config = ConfigParser()
+    config = RawConfigParser()
     config.read(os.path.join(os.path.dirname(__file__),
                              'data', 'scale_images.ini'))
 
