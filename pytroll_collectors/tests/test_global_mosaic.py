@@ -41,7 +41,7 @@ ADEF = AreaDefinition("EPSG4326", "EPSG:4326", "EPSG:4326",
                       (-180., -90., 180., 90.))
 
 
-class TestGlobalMosaic(unittest.TestCase):
+class TestWorldCompositeDaemon(unittest.TestCase):
 
     adef = ADEF
 
@@ -60,76 +60,19 @@ class TestGlobalMosaic(unittest.TestCase):
     # Empty image
     empty_image = os.path.join(THIS_DIR, "data", "empty.png")
 
-    def test_calc_pixel_mask_limits(self):
-        """Test calculation of pixel mask limits"""
-        # Mask data from edges
-        lon_limits = [-25., 25.]
-        result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
-        self.assertTrue(np.all(np.array(result) ==
-                               np.array([[0, 86], [113, 200]])))
-
-        # Data wraps around 180 lon, mask from the middle of area
-        lon_limits = [170., -170.]
-        result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
-        self.assertTrue(np.all(np.array(result) == np.array([[5, 194]])))
-
-    def test_read_image(self):
-        """Test reading and masking images"""
-        # Non-existent image
-        result = gm.read_image("asdasd.png", self.adef, lon_limits=None)
-        self.assertIsNone(result)
-
-        # Read empty image, check that all channel data and mask values are 0
-        result = gm.read_image(self.empty_image, self.adef, lon_limits=None)
-        self.assertTrue(np.all(np.isnan(np.array(result))))
-
-    def test_create_world_composite(self):
-        """Test world composite creation"""
-
+    def setUp(self):
         # Start a nameserver
-        ns_ = NameServer(max_age=dt.timedelta(seconds=3))
-        thr = Thread(target=ns_.run)
-        thr.start()
+        self.ns_ = NameServer(max_age=dt.timedelta(seconds=3))
+        self.thr = Thread(target=self.ns_.run)
+        self.thr.start()
 
-        def _compare_images(img1, img2):
-            """Compare data and masks for each channel"""
-            # Smallest step for 8-bit input data
-            min_step = 1. / 255.
-            diff = np.array(np.abs(img1 - img2))
-            self.assertTrue(np.nanmax(diff) <= min_step)
-
-        # All satellites with built-in longitude limits
-        result = gm.create_world_composite(self.sat_fnames,
-                                           self.adef, gm.LON_LIMITS,
-                                           img=None)
-        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
-
-        # Check that attributes are set correctly
-        self.assertEqual(result.area, self.adef)
-        self.assertEqual(result.shape, correct.shape)
-
-        _compare_images(result, correct)
-
-        # All satellites with no longitude limits
-        result = gm.create_world_composite(self.sat_fnames,
-                                           self.adef, gm.LON_LIMITS,
-                                           img=None)
-        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
-        self.assertEqual(result.shape, correct.shape)
-        _compare_images(result, correct)
-
+    def tearDown(self):
         # Stop nameserver
-        ns_.stop()
-        thr.join()
-        time.sleep(2)
+        self.ns_.stop()
+        self.thr.join()
 
     def test_WorldCompositeDaemon(self):
         """Test WorldCompositeDaemon"""
-
-        # Start a nameserver
-        ns_ = NameServer(max_age=dt.timedelta(seconds=3))
-        thr = Thread(target=ns_.run)
-        thr.start()
 
         # Test incoming message handling and saving
 
@@ -226,10 +169,79 @@ class TestGlobalMosaic(unittest.TestCase):
 
         # Stop compositor daemon
         comp.stop()
-        # Stop nameserver
-        ns_.stop()
-        thr.join()
-        time.sleep(2)
+
+
+class TestGlobalMosaic(unittest.TestCase):
+
+    adef = ADEF
+
+    tslot = dt.datetime(2016, 10, 12, 12, 0)
+    # Images from individual satellites
+    sat_fnames = [os.path.join(THIS_DIR, "data", fname) for fname in
+                  ["20161012_1200_GOES-15_EPSG4326_wv.png",
+                   "20161012_1200_GOES-13_EPSG4326_wv.png",
+                   "20161012_1200_Meteosat-10_EPSG4326_wv.png",
+                   "20161012_1200_Meteosat-8_EPSG4326_wv.png",
+                   "20161012_1200_Himawari-8_EPSG4326_wv.png"]]
+
+    # Image with all satellites merged without blending
+    unblended = os.path.join(THIS_DIR, "data",
+                             "20161012_1200_EPSG4326_wv_no_blend.png")
+    # Empty image
+    empty_image = os.path.join(THIS_DIR, "data", "empty.png")
+
+    def test_calc_pixel_mask_limits(self):
+        """Test calculation of pixel mask limits"""
+        # Mask data from edges
+        lon_limits = [-25., 25.]
+        result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
+        self.assertTrue(np.all(np.array(result) ==
+                               np.array([[0, 86], [113, 200]])))
+
+        # Data wraps around 180 lon, mask from the middle of area
+        lon_limits = [170., -170.]
+        result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
+        self.assertTrue(np.all(np.array(result) == np.array([[5, 194]])))
+
+    def test_read_image(self):
+        """Test reading and masking images"""
+        # Non-existent image
+        result = gm.read_image("asdasd.png", self.adef, lon_limits=None)
+        self.assertIsNone(result)
+
+        # Read empty image, check that all channel data and mask values are 0
+        result = gm.read_image(self.empty_image, self.adef, lon_limits=None)
+        self.assertTrue(np.all(np.isnan(np.array(result))))
+
+    def test_create_world_composite(self):
+        """Test world composite creation"""
+
+        def _compare_images(img1, img2):
+            """Compare data and masks for each channel"""
+            # Smallest step for 8-bit input data
+            min_step = 1. / 255.
+            diff = np.array(np.abs(img1 - img2))
+            self.assertTrue(np.nanmax(diff) <= min_step)
+
+        # All satellites with built-in longitude limits
+        result = gm.create_world_composite(self.sat_fnames,
+                                           self.adef, gm.LON_LIMITS,
+                                           img=None)
+        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
+
+        # Check that attributes are set correctly
+        self.assertEqual(result.area, self.adef)
+        self.assertEqual(result.shape, correct.shape)
+
+        _compare_images(result, correct)
+
+        # All satellites with no longitude limits
+        result = gm.create_world_composite(self.sat_fnames,
+                                           self.adef, gm.LON_LIMITS,
+                                           img=None)
+        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
+        self.assertEqual(result.shape, correct.shape)
+        _compare_images(result, correct)
 
 
 def suite():
@@ -237,6 +249,7 @@ def suite():
     """
     loader = unittest.TestLoader()
     mysuite = unittest.TestSuite()
+    mysuite.addTest(loader.loadTestsFromTestCase(TestWorldCompositeDaemon))
     mysuite.addTest(loader.loadTestsFromTestCase(TestGlobalMosaic))
 
     return mysuite
