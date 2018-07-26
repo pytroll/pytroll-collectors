@@ -103,8 +103,7 @@ def read_image(fname, adef, lon_limits=None):
     return img
 
 
-def create_world_composite(fnames, tslot, adef, sat_limits,
-                           blend=None, img=None, logger=logging):
+def create_world_composite(fnames, adef, sat_limits, img=None, logger=logging):
     """Create world composite from files *fnames*"""
     for fname in fnames:
         logger.info("Reading image %s", fname)
@@ -121,13 +120,6 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
 
             chmask = np.logical_and(img_mask, next_img_mask)
 
-            if blend and ndi:
-                logger.debug("Creating blend mask")
-                smooth_alpha = get_smoothing(img, img_mask, next_img_mask,
-                                             blend)
-            else:
-                smooth_alpha = None
-
             dtype = img.dtype
             chdata = np.zeros(img_mask.shape, dtype=dtype)
 
@@ -135,14 +127,11 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
                 band = np.array(img[i, :, :])
                 next_band = np.array(next_img[i, :, :])
                 logger.debug("Merging channel %d", i)
-                if blend and ndi:
-                    chdata = blend_images(chmask, band, next_band, blend,
-                                          smooth_alpha)
-                else:
-                    # Be sure that that also overlapping data is updated
-                    img_mask[~next_img_mask & ~img_mask] = True
-                    chdata[img_mask] = next_band[img_mask]
-                    chdata[next_img_mask] = band[next_img_mask]
+
+                # Be sure that that also overlapping data is updated
+                img_mask[~next_img_mask & ~img_mask] = True
+                chdata[img_mask] = next_band[img_mask]
+                chdata[next_img_mask] = band[next_img_mask]
 
                 chdata[chmask] = np.nan
                 img[i, :, :] = chdata
@@ -153,61 +142,6 @@ def create_world_composite(fnames, tslot, adef, sat_limits,
             # img.channels[-1] = np.ma.masked_where(chmask, chdata)
             img.attrs['area'] = adef
     return img
-
-
-def blend_images(chmask, band, next_band, blend, smooth_alpha):
-    """Blend two images together"""
-    if blend["scale"]:
-        scaling = get_scaling_factor(chmask, band, next_band)
-    else:
-        scaling = 1.0
-
-    mask = np.isfinite(band) & np.isfinite(next_band)
-    band_mask = np.isnan(band)
-    chdata = band
-    chdata[band_mask] = next_band[band_mask]
-    chdata[mask] = \
-        next_band[mask] * smooth_alpha[mask] / scaling + \
-        band[mask] * (1 - smooth_alpha[mask])
-
-    return chdata
-
-
-def get_scaling_factor(chmask, band, next_band):
-    """Get a scaling factor that scales the image brightnesses between the
-    to images."""
-    chmask2 = np.invert(chmask)
-    idxs = band == 0
-    chmask2[idxs] = False
-    if np.sum(chmask2) == 0:
-        scaling = 1.0
-    else:
-        scaling = \
-            np.nanmean(next_band[chmask2]) / \
-            np.nanmean(band[chmask2])
-    if not np.isfinite(scaling):
-        scaling = 1.0
-    if scaling == 0.0:
-        scaling = 1.0
-
-    return scaling
-
-
-def get_smoothing(img, img_mask, next_img_mask, blend):
-    """Calculate smoothing for the overlapping parts of two images"""
-    scaled_erosion_size = \
-        blend["erosion_width"] * (float(img['x'].size) / 1000.0)
-    scaled_smooth_width = \
-        blend["smooth_width"] * (float(img['y'].size) / 1000.0)
-    alpha = np.ones(next_img_mask.shape, dtype='float')
-    alpha[next_img_mask] = 0.0
-    smooth_alpha = ndi.uniform_filter(
-        ndi.grey_erosion(alpha, size=(scaled_erosion_size,
-                                      scaled_erosion_size)),
-        scaled_smooth_width)
-    smooth_alpha[img_mask] = alpha[img_mask]
-
-    return smooth_alpha
 
 
 class WorldCompositeDaemon(object):
@@ -358,12 +292,6 @@ class WorldCompositeDaemon(object):
             lon_limits = None
         self.config["lon_limits"] = lon_limits
 
-        try:
-            blend = self.config["blend_settings"]
-        except KeyError:
-            blend = None
-        self.config["blend"] = blend
-
         # Get image save options
         try:
             save_kwargs = self.config["save_settings"]
@@ -384,10 +312,8 @@ class WorldCompositeDaemon(object):
 
         self.logger.info("Creating composite")
         scn['img'] = create_world_composite(fnames,
-                                            slot,
                                             self.adef,
                                             self.config["lon_limits"],
-                                            blend=self.config["blend"],
                                             img=img,
                                             logger=self.logger)
         self.logger.info("Saving %s", fname_out)

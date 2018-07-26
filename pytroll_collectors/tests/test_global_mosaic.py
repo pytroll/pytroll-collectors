@@ -21,13 +21,13 @@ import unittest
 import os
 import os.path
 import datetime as dt
-import numpy as np
-from threading import Thread
 import time
+from threading import Thread
+
+import numpy as np
 
 from pyresample.geometry import AreaDefinition
 from pyresample.utils import _get_proj4_args
-from mpop.imageo.geo_image import GeoImage
 from posttroll import message
 from posttroll.ns import NameServer
 
@@ -57,14 +57,6 @@ class TestGlobalMosaic(unittest.TestCase):
     # Image with all satellites merged without blending
     unblended = os.path.join(THIS_DIR, "data",
                              "20161012_1200_EPSG4326_wv_no_blend.png")
-    # Image with two satellites merged with blending, no scaling
-    blended_not_scaled = \
-        os.path.join(THIS_DIR, "data",
-                     "20161012_1200_EPSG4326_wv_blend_no_scale.png")
-    # Image with two satellites merged with blending and scaling
-    blended_scaled = \
-        os.path.join(THIS_DIR, "data",
-                     "20161012_1200_EPSG4326_wv_blend_and_scale.png")
     # Empty image
     empty_image = os.path.join(THIS_DIR, "data", "empty.png")
 
@@ -73,28 +65,23 @@ class TestGlobalMosaic(unittest.TestCase):
         # Mask data from edges
         lon_limits = [-25., 25.]
         result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
-        self.assertItemsEqual(result, [[0, 86], [113, 200]])
+        self.assertTrue(np.all(np.array(result) ==
+                               np.array([[0, 86], [113, 200]])))
 
         # Data wraps around 180 lon, mask from the middle of area
         lon_limits = [170., -170.]
         result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
-        self.assertItemsEqual(result, [[5, 194]])
+        self.assertTrue(np.all(np.array(result) == np.array([[5, 194]])))
 
     def test_read_image(self):
         """Test reading and masking images"""
         # Non-existent image
-        result = gm.read_image("asdasd.png", self.tslot, self.adef,
-                               lon_limits=None)
+        result = gm.read_image("asdasd.png", self.adef, lon_limits=None)
         self.assertIsNone(result)
 
         # Read empty image, check that all channel data and mask values are 0
-        result = gm.read_image(self.empty_image, self.tslot, self.adef,
-                               lon_limits=None)
-        correct = np.zeros((self.adef.y_size, self.adef.x_size),
-                           dtype=np.float32)
-        for chan in result.channels:
-            self.assertTrue(np.all(chan.data == correct))
-            self.assertFalse(np.any(chan.mask == correct.astype(np.bool)))
+        result = gm.read_image(self.empty_image, self.adef, lon_limits=None)
+        self.assertTrue(np.all(np.isnan(np.array(result))))
 
     def test_create_world_composite(self):
         """Test world composite creation"""
@@ -108,20 +95,17 @@ class TestGlobalMosaic(unittest.TestCase):
             """Compare data and masks for each channel"""
             # Smallest step for 8-bit input data
             min_step = 1. / 255.
-            for i in range(len(img1.channels)):
-                diff = np.abs(img1.channels[i] - img2.channels[i])
-                self.assertTrue(np.all(diff <= min_step))
+            diff = np.array(np.abs(img1 - img2))
+            self.assertTrue(np.nanmax(diff) <= min_step)
 
         # All satellites with built-in longitude limits
         result = gm.create_world_composite(self.sat_fnames, self.tslot,
                                            self.adef, gm.LON_LIMITS,
                                            blend=None, img=None)
-        correct = gm.read_image(self.unblended,
-                                self.tslot, self.adef, lon_limits=None)
+        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
 
         # Check that attributes are set correctly
-        self.assertEqual(result.area, correct.area)
-        self.assertEqual(result.time_slot, correct.time_slot)
+        self.assertEqual(result.area, self.adef)
         self.assertEqual(result.shape, correct.shape)
 
         _compare_images(result, correct)
@@ -130,28 +114,7 @@ class TestGlobalMosaic(unittest.TestCase):
         result = gm.create_world_composite(self.sat_fnames, self.tslot,
                                            self.adef, gm.LON_LIMITS,
                                            blend=None, img=None)
-        correct = gm.read_image(self.unblended,
-                                self.tslot, self.adef, lon_limits=None)
-        self.assertEqual(result.shape, correct.shape)
-        _compare_images(result, correct)
-
-        # Two satellites, erosion and smoothing, no scaling
-        blend = {"erosion_width": 40, "smooth_width": 40, "scale": False}
-        result = gm.create_world_composite(self.sat_fnames[1:3], self.tslot,
-                                           self.adef, None,
-                                           blend=blend, img=None)
-        correct = gm.read_image(self.blended_not_scaled,
-                                self.tslot, self.adef, lon_limits=None)
-        self.assertEqual(result.shape, correct.shape)
-        _compare_images(result, correct)
-
-        # Two satellites, erosion, smoothing and scaling
-        blend = {"erosion_width": 40, "smooth_width": 40, "scale": True}
-        result = gm.create_world_composite(self.sat_fnames[1:3], self.tslot,
-                                           self.adef, None,
-                                           blend=blend, img=None)
-        correct = gm.read_image(self.blended_scaled,
-                                self.tslot, self.adef, lon_limits=None)
+        correct = gm.read_image(self.unblended, self.adef, lon_limits=None)
         self.assertEqual(result.shape, correct.shape)
         _compare_images(result, correct)
 

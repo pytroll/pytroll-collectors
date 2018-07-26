@@ -45,12 +45,6 @@ topics:
 #    - -37.5
 # lon_limits: null
 
-# Blend settings. Uncomment to use, and adjust lon_limits so that
-# there's overlap, for example set to null
-# blend_settings:
-#   erosion_width: 40
-#   smooth_width: 40
-
 save_settings:
   compression: 6
   # Use "null" instead of "None"
