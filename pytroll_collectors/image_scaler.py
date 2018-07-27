@@ -181,6 +181,8 @@ class ImageScaler(object):
                                        os.path.basename(self.filepath))
             except ValueError:
                 logging.info("Filepattern doesn't match, skipping.")
+                logging.debug("in_pattern: %s", self.in_pattern)
+                logging.debug("fname: %s", os.path.basename(self.filepath))
                 continue
             self.fileparts['areaname'] = self.areaname
             self._tidy_platform_name()
@@ -291,7 +293,7 @@ class ImageScaler(object):
 
             # Save image
             save_image(img_out, fname, adef=self.area_def,
-                       time_slot=self.time_slot, fill_value=self.fill_value,
+                       fill_value=self.fill_value,
                        save_options=self.save_options)
 
             # Update static image, if given in config
@@ -909,7 +911,7 @@ def adjust_pattern_time_name(pattern, time_name):
     parsedefs, _ = extract_parsedef(pattern)
     for itm in parsedefs:
         if isinstance(itm, dict):
-            key, val = itm.items()[0]
+            key, val = list(itm.items())[0]
             if val is None:
                 continue
             # Need to exclude 'end_time' and 'proc_time' / 'processing_time'

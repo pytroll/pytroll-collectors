@@ -238,7 +238,7 @@ def zipcollector_live_runner(options):
                 file_reg = start_zipcollector(
                     file_reg, msg, options, publisher=publisher)
                 # Cleanup in file registry (keep only the last 5):
-                keys = file_reg.keys()
+                keys = list(file_reg.keys())
                 if len(keys) > 5:
                     keys.sort()
                     file_reg.pop(keys[0])

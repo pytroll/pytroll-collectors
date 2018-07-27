@@ -191,7 +191,7 @@ class MessageReceiver(object):
         """
         oldies = []
 
-        for key, val in self._received_passes.iteritems():
+        for key, val in self._received_passes.items():
             if (datetime.utcnow() - val["start_time"]).days >= days:
                 oldies.append(key)
 
