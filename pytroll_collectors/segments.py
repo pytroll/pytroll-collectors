@@ -28,7 +28,7 @@ import datetime as dt
 import logging
 import logging.handlers
 import os.path
-import Queue
+from six.moves.queue import Queue as queue_empty
 import time
 from collections import OrderedDict
 from six.moves.urllib.parse import urlparse, urlunparse
@@ -348,7 +348,7 @@ class SegmentGatherer(object):
             except KeyboardInterrupt:
                 self.stop()
                 continue
-            except Queue.Empty:
+            except queue_empty:
                 continue
 
             if msg.type == "file":

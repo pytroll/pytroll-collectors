@@ -132,9 +132,15 @@ def pass_name(utctime, satellite):
 
 class PassRecorder(dict):
 
+    def iter(self):
+        if hasattr(self, 'iteritems'):
+            return self.iteritems()
+        else:
+            return self.items()
+
     def get(self, key, default=None):
         utctime, satellite = key
-        for (rectime, recsat), val in self.iteritems():
+        for (rectime, recsat), val in self.iter():
             if(recsat == satellite and
                (abs(rectime - utctime)).seconds < 30 * 60 and
                (abs(rectime - utctime)).days == 0):
