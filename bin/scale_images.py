@@ -73,7 +73,7 @@ def main():
     time.tzset()
 
     config_file = sys.argv[1]
-    config = ConfigParser()
+    config = RawConfigParser()
     config.read(config_file)
 
     try:
