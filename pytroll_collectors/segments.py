@@ -28,7 +28,7 @@ import datetime as dt
 import logging
 import logging.handlers
 import os.path
-from six.moves.queue import Queue as queue_empty
+from six.moves.queue import Empty as queue_empty
 import time
 from collections import OrderedDict
 from six.moves.urllib.parse import urlparse, urlunparse
