@@ -148,7 +148,7 @@ class SegmentGatherer(object):
         itm_str is formated like ':PRO,:EPI' or 'VIS006:8,VIS008:1-8,...'"""
 
         # Handle missing itm_str
-        if itm_str is None:
+        if itm_str in (None, ''):
             itm_str = ':'
 
         # Empty set
@@ -480,10 +480,7 @@ def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
 
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
-    try:
-        from configparser import RawConfigParser, NoOptionError
-    except ImportError:
-        from ConfigParser import RawConfigParser, NoOptionError
+    from six.moves.configparser import RawConfigParser, NoOptionError
 
     config = RawConfigParser()
     config.read(fname)
