@@ -192,7 +192,7 @@ def main():
                   " aborting!")
             sys.exit()
 
-        cparser = ConfigParser()
+        cparser = RawConfigParser()
         cparser.read(config_fname)
         config = dict(cparser.items(args.config_item, vars=args_dict))
 

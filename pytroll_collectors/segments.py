@@ -407,6 +407,7 @@ class SegmentGatherer(object):
 
         mask = self._parsers[key].globify(mda)
         if mask in slot['received_files']:
+            self.logger.debug("File already received")
             return
         if mask not in slot['all_files']:
             self.logger.debug("%s not in %s", mask, slot['all_files'])
@@ -441,6 +442,7 @@ class SegmentGatherer(object):
 
         # Add to received files
         slot['received_files'].add(mask)
+        self.logger.info("%s processed", uid)
 
     def key_from_fname(self, uid):
         """"""

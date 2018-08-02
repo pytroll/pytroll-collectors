@@ -30,7 +30,7 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from six.moves.configparser import ConfigParser
+from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os
@@ -358,7 +358,7 @@ def main():
                   " aborting!")
             sys.exit()
 
-        config = ConfigParser()
+        config = RawConfigParser()
         config.read(config_fname)
         config = OrderedDict(config.items(args.config_item))
         config['name'] = args.configuration_file
