@@ -147,12 +147,12 @@ class SegmentGatherer(object):
         """Compose filename set()s based on a pattern and item string.
         itm_str is formated like ':PRO,:EPI' or 'VIS006:8,VIS008:1-8,...'"""
 
-        # Handle missing itm_str
-        if itm_str in (None, ''):
-            itm_str = ':'
-
         # Empty set
         result = set()
+
+        # Handle missing itm_str
+        if itm_str in (None, ''):
+            return result
 
         # Get copy of metadata
         meta = self.slots[time_slot]['metadata'].copy()
