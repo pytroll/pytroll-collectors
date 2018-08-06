@@ -274,18 +274,20 @@ class SegmentGatherer(object):
         if len(status) == 0:
             return SLOT_NOT_READY
 
-        if all([val == SLOT_READY for val in status.values()]):
+        status_values = list(status.values())
+
+        if all([val == SLOT_READY for val in status_values]):
             self.logger.info("Required files received "
                              "for slot %s.", time_slot)
             return SLOT_READY
 
         if dt.datetime.utcnow() > timeout:
-            if (SLOT_NONCRITICAL_NOT_READY in status.values() and
-                (SLOT_READY in status.values() or
-                    SLOT_READY_BUT_WAIT_FOR_MORE in status.values())):
+            if (SLOT_NONCRITICAL_NOT_READY in status_values and
+                (SLOT_READY in status_values or
+                    SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
                 return SLOT_READY
-            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status.values() and
-                  SLOT_NOT_READY not in status.values()):
+            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
+                  SLOT_NOT_READY not in status_values):
                 return SLOT_READY
             else:
                 self.logger.warning("Timeout occured and required files "
@@ -294,11 +296,11 @@ class SegmentGatherer(object):
                                     time_slot)
                 return SLOT_OBSOLETE_TIMEOUT
 
-        if SLOT_NOT_READY in status.values():
+        if SLOT_NOT_READY in status_values:
             return SLOT_NOT_READY
-        if SLOT_NONCRITICAL_NOT_READY in status.values():
+        if SLOT_NONCRITICAL_NOT_READY in status_values:
             return SLOT_NONCRITICAL_NOT_READY
-        if SLOT_READY_BUT_WAIT_FOR_MORE in status.values():
+        if SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
     def _setup_messaging(self):
