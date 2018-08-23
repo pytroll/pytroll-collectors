@@ -33,7 +33,13 @@ def main():
     # Create and start compositor
     compositor = WorldCompositeDaemon(config)
     compositor.set_logger(logger)
-    compositor.run()
+    try:
+        compositor.run()
+    finally:
+        if compositor._listener is not None:
+            compositor._listener.stop()
+        if compositor._publisher is not None:
+            compositor._publisher.stop()
 
 
 if __name__ == "__main__":

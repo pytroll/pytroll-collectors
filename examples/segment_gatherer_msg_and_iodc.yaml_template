@@ -1,0 +1,48 @@
+
+# Example how to collect several filesets which are segmented
+
+patterns:
+  # First pattern different segments for it
+  msg:
+    pattern:
+      "H-000-{orig_platform_name:4s}__-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    critical_files: :EPI,:PRO
+    wanted_files: VIS006:000001-000008,:PRO,:EPI
+    all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
+    # This set of files is crucial
+    is_critical_set: true
+    # The platform name is different between different filesets, so needs to
+    # be defined as variable
+    variable_tags: ['orig_platform_name', ]
+  iodc:
+    pattern:
+      "H-000-{orig_platform_name:4s}__-{orig_platform_name:4s}_IODC___-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    critical_files: :EPI,:PRO
+    wanted_files: VIS006:000001-000008,:PRO,:EPI
+    all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
+    # This set of files is not crucial, but we'll wait until timeout in any case
+    is_critical_set: false
+    variable_tags: ['orig_platform_name', ]
+
+
+# Time in seconds from the first arrived file until timeout
+timeliness:
+  900
+# Time tag used in ALL of the patterns
+time_name:
+  start_time
+# The time, shown by "time_name", can differ by time_tolerance seconds
+time_tolerance:
+  30
+
+posttroll:
+  topics:
+    - /foo/bar
+  publish_topic:
+    /segment-foo/bar
+  publish_port:
+    0
+  nameservers:
+    null
+  addresses:
+    null

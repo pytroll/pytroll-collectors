@@ -6,3 +6,13 @@ REGION: euron1 {
         YSIZE:          3072
         AREA_EXTENT:    (-1000000.0, -4500000.0, 2072000.0, -1428000.0)
 };
+
+REGION: EPSG4326 {
+   NAME:    Global equal latitude/longitude grid for global sphere
+   PCS_ID:  EPSG:4326
+   PCS_DEF: init=EPSG:4326
+   XSIZE: 8192
+   YSIZE: 4096
+   AREA_EXTENT:  (-180.0, -90.0, 180.0, 90.0)
+};
+

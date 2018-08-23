@@ -30,14 +30,15 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from posttroll.publisher import NoisyPublisher
-from posttroll.message import Message
-from trollsift import Parser
-from ConfigParser import ConfigParser
+from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os.path
 import datetime as dt
+
+from posttroll.publisher import NoisyPublisher
+from posttroll.message import Message
+from trollsift import Parser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -187,11 +188,11 @@ def main():
         config_fname = args.configuration_file
 
         if "template" in config_fname:
-            print "Template file given as trollstalker logging config," \
-                " aborting!"
+            print("Template file given as trollstalker logging config,"
+                  " aborting!")
             sys.exit()
 
-        cparser = ConfigParser()
+        cparser = RawConfigParser()
         cparser.read(config_fname)
         config = dict(cparser.items(args.config_item, vars=args_dict))
 

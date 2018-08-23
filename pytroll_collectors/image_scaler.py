@@ -19,18 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import Queue
+from six.moves.queue import Empty as queue_empty
 import os
 import os.path
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from six.moves.configparser import (RawConfigParser, NoOptionError,
+                                    NoSectionError)
 import logging
 import logging.config
 import datetime as dt
 import glob
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
+
+import xarray as xr
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import gc
@@ -39,13 +39,10 @@ from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
 from trollsift.parser import _extract_parsedef as extract_parsedef
-from mpop.projector import get_area_def
-from mpop.imageo.formats.tifffile import imread
+from satpy.resample import get_area_def
+from satpy import Scene
+from trollimage.xrimage import XRImage
 
-try:
-    from mpop.imageo.geo_image import GeoImage
-except ImportError:
-    GeoImage = None
 
 try:
     GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
@@ -92,6 +89,8 @@ DEFAULT_SAVE_OPTIONS = {'save_compression': 6,
 DEFAULT_CONFIG_VALUES = DEFAULT_SECTION_VALUES.copy()
 DEFAULT_CONFIG_VALUES.update(DEFAULT_TEXT_SETTINGS)
 DEFAULT_CONFIG_VALUES.update(DEFAULT_SAVE_OPTIONS)
+
+BANDS = {1: ['L'], 2: ['L', 'A'], 3: ['R', 'G', 'B'], 4: ['R', 'G', 'B', 'A']}
 
 
 class ImageScaler(object):
@@ -155,7 +154,7 @@ class ImageScaler(object):
             except KeyboardInterrupt:
                 self.stop()
                 raise
-            except Queue.Empty:
+            except queue_empty:
                 continue
 
             logging.info("New message with topic %s", msg.subject)
@@ -182,6 +181,8 @@ class ImageScaler(object):
                                        os.path.basename(self.filepath))
             except ValueError:
                 logging.info("Filepattern doesn't match, skipping.")
+                logging.debug("in_pattern: %s", self.in_pattern)
+                logging.debug("fname: %s", os.path.basename(self.filepath))
                 continue
             self.fileparts['areaname'] = self.areaname
             self._tidy_platform_name()
@@ -292,7 +293,7 @@ class ImageScaler(object):
 
             # Save image
             save_image(img_out, fname, adef=self.area_def,
-                       time_slot=self.time_slot, fill_value=self.fill_value,
+                       fill_value=self.fill_value,
                        save_options=self.save_options)
 
             # Update static image, if given in config
@@ -432,7 +433,7 @@ class ImageScaler(object):
 
         self.sizes = []
         for size in size_conf.split(','):
-            self.sizes.append(map(int, size.split('x')))
+            self.sizes.append([int(val) for val in size.split('x')])
 
     def _parse_tags(self):
         """Parse tags from tag config"""
@@ -590,52 +591,55 @@ def crop_image(img, crop):
     return img_wrk
 
 
-def save_image(img, fname, adef=None, time_slot=None, fill_value=None,
-               save_options=None):
+def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     """Save image.  In case of area definition and start time are given,
     and the image type is tif, convert first to Geoimage to save geotiff
     """
-    if (adef is not None and time_slot is not None and
-            fname.lower().endswith(('.tif', '.tiff'))):
-        img = _pil_to_geoimage(img, adef=adef, time_slot=time_slot,
-                               fill_value=fill_value)
-        logging.info("Saving GeoImage %s", fname)
-        img.save(fname, **save_options)
-    else:
-        logging.info("Saving PIL image %s", fname)
-        img.save(fname)
+    if save_options is None:
+        save_options = {}
+    img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
+    logging.info("Saving image to %s", fname)
+    img.save(fname, **save_options)
 
 
-def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
-    """Convert PIL image to GeoImage"""
-    # Get image mode, widht and height
+def _pil_to_xrimage(img, adef, fill_value=None):
+    """Convert PIL image to trollimage.xrimage.XRImage"""
+    # Get image mode, width and height
     mode = img.mode
     width = img.width
     height = img.height
+    fill_value = fill_value or np.nan
 
-    # TODO: handle other than 8-bit images
+    # FIXME: handle other than 8-bit images
     max_val = 255.
     # Convert to Numpy array
     img = np.array(img.getdata()).astype(np.float32)
     img = img.reshape((height, width, len(mode)))
+    # Scale to 0...1
+    # img /= max_val
+    # Reorder for XRImage
+    img = np.rollaxis(img, 2, -3)
+    # Handle alpha channel
+    #if 'A' in mode:
+    #    mask = img[-1, :, :] == max_val
+    #    if np.any(mask):
+    #        for i in range(img.shape[0]):
+    #            chan = img[i, :, :]
+    #            chan[mask] = fill_value
+    bands = BANDS[img.shape[0]]
 
-    chans = []
-    # TODO: handle P image mode
-    if mode == 'L':
-        chans.append(np.squeeze(img) / max_val)
-    else:
-        if 'A' in mode:
-            mask = img[:, :, -1] == 0
-            fill_value = None
-        else:
-            mask = False
+    # Add image data to scene as xarray.DataArray
+    img = xr.DataArray(img, dims=['bands', 'y', 'x'])
+    img['bands'] = bands
+    # Add area definition
+    img.attrs['area'] = adef
 
-        for i in range(len(mode)):
-            chans.append(np.ma.masked_where(mask, img[:, :, i] / max_val))
+    # Convert to XRImage
+    img = XRImage(img)
+    # Static stretch
+    img.crude_stretch(0.0, 255.0)
 
-    return GeoImage(chans, adef, time_slot, fill_value=fill_value,
-                    mode=mode, crange=_get_crange(len(mode)))
-
+    return img
 
 def _get_crange(num):
     """Get crange for interval (0, 1) for *num* image channels."""
@@ -852,14 +856,20 @@ def update_existing_image(fname, new_img,
 
 
 def read_image(filepath):
-    """Read the image from *filepath* and return it as PIL image."""
-    if filepath.lower().endswith(('.tif', '.tiff')):
-        try:
-            img = Image.fromarray(imread(filepath))
-        except ValueError:
-            img = None
-    else:
-        img = Image.open(filepath)
+    """Read the image from *filepath* and return it as PIL Image object."""
+    scn = Scene(reader='generic_image', filenames=[filepath, ])
+    scn.load(['image'])
+    y_size = scn['image']['y'].size
+    x_size = scn['image']['x'].size
+    arr = np.array(scn['image'])
+    alpha = np.isnan(arr[0, :, :])
+    arr = arr.astype(np.uint8)
+    if np.any(alpha):
+        alpha = 255 * np.invert(alpha).astype(np.uint8)
+        alpha = alpha.reshape(1, y_size, x_size)
+        arr = np.vstack((arr, alpha))
+    arr = np.squeeze(np.rollaxis(arr, 0, 3))
+    img = Image.fromarray(arr)
 
     return img
 
@@ -901,7 +911,7 @@ def adjust_pattern_time_name(pattern, time_name):
     parsedefs, _ = extract_parsedef(pattern)
     for itm in parsedefs:
         if isinstance(itm, dict):
-            key, val = itm.items()[0]
+            key, val = list(itm.items())[0]
             if val is None:
                 continue
             # Need to exclude 'end_time' and 'proc_time' / 'processing_time'
