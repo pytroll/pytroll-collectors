@@ -28,7 +28,7 @@ import imp
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-# Set PPP_CONFIG_DIR so that valid mpop.cfg and areas.def are found
+# Set PPP_CONFIG_DIR for tests
 os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors',
                                             'tests', 'data')
 
@@ -64,10 +64,10 @@ setup(name="pytroll_collectors",
                ],
       data_files=[],
       zip_safe=False,
-      install_requires=['pykdtree', 'pyinotify', 'mpop', 'posttroll>=1.3.0',
+      install_requires=['pykdtree', 'pyinotify', 'posttroll>=1.3.0',
                         'trollsift', 'netifaces',
                         'pytroll-schedule', 'pyresample',
-                        'pillow', 'pycoast'],
-      tests_require=['mock', 'scipy', 'trollsift', 'pillow'],
+                        'pillow', 'pycoast', 'six'],
+      tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],
       test_suite='pytroll_collectors.tests.suite',
       )

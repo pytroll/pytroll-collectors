@@ -40,7 +40,7 @@ import socket
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 from time import sleep
-from urlparse import SplitResult, urlsplit, urlunsplit
+from six.moves.urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from posttroll.message import Message
 from posttroll.publisher import Publish
@@ -132,9 +132,15 @@ def pass_name(utctime, satellite):
 
 class PassRecorder(dict):
 
+    def iter(self):
+        if hasattr(self, 'iteritems'):
+            return self.iteritems()
+        else:
+            return self.items()
+
     def get(self, key, default=None):
         utctime, satellite = key
-        for (rectime, recsat), val in self.iteritems():
+        for (rectime, recsat), val in self.iter():
             if(recsat == satellite and
                (abs(rectime - utctime)).seconds < 30 * 60 and
                (abs(rectime - utctime)).days == 0):
@@ -185,7 +191,7 @@ class MessageReceiver(object):
         """
         oldies = []
 
-        for key, val in self._received_passes.iteritems():
+        for key, val in self._received_passes.items():
             if (datetime.utcnow() - val["start_time"]).days >= days:
                 oldies.append(key)
 
@@ -514,4 +520,4 @@ if __name__ == '__main__':
     string = TwoMetMessage(rawmsg)
     msg_rec = MessageReceiver('merlin')
     ret = msg_rec.receive(string)
-    print ret
+    print(ret)

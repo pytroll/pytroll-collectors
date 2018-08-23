@@ -72,8 +72,8 @@ class TestSegmentGatherer(unittest.TestCase):
     def test_init(self):
         self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
         self.assertTrue(self.msg0deg._subject is None)
-        self.assertEqual(self.msg0deg._patterns.keys(), ['msg'])
-        self.assertEqual(self.msg0deg._parsers.keys(), ['msg'])
+        self.assertEqual(list(self.msg0deg._patterns.keys()), ['msg'])
+        self.assertEqual(list(self.msg0deg._parsers.keys()), ['msg'])
         self.assertEqual(len(self.msg0deg.slots.keys()), 0)
         self.assertEqual(self.msg0deg.time_name, 'start_time')
         self.assertFalse(self.msg0deg._loop)
@@ -87,7 +87,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg._init_data(mda)
 
         slot_str = str(mda["start_time"])
-        self.assertEqual(self.msg0deg.slots.keys()[0], slot_str)
+        self.assertEqual(list(self.msg0deg.slots.keys())[0], slot_str)
         slot = self.msg0deg.slots[slot_str]
         for key in mda:
             self.assertEqual(slot['metadata'][key], mda[key])
@@ -268,8 +268,8 @@ class TestSegmentGatherer(unittest.TestCase):
         msg_data = self.mda_msg0deg.copy()
         col = self.msg0deg
         col._init_data(msg_data)
-        time_slot = col.slots.keys()[0]
-        key = CONFIG_SINGLE['patterns'].keys()[0]
+        time_slot = list(col.slots.keys())[0]
+        key = list(CONFIG_SINGLE['patterns'].keys())[0]
         mda = col._parsers[key].parse(msg_data['uid'])
         res = col.add_file(time_slot, key, mda, msg_data)
         self.assertTrue(res is None)

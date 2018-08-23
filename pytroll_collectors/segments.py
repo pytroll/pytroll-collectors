@@ -28,10 +28,10 @@ import datetime as dt
 import logging
 import logging.handlers
 import os.path
-import Queue
+from six.moves.queue import Empty as queue_empty
 import time
 from collections import OrderedDict
-from urlparse import urlparse, urlunparse
+from six.moves.urllib.parse import urlparse, urlunparse
 
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer
@@ -147,12 +147,12 @@ class SegmentGatherer(object):
         """Compose filename set()s based on a pattern and item string.
         itm_str is formated like ':PRO,:EPI' or 'VIS006:8,VIS008:1-8,...'"""
 
-        # Handle missing itm_str
-        if itm_str is None:
-            itm_str = ':'
-
         # Empty set
         result = set()
+
+        # Handle missing itm_str
+        if itm_str in (None, ''):
+            return result
 
         # Get copy of metadata
         meta = self.slots[time_slot]['metadata'].copy()
@@ -274,18 +274,20 @@ class SegmentGatherer(object):
         if len(status) == 0:
             return SLOT_NOT_READY
 
-        if all([val == SLOT_READY for val in status.values()]):
+        status_values = list(status.values())
+
+        if all([val == SLOT_READY for val in status_values]):
             self.logger.info("Required files received "
                              "for slot %s.", time_slot)
             return SLOT_READY
 
         if dt.datetime.utcnow() > timeout:
-            if (SLOT_NONCRITICAL_NOT_READY in status.values() and
-                (SLOT_READY in status.values() or
-                    SLOT_READY_BUT_WAIT_FOR_MORE in status.values())):
+            if (SLOT_NONCRITICAL_NOT_READY in status_values and
+                (SLOT_READY in status_values or
+                    SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
                 return SLOT_READY
-            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status.values() and
-                  SLOT_NOT_READY not in status.values()):
+            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
+                  SLOT_NOT_READY not in status_values):
                 return SLOT_READY
             else:
                 self.logger.warning("Timeout occured and required files "
@@ -294,11 +296,11 @@ class SegmentGatherer(object):
                                     time_slot)
                 return SLOT_OBSOLETE_TIMEOUT
 
-        if SLOT_NOT_READY in status.values():
+        if SLOT_NOT_READY in status_values:
             return SLOT_NOT_READY
-        if SLOT_NONCRITICAL_NOT_READY in status.values():
+        if SLOT_NONCRITICAL_NOT_READY in status_values:
             return SLOT_NONCRITICAL_NOT_READY
-        if SLOT_READY_BUT_WAIT_FOR_MORE in status.values():
+        if SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
     def _setup_messaging(self):
@@ -348,7 +350,7 @@ class SegmentGatherer(object):
             except KeyboardInterrupt:
                 self.stop()
                 continue
-            except Queue.Empty:
+            except queue_empty:
                 continue
 
             if msg.type == "file":
@@ -407,6 +409,7 @@ class SegmentGatherer(object):
 
         mask = self._parsers[key].globify(mda)
         if mask in slot['received_files']:
+            self.logger.debug("File already received")
             return
         if mask not in slot['all_files']:
             self.logger.debug("%s not in %s", mask, slot['all_files'])
@@ -441,6 +444,7 @@ class SegmentGatherer(object):
 
         # Add to received files
         slot['received_files'].add(mask)
+        self.logger.info("%s processed", uid)
 
     def key_from_fname(self, uid):
         """"""
@@ -480,7 +484,7 @@ def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
 
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
-    from ConfigParser import NoOptionError, RawConfigParser
+    from six.moves.configparser import RawConfigParser, NoOptionError
 
     config = RawConfigParser()
     config.read(fname)
