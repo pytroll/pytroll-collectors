@@ -27,10 +27,8 @@ import sys
 import os
 import time
 import logging
-try:
-    from ConfigParser import ConfigParser, NoOptionError, NoSectionError
-except ImportError:
-    from configparser import ConfigParser, NoOptionError, NoSectionError
+from six.moves.configparser import (RawConfigParser, NoOptionError,
+                                    NoSectionError)
 
 from pytroll_collectors.image_scaler import ImageScaler
 
@@ -75,7 +73,7 @@ def main():
     time.tzset()
 
     config_file = sys.argv[1]
-    config = ConfigParser()
+    config = RawConfigParser()
     config.read(config_file)
 
     try:

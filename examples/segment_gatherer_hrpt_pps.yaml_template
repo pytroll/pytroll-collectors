@@ -1,0 +1,52 @@
+
+# Example showing how to collect multiple files which are not by themselves
+# segmented
+
+patterns:
+  hrpt:
+    pattern:
+      "hrpt_{platform_name}_{start_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b"
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: true
+    variable_tags: ['platform_name', ]
+  pps:
+    pattern:
+      "S_NWC_CMA_{platform_name}_{orbit_number:05d}_{start_time:%Y%m%dT%H%M}{start_seconds:02d}{start_tenths:01d}Z_{end_time:%Y%m%dT%H%M}{end_seconds:02d}{end_tenths:01d}Z.nc"
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: false
+    # These tags are not available for the other pattern, or can be written
+    # in different way (like platform_name)
+    variable_tags:
+      - platform_name
+      - start_seconds
+      - start_tenths
+      - end_time
+      - end_seconds
+      - end_tenths
+
+# Time in seconds from the first arrived file until timeout
+timeliness:
+  180
+# Time tag used in ALL of the patterns
+time_name:
+  start_time
+# The time, shown by "time_name", can differ by time_tolerance seconds
+time_tolerance:
+  60
+
+posttroll:
+  topics:
+    - /stalker/new/file/yay
+    - /stalker/foo
+  publish_topic:
+    /segment-foo/bar
+  publish_port:
+    0
+  nameservers:
+    null
+  addresses:
+    null

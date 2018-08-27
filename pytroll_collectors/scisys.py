@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015 SMHI
+# Copyright (c) 2012-2018 Pytroll Developers
 
 # Author(s):
 
@@ -40,13 +40,28 @@ import socket
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 from time import sleep
-from urlparse import SplitResult, urlsplit, urlunsplit
+from six.moves.urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from posttroll.message import Message
 from posttroll.publisher import Publish
 from pytroll_collectors.helper_functions import is_uri_on_server
 
 LOGGER = logging.getLogger(__name__)
+
+JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
+                                   "RCRIS-RNSCA_": "cris",
+                                   "RNSCA-RVIRS_": "viirs",
+                                   "RATMS_": "atms",
+                                   "RCRIS_": "cris"}
+JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
+                      'jpss1': 'NOAA-20',
+                      'noaa20': 'NOAA-20',
+                      'j01': 'NOAA-20',
+                      'j02': 'NOAA-21'}
+
+SCISYS_NAMES = {'Suomi-NPP': 'NPP',
+                'NOAA-20': 'NOAA 20',
+                'NOAA-21': 'NOAA 21'}
 
 
 class TwoMetMessage(object):
@@ -117,9 +132,15 @@ def pass_name(utctime, satellite):
 
 class PassRecorder(dict):
 
+    def iter(self):
+        if hasattr(self, 'iteritems'):
+            return self.iteritems()
+        else:
+            return self.items()
+
     def get(self, key, default=None):
         utctime, satellite = key
-        for (rectime, recsat), val in self.iteritems():
+        for (rectime, recsat), val in self.iter():
             if(recsat == satellite and
                (abs(rectime - utctime)).seconds < 30 * 60 and
                (abs(rectime - utctime)).days == 0):
@@ -132,10 +153,14 @@ class MessageReceiver(object):
     """Interprets received messages between stop reception and file dispatch.
     """
 
-    def __init__(self, emitter):
+    def __init__(self, emitter, excluded_satellite_list=None):
         self._received_passes = PassRecorder()
         self._distributed_files = {}
         self._emitter = emitter
+        if excluded_satellite_list is not None:
+            self._excluded_platforms = excluded_satellite_list
+        else:
+            self._excluded_platforms = []
 
     def add_pass(self, message):
         """Formats pass info and adds it to the object.
@@ -166,26 +191,27 @@ class MessageReceiver(object):
         """
         oldies = []
 
-        for key, val in self._received_passes.iteritems():
+        for key, val in self._received_passes.items():
             if (datetime.utcnow() - val["start_time"]).days >= days:
                 oldies.append(key)
 
         for key in oldies:
             del self._received_passes[key]
 
-    def handle_distrib(self, message):
-        """React to a file dispatch message.
-        """
-
-        pathname1, pathname2 = message.split(" ")
-        dummy, filename = os.path.split(pathname1)
+    def handle_distrib(self, url):
+        """React to a file dispatch message."""
+        url = urlsplit(url)
+        dummy, filename = os.path.split(url.path)
+        LOGGER.debug("filename = %s", filename)
         # TODO: Should not make any assumptions on filename formats, should
         # load a description of it from a config file instead.
-        if pathname1.endswith(".hmf"):
+        if filename.endswith(".hmf"):
             risestr, satellite = filename[:-4].split("_", 1)
             risetime = datetime.strptime(risestr, "%Y%m%d%H%M%S")
             pname = pass_name(risetime, satellite)
             satellite = satellite.replace("_", "-")
+            if satellite in self._excluded_platforms:
+                return None
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop('satellite', None)
             swath["platform_name"] = satellite
@@ -218,6 +244,11 @@ class MessageReceiver(object):
             else:
                 raise ValueError(
                     "Unrecognized satellite ID: " + pds["apid1"][:3])
+
+            if not satellite or satellite in self._excluded_platforms:
+                LOGGER.debug("Platform name %s is excluded...", str(satellite))
+                return None
+
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop('satellite', None)
             swath['platform_name'] = satellite
@@ -245,49 +276,49 @@ class MessageReceiver(object):
             swath["type"] = "binary"
             swath["data_processing_level"] = "0"
 
-        # NPP RDRs
+        # NPP/JPSS RDRs
         elif filename.startswith("R") and filename.endswith(".h5"):
             # Occassionaly RT-STPS produce files with a nonstandard file
             # naming, lacking the 'RNSCA' field. We will try to deal with this
             # below (Adam - 2013-06-04):
             mda = {}
-            idx_start = 0
             mda["format"] = filename[0]
-            if filename.startswith("RATMS-RNSCA"):
-                mda["sensor"] = "atms"
-            elif filename.startswith("RCRIS-RNSCA"):
-                mda["sensor"] = "cris"
-            elif filename.startswith("RNSCA-RVIRS"):
-                mda["sensor"] = "viirs"
-            else:
-                if filename.startswith("RATMS_npp"):
-                    mda["sensor"] = "atms"
-                elif filename.startswith("RCRIS_npp"):
-                    mda["sensor"] = "cris"
-                else:
-                    LOGGER.warning("Seems to be a NPP/JPSS RDR "
-                                   "file but name is not standard!")
-                    LOGGER.warning("filename = %s", filename)
-                    return None
-                idx_start = -6
+            file_ok = False
+            for prefix in JPSS_INSTRUMENTS_FROM_FILENAMES:
+                if filename.startswith(prefix):
+                    mda["sensor"] = JPSS_INSTRUMENTS_FROM_FILENAMES[prefix]
+                    start_time_items = filename.strip(prefix).split('_')[1:3]
+                    end_time_item = filename.strip(prefix).split('_')[3]
+                    satellite = JPSS_PLATFORM_NAME.get(filename.strip(prefix).split('_')[0], None)
+                    orbit = filename.strip(prefix).split('_')[4].strip('b')
+                    file_ok = True
+                    break
+
+            if not file_ok:
+                LOGGER.warning("Seems to be a NPP/JPSS RDR "
+                               "file but name is not standard!")
+                LOGGER.warning("filename = %s", filename)
+                return None
+
+            # satellite = "Suomi-NPP, NOAA-20, NOAA-21,..."
+            if not satellite or satellite in self._excluded_platforms:
+                LOGGER.debug("Platform name %s is excluded...", str(satellite))
+                return None
 
             mda["start_time"] = \
-                datetime.strptime(filename[idx_start + 16:idx_start + 33],
-                                  "d%Y%m%d_t%H%M%S")
+                datetime.strptime(start_time_items[0] + start_time_items[1],
+                                  "d%Y%m%dt%H%M%S%f")
             end_time = \
-                datetime.strptime(filename[idx_start + 16:idx_start + 25] +
-                                  " " +
-                                  filename[
-                                      idx_start + 35:idx_start + 42],
-                                  "d%Y%m%d e%H%M%S")
+                datetime.strptime(start_time_items[0] + end_time_item,
+                                  "d%Y%m%de%H%M%S%f")
             if mda["start_time"] > end_time:
                 end_time += timedelta(days=1)
-            mda["orbit"] = filename[idx_start + 45:idx_start + 50]
+            mda["orbit"] = orbit
+
             # FIXME: swath start and end time is granule dependent.
             # Get the end time as well! - Adam 2013-06-03:
-            satellite = "Suomi-NPP"
             start_time = mda["start_time"]
-            pname = pass_name(start_time, "NPP")
+            pname = pass_name(start_time, SCISYS_NAMES.get(satellite))
 
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop("satellite", None)
@@ -338,12 +369,6 @@ class MessageReceiver(object):
         else:
             return None
 
-        if pathname2.endswith(filename):
-            uri = pathname2
-        else:
-            uri = os.path.join(pathname2, filename)
-
-        url = urlsplit(uri)
         if url.scheme in ["", "file"]:
             scheme = "ssh"
             netloc = self._emitter
@@ -360,26 +385,50 @@ class MessageReceiver(object):
                                          url.path,
                                          url.query,
                                          url.fragment))
+        else:
+            LOGGER.debug("url.scheme not expected: %s", url.scheme)
+
         swath["uid"] = os.path.split(url.path)[1]
         swath["uri"] = uri
         swath['variant'] = 'DR'
         return swath
 
     def receive(self, message):
-        """Receive the messages and triage them.
-        """
+        """Receive the messages and triage them."""
         metadata_stop = "STOPRC Stop reception: "
         metadata_start = "STRTRC Start reception: Satellite"
         dispatch_prefix = "FILDIS File Dispatch: "
+        dispatch_prefix2 = "SUCTRN "
         if (message.body.startswith(metadata_stop) or
                 message.body.startswith(metadata_start)):
             self.add_pass(message.body.split(":", 1)[1].strip())
             return None
         elif message.body.startswith(dispatch_prefix):
             # Check hostname in message:
-            url = message.body[len(dispatch_prefix):].split(" ")[1]
+            filename, url = message.body[len(dispatch_prefix):].split(" ")
+            url = compose_dest_url(filename, url)
             if is_uri_on_server(url, strict=True):
-                return self.handle_distrib(message.body[len(dispatch_prefix):])
+                return self.handle_distrib(url)
+        elif message.body.startswith(dispatch_prefix2):
+            filename, arr, url = message.body[len(dispatch_prefix2):].split(" ")
+            url = 'ftp://' + url.replace(':', '')
+            del arr
+            LOGGER.debug("filename = <%s> url = <%s>", filename, url)
+            url = compose_dest_url(filename, url)
+            LOGGER.debug("url = %s", url)
+            if is_uri_on_server(url, strict=True):
+                return self.handle_distrib(url)
+
+
+def compose_dest_url(source, dest):
+    """Take the filename from *source* and append it to *dest* if needed."""
+    filename = os.path.split(source)[1]
+    if not dest.endswith(filename):
+        dest = urlsplit(dest)
+        dest = urlunsplit((dest[0], dest[1],
+                           os.path.join(dest[2], filename),
+                           dest[3], dest[4]))
+    return dest
 
 
 class GMCSubscriber(object):
@@ -434,13 +483,13 @@ class GMCSubscriber(object):
         self.loop = False
 
 
-def receive_from_zmq(host, port, station, environment, days=1):
+def receive_from_zmq(host, port, station, environment, excluded_platforms, days=1):
     """Receive 2met! messages from zeromq.
     """
 
     # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
     sock = GMCSubscriber(host, port)
-    msg_rec = MessageReceiver(host)
+    msg_rec = MessageReceiver(host, excluded_platforms)
 
     with Publish("receiver", 0, ["HRPT 0", "PDS", "RDR", "EPS 0"]) as pub:
         for rawmsg in sock.recv():
@@ -462,3 +511,13 @@ def receive_from_zmq(host, port, station, environment, days=1):
             pub.send(msg)
             if days:
                 msg_rec.clean_passes(days)
+
+
+if __name__ == '__main__':
+    rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.120.1.66:/tmp</body></message>'
+    rawmsg = '<message timestamp="2018-02-12T11:14:06" sequence="9194" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN 20180212110043_NOAA_19.hmf -&gt; 192.168.122.1:/tmp</body></message>'
+
+    string = TwoMetMessage(rawmsg)
+    msg_rec = MessageReceiver('merlin')
+    ret = msg_rec.receive(string)
+    print(ret)

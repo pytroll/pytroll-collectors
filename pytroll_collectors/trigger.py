@@ -109,17 +109,17 @@ class FileTrigger(Trigger, Thread):
                         if collector.timeout is not None]
 
             if timeouts:
-                next_timeout = min(timeouts, key=(lambda(x): x[1]))
+                next_timeout = min(timeouts, key=(lambda x: x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
                     LOG.warning("Timeout detected, terminating collector")
                     LOG.debug("Area: %s, timeout: %s",
                               next_timeout[0].region,
                               str(next_timeout[1]))
                     if self.publish_message_after_each_reception:
-                        #If this options is given:
-                        #Dont send message as it is assumed this was send
-                        #when the last message was received.
-                        #Only clean up the collector.
+                        # If this options is given:
+                        # Dont send message as it is assumed this was send
+                        # when the last message was received.
+                        # Only clean up the collector.
                         next_timeout[0].finish()
                     else:
                         self.terminator(next_timeout[0].finish(),
@@ -130,10 +130,10 @@ class FileTrigger(Trigger, Thread):
                                                 datetime.utcnow())))
                     LOG.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
                     if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
-                        #If this option is given:
-                        #Publish message after each new file is reveived
-                        #and added to the collection
-                        #but don't clean up the collection as new files will be added until timeout
+                        # If this option is given:
+                        # Publish message after each new file is reveived
+                        # and added to the collection
+                        # but don't clean up the collection as new files will be added until timeout
                         self.terminator(next_timeout[0].finish_without_reset(),
                                         publish_topic=self.publish_topic)
                     self.new_file.wait(total_seconds(next_timeout[1] -

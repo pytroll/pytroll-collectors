@@ -20,10 +20,12 @@
 import unittest
 import datetime as dt
 import tempfile
-import os
 import os.path
-from ConfigParser import ConfigParser
-from mock import patch
+from six.moves.configparser import RawConfigParser, NoSectionError
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
 
 import numpy as np
 from PIL import Image, ImageFont
@@ -36,14 +38,16 @@ class TestImageScaler(unittest.TestCase):
 
     # Create fake images with different modes
     data = np.random.randint(0, 255, (100, 100), dtype=np.uint8)
+    adata = 255*np.ones((100, 100), dtype=np.uint8)
+    adata[:10, :10] = 0
     img_l = Image.fromarray(data, mode='L')
-    img_la = Image.fromarray(np.dstack((data, data)), mode='LA')
+    img_la = Image.fromarray(np.dstack((data, adata)), mode='LA')
     img_rgb = Image.fromarray(np.dstack((data, data, data)), mode='RGB')
-    img_rgba = Image.fromarray(np.dstack((data, data, data, data)),
+    img_rgba = Image.fromarray(np.dstack((data, data, data, adata)),
                                mode='RGBA')
 
     # Read config
-    config = ConfigParser()
+    config = RawConfigParser()
     config.read(os.path.join(os.path.dirname(__file__),
                              'data', 'scale_images.ini'))
 
@@ -65,27 +69,19 @@ class TestImageScaler(unittest.TestCase):
         self.assertTrue(len(res) == 3)
         test_vals(res)
 
-    def test_pil_to_geoimage(self):
-        res = sca._pil_to_geoimage(self.img_l.copy(), None, None)
+    def test_pil_to_xrimage(self):
+        res = sca._pil_to_xrimage(self.img_l.copy(), None, None)
         self.assertEqual(res.mode, 'L')
-        self.assertIsNone(res.fill_value)
-        self.assertIsNone(res.time_slot)
-        self.assertIsNone(res.area)
         tslot = dt.datetime(2017, 2, 7, 12, 0)
-        res = sca._pil_to_geoimage(self.img_la.copy(), None, tslot,
+        res = sca._pil_to_xrimage(self.img_la.copy(), None,
                                    fill_value=(42,))
         self.assertEqual(res.mode, 'LA')
-        self.assertIsNone(res.fill_value)
-        self.assertEqual(res.time_slot, tslot)
-        res = sca._pil_to_geoimage(self.img_rgb.copy(), None, None,
+        res = sca._pil_to_xrimage(self.img_rgb.copy(), None,
                                    fill_value=(42, 42, 42))
-        for i in range(3):
-            self.assertTrue(res.fill_value[i], 42)
         self.assertEqual(res.mode, 'RGB')
-        res = sca._pil_to_geoimage(self.img_rgba.copy(), None, None,
+        res = sca._pil_to_xrimage(self.img_rgba.copy(), None,
                                    fill_value=(42, 42, 42))
         self.assertEqual(res.mode, 'RGBA')
-        self.assertIsNone(res.fill_value)
 
     def test_save_image(self):
         out_dir = tempfile.gettempdir()
@@ -125,11 +121,11 @@ class TestImageScaler(unittest.TestCase):
         self.assertTrue(res['font_fname'] is None)
         self.assertEqual(res['font_size'],
                          int(sca.DEFAULT_TEXT_SETTINGS['font_size']))
-        text_color = map(int,
-                         sca.DEFAULT_TEXT_SETTINGS['text_color'].split(','))
+        text_color = [int(val) for val in
+                      sca.DEFAULT_TEXT_SETTINGS['text_color'].split(',')]
         text_bg_color = \
-            map(int,
-                sca.DEFAULT_TEXT_SETTINGS['text_bg_color'].split(','))
+            [int(val) for val in
+             sca.DEFAULT_TEXT_SETTINGS['text_bg_color'].split(',')]
         for i in range(3):
             self.assertEqual(res['text_color'][i], text_color[i])
             self.assertEqual(res['bg_color'][i], text_bg_color[i])
@@ -362,6 +358,7 @@ class TestImageScaler(unittest.TestCase):
         with self.assertRaises(KeyError):
             scaler._get_mandatory_config_items()
         scaler.subject = '/scaler'
+
         scaler._get_mandatory_config_items()
         self.assertTrue(scaler.areaname == self.config.get('/scaler',
                                                            'areaname'))

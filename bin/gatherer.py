@@ -24,18 +24,21 @@
 """Gather granule messages to send them in a bunch.
 """
 
-from ConfigParser import RawConfigParser, NoOptionError
-from trollsift import Parser, compose
 from datetime import timedelta, datetime
-from pytroll_collectors import trigger
-from pytroll_collectors import region_collector
 import time
 import logging
 import logging.handlers
 import os
 import os.path
+
+from six.moves.configparser import RawConfigParser, NoOptionError
+
+from trollsift import Parser, compose
+from pytroll_collectors import trigger
+from pytroll_collectors import region_collector
 from posttroll import message, publisher
-from mpop.projector import get_area_def
+from satpy.resample import get_area_def
+
 
 LOGGER = logging.getLogger(__name__)
 CONFIG = RawConfigParser()
@@ -227,7 +230,7 @@ def main():
     opts = arg_parse()
     CONFIG.read(opts.config)
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 

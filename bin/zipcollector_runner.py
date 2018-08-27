@@ -45,10 +45,11 @@ if ENV_MODE is None:
     ENV_MODE = "offline"
 
 import sys
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
+from datetime import timedelta
+
 import posttroll.subscriber
 from posttroll.publisher import Publish
-from datetime import timedelta
 from trollsift.parser import compose
 
 PLATFORM_NAME = {'Meteosat-10': 'met10',
@@ -85,16 +86,16 @@ def get_arguments():
     args = parser.parse_args()
 
     if args.config_file == '':
-        print "Configuration file required! zipcollector.py <file>"
+        print("Configuration file required! zipcollector.py <file>")
         sys.exit()
     if args.service == '':
-        print "Service required! Use command-line switch -s <service>"
+        print("Service required! Use command-line switch -s <service>")
         sys.exit()
     else:
         service = args.service.lower()
 
     if 'template' in args.config_file:
-        print "Template file given as master config, aborting!"
+        print("Template file given as master config, aborting!")
         sys.exit()
 
     return service, args.config_file
@@ -237,7 +238,7 @@ def zipcollector_live_runner(options):
                 file_reg = start_zipcollector(
                     file_reg, msg, options, publisher=publisher)
                 # Cleanup in file registry (keep only the last 5):
-                keys = file_reg.keys()
+                keys = list(file_reg.keys())
                 if len(keys) > 5:
                     keys.sort()
                     file_reg.pop(keys[0])

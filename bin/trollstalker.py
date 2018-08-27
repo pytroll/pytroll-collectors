@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pytroll_collectors import helper_functions
 
 # Copyright (c) 2013, 2014, 2015
 
@@ -31,10 +30,7 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from posttroll.publisher import NoisyPublisher
-from posttroll.message import Message
-from trollsift import Parser, compose
-from ConfigParser import ConfigParser
+from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os
@@ -42,6 +38,11 @@ import os.path
 import re
 import datetime as dt
 from collections import deque, OrderedDict
+
+from posttroll.publisher import NoisyPublisher
+from posttroll.message import Message
+from trollsift import Parser, compose
+from pytroll_collectors import helper_functions
 
 LOGGER = logging.getLogger(__name__)
 
@@ -321,7 +322,7 @@ def parse_vars(config):
 def main():
     '''Main(). Commandline parsing and stalker startup.'''
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 
@@ -389,11 +390,11 @@ def main():
         config_fname = args.configuration_file
 
         if "template" in config_fname:
-            print "Template file given as trollstalker logging config," \
-                " aborting!"
+            print("Template file given as trollstalker logging config,"
+                  " aborting!")
             sys.exit()
 
-        config = ConfigParser()
+        config = RawConfigParser()
         config.read(config_fname)
         config = OrderedDict(config.items(args.config_item))
         config['name'] = args.configuration_file
