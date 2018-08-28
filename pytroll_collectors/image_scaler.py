@@ -63,7 +63,7 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'area_def': None,
                           'overlay_config_fname': None,
                           'out_dir': '',
-                          'fill_value': (0, 0, 0),
+                          'fill_value': None,
                           'force_gc': False
                           }
 
@@ -119,7 +119,7 @@ class ImageScaler(object):
     existing_fname_parts = {}
     time_name = 'time'
     time_slot = None
-    fill_value = (0, 0, 0)
+    fill_value = None
 
     def __init__(self, config):
         self.config = config
@@ -362,8 +362,8 @@ class ImageScaler(object):
     def _get_fill_value(self):
         """Parse fill value"""
         fill_value = self._get_conf_with_default('fill_value')
-        if not isinstance(fill_value, (tuple, list)):
-            fill_value = map(int, fill_value.split(','))
+        if not isinstance(fill_value, (int, None)):
+            fill_value = int(fill_value)
         return fill_value
 
     def _get_text_settings(self):
