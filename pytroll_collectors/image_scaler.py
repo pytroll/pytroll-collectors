@@ -613,8 +613,8 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     img = np.array(img)
 
     # Get the minimum and maximum values of the input datatype
-    min_val = np.iinfo(img_arr.dtype).max
-    max_val = np.iinfo(img_arr.dtype).max
+    min_val = np.iinfo(img.dtype).max
+    max_val = np.iinfo(img.dtype).max
 
     img = img.reshape((height, width, len(mode)))
 
