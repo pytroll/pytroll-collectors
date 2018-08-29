@@ -596,7 +596,7 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     and the image type is tif, convert first to Geoimage to save geotiff
     """
     if save_options is None:
-        save_options = {}
+        save_options = {'fill_value': fill_value}
     img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
     logging.info("Saving image to %s", fname)
     img.save(fname, **save_options)
@@ -604,28 +604,31 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
 
 def _pil_to_xrimage(img, adef, fill_value=None):
     """Convert PIL image to trollimage.xrimage.XRImage"""
+    # FIXME: handle other than 8-bit images
+    max_val = 255.
+
     # Get image mode, width and height
     mode = img.mode
     width = img.width
     height = img.height
-    fill_value = fill_value or np.nan
 
-    # FIXME: handle other than 8-bit images
-    max_val = 255.
     # Convert to Numpy array
     img = np.array(img.getdata()).astype(np.float32)
     img = img.reshape((height, width, len(mode)))
-    # Scale to 0...1
-    # img /= max_val
+
     # Reorder for XRImage
     img = np.rollaxis(img, 2, -3)
-    # Handle alpha channel
-    #if 'A' in mode:
-    #    mask = img[-1, :, :] == max_val
-    #    if np.any(mask):
-    #        for i in range(img.shape[0]):
-    #            chan = img[i, :, :]
-    #            chan[mask] = fill_value
+    # Remove alpha channel if fill_value is set
+    if fill_value is not None:
+        if 'A' in mode:
+            mask = img[-1, :, :] == max_val
+            # Remove alpha channel
+            img = img[:-1, :, :]
+            if np.any(mask):
+                # Set fill_value for each channel
+                for i in range(img.shape[0]):
+                    chan = img[i, :, :]
+                    chan[mask] = fill_value
     bands = BANDS[img.shape[0]]
 
     # Add image data to scene as xarray.DataArray
@@ -637,7 +640,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     # Convert to XRImage
     img = XRImage(img)
     # Static stretch
-    img.crude_stretch(0.0, 255.0)
+    img.crude_stretch(0.0, max_val)
 
     return img
 
