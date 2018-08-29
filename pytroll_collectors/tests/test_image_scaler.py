@@ -70,17 +70,29 @@ class TestImageScaler(unittest.TestCase):
         test_vals(res)
 
     def test_pil_to_xrimage(self):
-        res = sca._pil_to_xrimage(self.img_l.copy(), None, None)
+        res = sca._pil_to_xrimage(self.img_l.copy(), None,
+                                  fill_value=0)
         self.assertEqual(res.mode, 'L')
-        tslot = dt.datetime(2017, 2, 7, 12, 0)
+        res = sca._pil_to_xrimage(self.img_l.copy(), None,
+                                  fill_value=None)
+        self.assertEqual(res.mode, 'L')
         res = sca._pil_to_xrimage(self.img_la.copy(), None,
-                                   fill_value=(42,))
+                                   fill_value=42)
+        self.assertEqual(res.mode, 'L')
+        res = sca._pil_to_xrimage(self.img_la.copy(), None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'LA')
         res = sca._pil_to_xrimage(self.img_rgb.copy(), None,
-                                   fill_value=(42, 42, 42))
+                                   fill_value=42)
+        self.assertEqual(res.mode, 'RGB')
+        res = sca._pil_to_xrimage(self.img_rgb.copy(), None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_xrimage(self.img_rgba.copy(), None,
-                                   fill_value=(42, 42, 42))
+                                   fill_value=42)
+        self.assertEqual(res.mode, 'RGB')
+        res = sca._pil_to_xrimage(self.img_rgba.copy(), None,
+                                   fill_value=None)
         self.assertEqual(res.mode, 'RGBA')
 
     def test_save_image(self):
