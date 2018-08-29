@@ -613,7 +613,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     img = np.array(img)
 
     # Get the minimum and maximum values of the input datatype
-    min_val = np.iinfo(img.dtype).max
+    min_val = np.iinfo(img.dtype).min
     max_val = np.iinfo(img.dtype).max
 
     img = img.reshape((height, width, len(mode)))
@@ -933,18 +933,20 @@ def adjust_pattern_time_name(pattern, time_name):
 
 def _get_fill_mask(img, fill_value, mode):
     """Get mask where channels equal the fill value for that channel"""
+    if fill_value is None:
+        fill_value = np.nan
     shape = img.shape
     if len(shape) == 2:
-        mask = img == fill_value[0]
+        mask = img == fill_value
     # Use alpha channel if available
     elif 'A' in mode:
         mask = img[:, :, -1] > 0
     else:
-        mask = img[:, :, 0] == fill_value[0]
+        mask = img[:, :, 0] == fill_value
         if 'A' not in mode:
             num = min(2, shape[-1])
             for i in range(1, num):
-                mask &= (img[:, :, i] == fill_value[i])
+                mask &= (img[:, :, i] == fill_value)
 
     # Remove extra dimensions from the mask
     mask = np.squeeze(mask)
