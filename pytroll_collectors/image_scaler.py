@@ -362,7 +362,7 @@ class ImageScaler(object):
     def _get_fill_value(self):
         """Parse fill value"""
         fill_value = self._get_conf_with_default('fill_value')
-        if not isinstance(fill_value, (int, None)):
+        if not isinstance(fill_value, (int, type(None))):
             fill_value = int(fill_value)
         return fill_value
 
