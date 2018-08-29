@@ -896,6 +896,8 @@ def add_overlay_from_config(img, cw_, overlay_config, area_def):
     """Add overlay from confit to the given image"""
     logging.info("Adding overlays")
     overlay = cw_.add_overlay_from_config(overlay_config, area_def)
+    if len(overlay.mode) > len(img.mode):
+        img = img.convert(overlay.mode)
     img.paste(overlay, mask=overlay)
 
     return img
