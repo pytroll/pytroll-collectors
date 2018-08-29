@@ -604,16 +604,18 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
 
 def _pil_to_xrimage(img, adef, fill_value=None):
     """Convert PIL image to trollimage.xrimage.XRImage"""
-    # FIXME: handle other than 8-bit images
-    max_val = 255.
-
     # Get image mode, width and height
     mode = img.mode
     width = img.width
     height = img.height
 
     # Convert to Numpy array
-    img = np.array(img.getdata()).astype(np.float32)
+    img = np.array(img)
+
+    # Get the minimum and maximum values of the input datatype
+    min_val = np.iinfo(img_arr.dtype).max
+    max_val = np.iinfo(img_arr.dtype).max
+
     img = img.reshape((height, width, len(mode)))
 
     # Reorder for XRImage
@@ -640,7 +642,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     # Convert to XRImage
     img = XRImage(img)
     # Static stretch
-    img.crude_stretch(0.0, max_val)
+    img.crude_stretch(min_val, max_val)
 
     return img
 
