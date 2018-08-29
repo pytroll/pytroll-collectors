@@ -596,7 +596,8 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     and the image type is tif, convert first to Geoimage to save geotiff
     """
     if save_options is None:
-        save_options = {'fill_value': fill_value}
+        save_options = {}
+    save_options.update({'fill_value': fill_value})
     img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
     logging.info("Saving image to %s", fname)
     img.save(fname, **save_options)
@@ -623,7 +624,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     # Remove alpha channel if fill_value is set
     if fill_value is not None:
         if 'A' in mode:
-            mask = img[-1, :, :] == max_val
+            mask = img[-1, :, :] == min_val
             # Remove alpha channel
             img = img[:-1, :, :]
             if np.any(mask):
