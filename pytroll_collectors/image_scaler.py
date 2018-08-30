@@ -514,7 +514,7 @@ class ImageScaler(object):
         img = self._add_text(img, update_img=False)
 
         save_image(img, fname, adef=self.area_def,
-                   time_slot=self.time_slot, fill_value=self.fill_value,
+                   fill_value=self.fill_value,
                    save_options=self.save_options)
 
         logging.info("Updated image with static filename: %s", fname)
