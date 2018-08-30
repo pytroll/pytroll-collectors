@@ -63,7 +63,7 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'area_def': None,
                           'overlay_config_fname': None,
                           'out_dir': '',
-                          'fill_value': (0, 0, 0),
+                          'fill_value': None,
                           'force_gc': False
                           }
 
@@ -119,7 +119,7 @@ class ImageScaler(object):
     existing_fname_parts = {}
     time_name = 'time'
     time_slot = None
-    fill_value = (0, 0, 0)
+    fill_value = None
 
     def __init__(self, config):
         self.config = config
@@ -362,8 +362,8 @@ class ImageScaler(object):
     def _get_fill_value(self):
         """Parse fill value"""
         fill_value = self._get_conf_with_default('fill_value')
-        if not isinstance(fill_value, (tuple, list)):
-            fill_value = map(int, fill_value.split(','))
+        if not isinstance(fill_value, (int, type(None))):
+            fill_value = int(fill_value)
         return fill_value
 
     def _get_text_settings(self):
@@ -597,6 +597,7 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     """
     if save_options is None:
         save_options = {}
+    save_options.update({'fill_value': fill_value})
     img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
     logging.info("Saving image to %s", fname)
     img.save(fname, **save_options)
@@ -608,24 +609,29 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     mode = img.mode
     width = img.width
     height = img.height
-    fill_value = fill_value or np.nan
 
-    # FIXME: handle other than 8-bit images
-    max_val = 255.
     # Convert to Numpy array
-    img = np.array(img.getdata()).astype(np.float32)
+    img = np.array(img)
+
+    # Get the minimum and maximum values of the input datatype
+    min_val = np.iinfo(img.dtype).min
+    max_val = np.iinfo(img.dtype).max
+
     img = img.reshape((height, width, len(mode)))
-    # Scale to 0...1
-    # img /= max_val
+
     # Reorder for XRImage
     img = np.rollaxis(img, 2, -3)
-    # Handle alpha channel
-    #if 'A' in mode:
-    #    mask = img[-1, :, :] == max_val
-    #    if np.any(mask):
-    #        for i in range(img.shape[0]):
-    #            chan = img[i, :, :]
-    #            chan[mask] = fill_value
+    # Remove alpha channel if fill_value is set
+    if fill_value is not None:
+        if 'A' in mode:
+            mask = img[-1, :, :] == min_val
+            # Remove alpha channel
+            img = img[:-1, :, :]
+            if np.any(mask):
+                # Set fill_value for each channel
+                for i in range(img.shape[0]):
+                    chan = img[i, :, :]
+                    chan[mask] = fill_value
     bands = BANDS[img.shape[0]]
 
     # Add image data to scene as xarray.DataArray
@@ -637,7 +643,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
     # Convert to XRImage
     img = XRImage(img)
     # Static stretch
-    img.crude_stretch(0.0, 255.0)
+    img.crude_stretch(min_val, max_val)
 
     return img
 
@@ -890,6 +896,8 @@ def add_overlay_from_config(img, cw_, overlay_config, area_def):
     """Add overlay from confit to the given image"""
     logging.info("Adding overlays")
     overlay = cw_.add_overlay_from_config(overlay_config, area_def)
+    if len(overlay.mode) > len(img.mode):
+        img = img.convert(overlay.mode)
     img.paste(overlay, mask=overlay)
 
     return img
@@ -928,18 +936,20 @@ def adjust_pattern_time_name(pattern, time_name):
 
 def _get_fill_mask(img, fill_value, mode):
     """Get mask where channels equal the fill value for that channel"""
+    if fill_value is None:
+        fill_value = np.nan
     shape = img.shape
     if len(shape) == 2:
-        mask = img == fill_value[0]
+        mask = img == fill_value
     # Use alpha channel if available
     elif 'A' in mode:
         mask = img[:, :, -1] > 0
     else:
-        mask = img[:, :, 0] == fill_value[0]
+        mask = img[:, :, 0] == fill_value
         if 'A' not in mode:
             num = min(2, shape[-1])
             for i in range(1, num):
-                mask &= (img[:, :, i] == fill_value[i])
+                mask &= (img[:, :, i] == fill_value)
 
     # Remove extra dimensions from the mask
     mask = np.squeeze(mask)
