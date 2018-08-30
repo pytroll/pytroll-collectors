@@ -289,6 +289,9 @@ class SegmentGatherer(object):
             elif (SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
                   SLOT_NOT_READY not in status_values):
                 return SLOT_READY
+            elif all([val == SLOT_NONCRITICAL_NOT_READY for val in
+                      status_values]):
+                return SLOT_READY
             else:
                 self.logger.warning("Timeout occured and required files "
                                     "were not present, data discarded for "
@@ -523,7 +526,8 @@ def ini_to_dict(fname, section):
     patterns['all_files'] = config.get(section, 'all_files')
     patterns['is_critical_set'] = False
     try:
-        patterns['variable_tags'] = config.get(section, 'variable_tags')
+        patterns['variable_tags'] = config.get(section,
+                                               'variable_tags').split(',')
     except NoOptionError:
         patterns['variable_tags'] = []
 
