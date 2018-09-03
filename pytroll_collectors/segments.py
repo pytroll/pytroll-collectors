@@ -424,10 +424,10 @@ class SegmentGatherer(object):
         # Add uid and uri
         if len(self._patterns) == 1:
             meta['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta.get('sensors', [])
+            sensor = meta.get('sensor', [])
         else:
             meta['collection'][key]['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta['collection'][key].get('sensors', [])
+            sensors = meta['collection'][key].get('sensor', [])
 
         # Collect all sensors, not only the latest
         if type(msg_data["sensor"]) not in (tuple, list, set):
