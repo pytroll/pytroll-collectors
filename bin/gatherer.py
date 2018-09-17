@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014, 2015 Martin Raspaud
+# Copyright (c) 2014 - 2018 PyTroll Community
 
 # Author(s): Martin Raspaud
 #            Panu Lahtinen
+#            Adam Dybbroe
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
 
@@ -274,10 +275,14 @@ def main():
         LOGGER.info("Shutting down...")
     except RuntimeError:
         LOGGER.critical('Something went wrong!')
+    except OSError:
+        LOGGER.critical('Something went wrong!')
     finally:
+        LOGGER.warning('Ending publication the gathering of granules...')
         for granule_trigger in granule_triggers:
             granule_trigger.stop()
         PUB.stop()
+
 
 if __name__ == '__main__':
 
