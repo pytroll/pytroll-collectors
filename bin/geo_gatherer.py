@@ -23,7 +23,7 @@
 """Gather GEO stationary segments and send them in a bunch as a dataset.
 """
 
-from ConfigParser import RawConfigParser, NoOptionError
+from six.moves.configparser import RawConfigParser, NoOptionError
 import time
 import logging
 import logging.handlers
@@ -45,10 +45,16 @@ class GeoGatherer(object):
         self._config = config
         self._section = section
         topics = config.get(section, 'topics').split()
-        self._listener = ListenerContainer(topics=topics)
+        services = ""
+        if config.has_option(section, 'services'):
+            services = config.get(section, 'services').split()
+        self._listener = ListenerContainer(topics=topics, services=services)
         self._publisher = publisher.NoisyPublisher("geo_gatherer")
         self._subject = config.get(section, "publish_topic")
         self._pattern = config.get(section, 'pattern')
+        self._providing_server = None
+        if config.has_option(section, 'providing_server'):
+            self._providing_server = config.get(section, 'providing_server')
         self._parser = Parser(self._pattern)
 
         try:
@@ -208,6 +214,9 @@ class GeoGatherer(object):
 
     def process(self, msg):
         """Process message"""
+        if self._providing_server and self._providing_server != msg.host:
+            return
+
         mda = self._parser.parse(msg.data["uid"])
         if msg.data['uid'] in self.received_files:
             return
@@ -272,7 +281,7 @@ def main():
     config = RawConfigParser()
     config.read(args.config)
 
-    print "Setting timezone to UTC"
+    print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 

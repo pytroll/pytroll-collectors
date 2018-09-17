@@ -28,17 +28,18 @@
 import argparse
 import logging
 import logging.config
-from ConfigParser import RawConfigParser, NoOptionError
-from trollsift.parser import compose
+from six.moves.configparser import RawConfigParser, NoOptionError
 from subprocess import Popen, PIPE
 import threading
 import os
-from posttroll.publisher import Publish
-from posttroll.subscriber import Subscribe
-from posttroll.message import Message
 import tempfile
 from bz2 import BZ2File
 from datetime import datetime, timedelta
+
+from trollsift.parser import compose
+from posttroll.publisher import Publish
+from posttroll.subscriber import Subscribe
+from posttroll.message import Message
 
 LOG = logging.getLogger(__name__)
 
@@ -145,8 +146,6 @@ def process_message(msg, config):
         LOG.info('Pass too short, skipping: %s to %s', str(data["start_time"]), str(data["end_time"]))
         return
 
-
-
     output_file = compose(pattern, data)
 
     with bunzipped(input_files) as files_to_read:
@@ -204,9 +203,12 @@ if __name__ == '__main__':
     cfg.read(opts.config)
     config = dict(cfg.items(opts.config_item))
 
+    if 'service' not in config:
+        config['service'] = ''
+
     try:
         with Publish("cat") as pub:
-            with Subscribe('', config["topic"], True) as sub:
+            with Subscribe(config['service'], config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
@@ -219,5 +221,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         logging.shutdown()
     finally:
-        print "Thank you for using pytroll/cat!" \
-              "See you soon on pytroll.org."
+        print("Thank you for using pytroll/cat!"
+              "See you soon on pytroll.org.")

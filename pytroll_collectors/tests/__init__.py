@@ -29,7 +29,8 @@ from pytroll_collectors.tests import (test_helper_functions,
                                       test_scisys,
                                       test_trigger,
                                       test_global_mosaic,
-                                      test_image_scaler)
+                                      test_image_scaler,
+                                      test_segments)
 
 
 def suite():
@@ -44,5 +45,6 @@ def suite():
     mysuite.addTests(test_trigger.suite())
     mysuite.addTests(test_global_mosaic.suite())
     mysuite.addTests(test_image_scaler.suite())
+    mysuite.addTests(test_segments.suite())
 
     return mysuite

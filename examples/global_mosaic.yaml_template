@@ -45,12 +45,6 @@ topics:
 #    - -37.5
 # lon_limits: null
 
-# Blend settings. Uncomment to use, and adjust lon_limits so that
-# there's overlap, for example set to null
-# blend_settings:
-#   erosion_width: 40
-#   smooth_width: 40
-
 save_settings:
   compression: 6
   # Use "null" instead of "None"
@@ -73,9 +67,13 @@ timeout_epoch: nominal_time
 
 # Message settings
 message_settings:
-  topic: "/global/mosaic/{areaname}"
+  # These settings are optional.  The shown values are the defaults that are
+  # used if nothing is setup
+  publish_topic: "/global/mosaic/{areaname}"
   nameservers: null
   port: 0
+  aliases: null
+  broadcast_interval: 2
 
 # Log config dictionary
 log_config:

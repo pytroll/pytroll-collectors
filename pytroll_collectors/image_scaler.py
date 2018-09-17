@@ -19,18 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import Queue
+from six.moves.queue import Empty as queue_empty
 import os
 import os.path
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from six.moves.configparser import (RawConfigParser, NoOptionError,
+                                    NoSectionError)
 import logging
 import logging.config
 import datetime as dt
 import glob
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
+
+import xarray as xr
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import gc
@@ -39,13 +39,10 @@ from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
 from trollsift.parser import _extract_parsedef as extract_parsedef
-from mpop.projector import get_area_def
-from mpop.imageo.formats.tifffile import imread
+from satpy.resample import get_area_def
+from satpy import Scene
+from trollimage.xrimage import XRImage
 
-try:
-    from mpop.imageo.geo_image import GeoImage
-except ImportError:
-    GeoImage = None
 
 try:
     GSHHS_DATA_ROOT = os.environ['GSHHS_DATA_ROOT']
@@ -66,7 +63,7 @@ DEFAULT_SECTION_VALUES = {'update_existing': False,
                           'area_def': None,
                           'overlay_config_fname': None,
                           'out_dir': '',
-                          'fill_value': (0, 0, 0),
+                          'fill_value': None,
                           'force_gc': False
                           }
 
@@ -92,6 +89,8 @@ DEFAULT_SAVE_OPTIONS = {'save_compression': 6,
 DEFAULT_CONFIG_VALUES = DEFAULT_SECTION_VALUES.copy()
 DEFAULT_CONFIG_VALUES.update(DEFAULT_TEXT_SETTINGS)
 DEFAULT_CONFIG_VALUES.update(DEFAULT_SAVE_OPTIONS)
+
+BANDS = {1: ['L'], 2: ['L', 'A'], 3: ['R', 'G', 'B'], 4: ['R', 'G', 'B', 'A']}
 
 
 class ImageScaler(object):
@@ -120,14 +119,14 @@ class ImageScaler(object):
     existing_fname_parts = {}
     time_name = 'time'
     time_slot = None
-    fill_value = (0, 0, 0)
+    fill_value = None
 
     def __init__(self, config):
         self.config = config
         topics = config.sections()
         self.listener = ListenerContainer(topics=topics)
         self._loop = True
-        self._overlays = {}
+
         if GSHHS_DATA_ROOT:
             self._cw = ContourWriter(GSHHS_DATA_ROOT)
         else:
@@ -155,7 +154,7 @@ class ImageScaler(object):
             except KeyboardInterrupt:
                 self.stop()
                 raise
-            except Queue.Empty:
+            except queue_empty:
                 continue
 
             logging.info("New message with topic %s", msg.subject)
@@ -182,6 +181,8 @@ class ImageScaler(object):
                                        os.path.basename(self.filepath))
             except ValueError:
                 logging.info("Filepattern doesn't match, skipping.")
+                logging.debug("in_pattern: %s", self.in_pattern)
+                logging.debug("fname: %s", os.path.basename(self.filepath))
                 continue
             self.fileparts['areaname'] = self.areaname
             self._tidy_platform_name()
@@ -192,7 +193,7 @@ class ImageScaler(object):
 
             # There is already a matching image which isn't going to
             # be updated
-            if self.existing_fname_parts is None:
+            if existing_fname_parts is None:
                 continue
             self.existing_fname_parts = existing_fname_parts
 
@@ -238,20 +239,13 @@ class ImageScaler(object):
                             "unable to add coastlines")
             return img
 
-        if self.subject not in self._overlays and self.area_def is not None:
-            logging.debug("Adding overlay to cache")
-            self._overlays[self.subject] = self._cw.add_overlay_from_config(
-                self.overlay_config, self.area_def)
-        elif self.area_def is None:
+        if self.area_def is None:
             logging.warning("Area definition not available, "
                             "can't add overlays!")
         else:
-            logging.debug("Using overlay from cache")
-
-        try:
-            return add_image_as_overlay(img, self._overlays[self.subject])
-        except ValueError:
-            return img
+            return add_overlay_from_config(img, self._cw,
+                                           self.overlay_config,
+                                           self.area_def)
 
     def save_images(self, img):
         """Save image(s)"""
@@ -260,7 +254,6 @@ class ImageScaler(object):
         num = np.max([len(self.sizes), len(self.crops), len(self.tags)])
         for i in range(num):
             img_out = img.copy()
-
             # Crop the image
             try:
                 img_out = crop_image(img_out, self.crops[i])
@@ -300,7 +293,7 @@ class ImageScaler(object):
 
             # Save image
             save_image(img_out, fname, adef=self.area_def,
-                       time_slot=self.time_slot, fill_value=self.fill_value,
+                       fill_value=self.fill_value,
                        save_options=self.save_options)
 
             # Update static image, if given in config
@@ -369,8 +362,8 @@ class ImageScaler(object):
     def _get_fill_value(self):
         """Parse fill value"""
         fill_value = self._get_conf_with_default('fill_value')
-        if not isinstance(fill_value, (tuple, list)):
-            fill_value = map(int, fill_value.split(','))
+        if not isinstance(fill_value, (int, type(None))):
+            fill_value = int(fill_value)
         return fill_value
 
     def _get_text_settings(self):
@@ -384,7 +377,7 @@ class ImageScaler(object):
             self.areaname = self.config.get(self.subject, 'areaname')
             try:
                 self.area_def = get_area_def(self.areaname)
-            except IOError:
+            except (IOError, NoOptionError):
                 self.area_def = None
                 logging.warning("Area definition not available")
             self.in_pattern = self.config.get(self.subject, 'in_pattern')
@@ -440,7 +433,7 @@ class ImageScaler(object):
 
         self.sizes = []
         for size in size_conf.split(','):
-            self.sizes.append(map(int, size.split('x')))
+            self.sizes.append([int(val) for val in size.split('x')])
 
     def _parse_tags(self):
         """Parse tags from tag config"""
@@ -467,7 +460,7 @@ class ImageScaler(object):
         if self.is_backup:
             check_dict["platform_name"] = '*'
             check_dict["sat_loc"] = '*'
-        check_dict["composite"] = '*'
+        # check_dict["composite"] = '*'
 
         first_overpass = True
         update_fname_parts = {}
@@ -521,7 +514,7 @@ class ImageScaler(object):
         img = self._add_text(img, update_img=False)
 
         save_image(img, fname, adef=self.area_def,
-                   time_slot=self.time_slot, fill_value=self.fill_value,
+                   fill_value=self.fill_value,
                    save_options=self.save_options)
 
         logging.info("Updated image with static filename: %s", fname)
@@ -563,14 +556,30 @@ def crop_image(img, crop):
     """Crop the given image"""
     try:
         # Adjust limits so that they don't exceed image dimensions
+        # crop = (left, up, right, bottom)
         if crop is not None:
             crop = list(crop)
+            # Left edge
             if crop[0] < 0:
                 crop[0] = 0
+            # Upper edge
             if crop[1] < 0:
                 crop[1] = 0
+            # Right edge. Wrap around if exceedes image width
             if crop[2] > img.size[0]:
-                crop[2] = img.size[0]
+                # Create a new image
+                img_new = Image.new(img.mode, (crop[2], img.size[1]))
+                # Paste original image to top-left corner of the new image
+                img_new.paste(img)
+                # Paste a crop from the left edge to the right edge of the
+                # new image
+                img_new.paste(img.crop((0, 0,
+                                       crop[2] - img.size[0], img.size[1])),
+                              (img.size[0], 0))
+                # Replace original image with the extended image
+                img = img_new.copy()
+                del img_new
+            # Bottom edge
             if crop[3] > img.size[1]:
                 crop[3] = img.size[1]
             img_wrk = img.crop(crop)
@@ -582,52 +591,61 @@ def crop_image(img, crop):
     return img_wrk
 
 
-def save_image(img, fname, adef=None, time_slot=None, fill_value=None,
-               save_options=None):
+def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     """Save image.  In case of area definition and start time are given,
     and the image type is tif, convert first to Geoimage to save geotiff
     """
-    if (adef is not None and time_slot is not None and
-            fname.lower().endswith(('.tif', '.tiff'))):
-        img = _pil_to_geoimage(img, adef=adef, time_slot=time_slot,
-                               fill_value=fill_value)
-        logging.info("Saving GeoImage %s", fname)
-        img.save(fname, **save_options)
-    else:
-        logging.info("Saving PIL image %s", fname)
-        img.save(fname)
+    if save_options is None:
+        save_options = {}
+    save_options.update({'fill_value': fill_value})
+    img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
+    logging.info("Saving image to %s", fname)
+    img.save(fname, **save_options)
 
 
-def _pil_to_geoimage(img, adef, time_slot, fill_value=None):
-    """Convert PIL image to GeoImage"""
-    # Get image mode, widht and height
+def _pil_to_xrimage(img, adef, fill_value=None):
+    """Convert PIL image to trollimage.xrimage.XRImage"""
+    # Get image mode, width and height
     mode = img.mode
     width = img.width
     height = img.height
 
-    # TODO: handle other than 8-bit images
-    max_val = 255.
     # Convert to Numpy array
-    img = np.array(img.getdata()).astype(np.float32)
+    img = np.array(img)
+
+    # Get the minimum and maximum values of the input datatype
+    min_val = np.iinfo(img.dtype).min
+    max_val = np.iinfo(img.dtype).max
+
     img = img.reshape((height, width, len(mode)))
 
-    chans = []
-    # TODO: handle P image mode
-    if mode == 'L':
-        chans.append(np.squeeze(img) / max_val)
-    else:
+    # Reorder for XRImage
+    img = np.rollaxis(img, 2, -3)
+    # Remove alpha channel if fill_value is set
+    if fill_value is not None:
         if 'A' in mode:
-            mask = img[:, :, -1] == 0
-            fill_value = None
-        else:
-            mask = False
+            mask = img[-1, :, :] == min_val
+            # Remove alpha channel
+            img = img[:-1, :, :]
+            if np.any(mask):
+                # Set fill_value for each channel
+                for i in range(img.shape[0]):
+                    chan = img[i, :, :]
+                    chan[mask] = fill_value
+    bands = BANDS[img.shape[0]]
 
-        for i in range(len(mode)):
-            chans.append(np.ma.masked_where(mask, img[:, :, i] / max_val))
+    # Add image data to scene as xarray.DataArray
+    img = xr.DataArray(img, dims=['bands', 'y', 'x'])
+    img['bands'] = bands
+    # Add area definition
+    img.attrs['area'] = adef
 
-    return GeoImage(chans, adef, time_slot, fill_value=fill_value,
-                    mode=mode, crange=_get_crange(len(mode)))
+    # Convert to XRImage
+    img = XRImage(img)
+    # Static stretch
+    img.crude_stretch(min_val, max_val)
 
+    return img
 
 def _get_crange(num):
     """Get crange for interval (0, 1) for *num* image channels."""
@@ -844,14 +862,20 @@ def update_existing_image(fname, new_img,
 
 
 def read_image(filepath):
-    """Read the image from *filepath* and return it as PIL image."""
-    if filepath.lower().endswith(('.tif', '.tiff')):
-        try:
-            img = Image.fromarray(imread(filepath))
-        except ValueError:
-            img = None
-    else:
-        img = Image.open(filepath)
+    """Read the image from *filepath* and return it as PIL Image object."""
+    scn = Scene(reader='generic_image', filenames=[filepath, ])
+    scn.load(['image'])
+    y_size = scn['image']['y'].size
+    x_size = scn['image']['x'].size
+    arr = np.array(scn['image'])
+    alpha = np.isnan(arr[0, :, :])
+    arr = arr.astype(np.uint8)
+    if np.any(alpha):
+        alpha = 255 * np.invert(alpha).astype(np.uint8)
+        alpha = alpha.reshape(1, y_size, x_size)
+        arr = np.vstack((arr, alpha))
+    arr = np.squeeze(np.rollaxis(arr, 0, 3))
+    img = Image.fromarray(arr)
 
     return img
 
@@ -863,6 +887,17 @@ def add_image_as_overlay(img, overlay):
         logging.info("Overlay needs to have same channels as the "
                      "image, AND an alpha channel")
         raise ValueError
+    img.paste(overlay, mask=overlay)
+
+    return img
+
+
+def add_overlay_from_config(img, cw_, overlay_config, area_def):
+    """Add overlay from confit to the given image"""
+    logging.info("Adding overlays")
+    overlay = cw_.add_overlay_from_config(overlay_config, area_def)
+    if len(overlay.mode) > len(img.mode):
+        img = img.convert(overlay.mode)
     img.paste(overlay, mask=overlay)
 
     return img
@@ -884,7 +919,7 @@ def adjust_pattern_time_name(pattern, time_name):
     parsedefs, _ = extract_parsedef(pattern)
     for itm in parsedefs:
         if isinstance(itm, dict):
-            key, val = itm.items()[0]
+            key, val = list(itm.items())[0]
             if val is None:
                 continue
             # Need to exclude 'end_time' and 'proc_time' / 'processing_time'
@@ -901,18 +936,20 @@ def adjust_pattern_time_name(pattern, time_name):
 
 def _get_fill_mask(img, fill_value, mode):
     """Get mask where channels equal the fill value for that channel"""
+    if fill_value is None:
+        fill_value = np.nan
     shape = img.shape
     if len(shape) == 2:
-        mask = img == fill_value[0]
+        mask = img == fill_value
     # Use alpha channel if available
     elif 'A' in mode:
         mask = img[:, :, -1] > 0
     else:
-        mask = img[:, :, 0] == fill_value[0]
+        mask = img[:, :, 0] == fill_value
         if 'A' not in mode:
             num = min(2, shape[-1])
             for i in range(1, num):
-                mask &= (img[:, :, i] == fill_value[i])
+                mask &= (img[:, :, i] == fill_value)
 
     # Remove extra dimensions from the mask
     mask = np.squeeze(mask)

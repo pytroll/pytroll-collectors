@@ -1,0 +1,38 @@
+log_rotation_days: 1
+log_rotation_backup: 10
+
+local_output_dir: /san1/sir
+destination_output_dir: /satsir
+
+0deg-lvl1:
+  message_type: 1b/hrit/0deg
+  requested_timeslots: ['00','30']
+  archive_filename: "{satid:_<8s}hritglob{start_time:%y%m%d%H%M}.tgz"
+  
+  prod:
+    mail_subscribers: satsamonitoring@smhi.se
+    mail_sender: safuser@smhi.se
+    monitoring_hook: !!python/object:passive_check_zipfile-collector.Monitor
+      application_server: "hydra.smhi.se"
+      monitor_auth: ['safuser', 'Visaf20']
+      monitor_service: "check_zipfile-collector:SAF.FILE.ZIPFILE.COLLECTOR"
+      monitor_server: "https://monitor-utvtst.smhi.se"
+  
+  test:
+    mail_subscribers: satsamonitoring@smhi.se
+    mail_sender: safusr.t@smhi.se
+    monitoring_hook: !!python/object:passive_check_zipfile-collector.Monitor
+      application_server: "hydra-tst.smhi.se"
+      monitor_auth: ['safusr.t', 'Nwcsaf21']
+      monitor_service: "check_zipfile-collector:SAF.FILE.ZIPFILE.COLLECTOR"
+      monitor_server: "https://monitor-utvtst.smhi.se"
+
+  utv:
+    mail_subscribers: adam.dybbroe@smhi.se
+    mail_sender: safusr.u@smhi.se
+    monitoring_hook: !!python/object:passive_check_zipfile-collector.Monitor
+      application_server: "sat02-utv.smhi.se"
+      monitor_auth: ['safusr.u', 'Nwcsaf22']
+      monitor_service: "check_zipfile-collector:SAF.FILE.ZIPFILE.COLLECTOR"
+      monitor_server: "https://monitor-utvtst.smhi.se"
+      

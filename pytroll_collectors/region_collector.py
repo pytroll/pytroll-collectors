@@ -55,6 +55,7 @@ class RegionCollector(object):
         self.timeliness = timeliness
         self.timeout = None
         self.granule_duration = granule_duration
+        self.last_file_added = False
 
     def __call__(self, granule_metadata):
         return self.collect(granule_metadata)
@@ -69,9 +70,17 @@ class RegionCollector(object):
 
         # Check if input data is being waited for
 
-        platform = granule_metadata['platform_name']
+        if "tle_platform_name" in granule_metadata:
+            platform = granule_metadata['tle_platform_name']
+        else:
+            platform = granule_metadata['platform_name']
 
         start_time = granule_metadata['start_time']
+        if ("end_time" not in granule_metadata and
+            self.granule_duration is not None):
+            granule_metadata["end_time"] = (granule_metadata["start_time"] +
+                                            self.granule_duration)
+
         end_time = granule_metadata['end_time']
 
         if start_time > end_time:
@@ -88,11 +97,13 @@ class RegionCollector(object):
         LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
 
+        self.last_file_added = False
         for ptime in self.planned_granule_times:
             if abs(start_time - ptime) < timedelta(seconds=3) and \
                ptime not in self.granule_times:
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
+                self.last_file_added = True
                 LOG.info("Added %s (%s) granule to area %s",
                          platform,
                          str(start_time),
@@ -138,6 +149,7 @@ class RegionCollector(object):
         if granule_pass.area_coverage(self.region) > 0:
             self.granule_times.add(start_time)
             self.granules.append(granule_metadata)
+            self.last_file_added = True
 
             # Computation of the predicted granules within the region
 
@@ -237,6 +249,17 @@ class RegionCollector(object):
         granules = self.granules
         self.cleanup()
         return granules
+
+    def finish_without_reset(self):
+        '''Finish collection, add area ID to metadata, DON'T cleanup and return
+        granule metadata.
+        '''
+        return self.granules
+
+    def is_last_file_added(self):
+        '''Return if last file was added to the region
+        '''
+        return self.last_file_added
 
 
 def read_granule_metadata(filename):
