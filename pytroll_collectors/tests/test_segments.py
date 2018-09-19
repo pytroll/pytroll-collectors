@@ -200,7 +200,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
 
         status = {'foo': SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str),
                          SLOT_NONCRITICAL_NOT_READY)
 
@@ -233,7 +233,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
         status = {'foo': SLOT_NONCRITICAL_NOT_READY,
                   'bar': SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past, slot_str), SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str),
                          SLOT_NONCRITICAL_NOT_READY)
 
