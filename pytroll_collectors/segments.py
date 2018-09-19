@@ -152,7 +152,7 @@ class SegmentGatherer(object):
 
         # Handle missing itm_str
         if itm_str in (None, ''):
-            return result
+            itm_str = ':'
 
         # Get copy of metadata
         meta = self.slots[time_slot]['metadata'].copy()
