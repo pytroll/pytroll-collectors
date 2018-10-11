@@ -46,6 +46,9 @@ class TestImageScaler(unittest.TestCase):
     img_rgba = Image.fromarray(np.dstack((data, data, data, adata)),
                                mode='RGBA')
 
+    # Set PPP_CONFIG_DIR
+    os.environ['PPP_CONFIG_DIR'] = os.path.join(os.path.dirname(__file__),
+                                                'data')
     # Read config
     config = RawConfigParser()
     config.read(os.path.join(os.path.dirname(__file__),
