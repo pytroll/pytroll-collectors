@@ -1,0 +1,24 @@
+euron1:
+  description: Northern Europe - 1km
+  projection:
+    proj: stere
+    ellps: WGS84
+    lat_0: 90.0
+    lon_0: 0.0
+    lat_ts: 60.0
+  shape:
+    height: 3072
+    width: 3072
+  area_extent:
+    lower_left_xy: [-1000000.0, -4500000.0]
+    upper_right_xy: [2072000.0, -1428000.0]
+EPSG4326:
+  description: Global equal latitude/longitude grid for global sphere
+  projection:
+    init: EPSG:4326
+  shape:
+    height: 4096
+    width: 8192
+  area_extent:
+    lower_left_xy: [-180.0, -90.0]
+    upper_right_xy: [180.0, 90.0]
