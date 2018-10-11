@@ -95,18 +95,21 @@ bg_extra_width = 3
 
 ### Image save settings
 
-# Compression ratio (default: 6)
-save_compression = 6
-
 # TIFF tags (default: None)
 # save_tags = foo bar
 
-# File format (default: None)
-# save_fformat = adaguc
+# Compression method (default: deflate)
+# compress = deflate
 
-# Extra options to pass to gdal
-# save_gdal_options =
+# Compression level (default: 6)
+# zlevel = 6
 
-# Saving blocksize (default: 0)
-# NOTE: blocksize = 0 is needed for reading TIFF images with Pillow!
-save_blocksize = 0
+# Tile the image (default: True)
+# tile = True
+
+# Block size in x and y directions (default: 512)
+# blockxsize = 512
+# blockysize = 512
+
+# Overviews (default: None)
+# overviews = 2 4 8 16 32 64 128 256 512 1024

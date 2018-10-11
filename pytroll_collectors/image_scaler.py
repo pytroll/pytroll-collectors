@@ -79,11 +79,13 @@ DEFAULT_TEXT_SETTINGS = {'text_location': 'SW',
                          }
 
 # Default save settings for TIFF images
-DEFAULT_SAVE_OPTIONS = {'save_compression': 6,
-                        'save_tags': None,
-                        'save_fformat': None,
-                        'save_gdal_options': None,
-                        'save_blocksize': 0}
+DEFAULT_SAVE_OPTIONS = {'save_tags': None,
+                        'compress': 'deflate',
+                        'zlevel': 6,
+                        'tile': True,
+                        'blockxsize': 512,
+                        'blockysize': 512,
+                        'overviews': None}
 
 # Merge the two default dictionaries to one master dict
 DEFAULT_CONFIG_VALUES = DEFAULT_SECTION_VALUES.copy()
@@ -305,16 +307,24 @@ class ImageScaler(object):
 
     def _get_save_options(self):
         """Get save options from config"""
-        compression = int(self._get_conf_with_default('save_compression'))
-        tags = self._get_conf_with_default('save_tags')
-        fformat = self._get_conf_with_default('save_fformat')
-        gdal_options = self._get_conf_with_default('save_gdal_options')
-        blocksize = int(self._get_conf_with_default('save_blocksize'))
-        save_options = {'compression': compression,
-                        'tags': tags,
-                        'fformat': fformat,
-                        'gdal_options': gdal_options,
-                        'blocksize': blocksize}
+        save_tags = self._get_conf_with_default('save_tags')
+        if save_tags is not None:
+            save_tags = save_tags.split()
+        compress = self._get_conf_with_default('compress')
+        zlevel = int(self._get_conf_with_default('zlevel'))
+        tile = self._get_conf_with_default('tile') in ('1', 1, 'True', True)
+        blockxsize = int(self._get_conf_with_default('blockxsize'))
+        blockysize = int(self._get_conf_with_default('blockysize'))
+        overviews = self._get_conf_with_default('overviews')
+        if overviews is not None:
+            overviews = [int(i) for i in overviews.split()]
+        save_options = {'tags': save_tags,
+                        'compress': compress,
+                        'zlevel': zlevel,
+                        'tile': tile,
+                        'blocxksize': blockxsize,
+                        'blockysize': blockysize,
+                        'overviews': overviews}
         return save_options
 
     def _update_current_config(self):
@@ -601,6 +611,10 @@ def save_image(img, fname, adef=None, fill_value=None, save_options=None):
     img = _pil_to_xrimage(img, adef=adef, fill_value=fill_value)
     logging.info("Saving image to %s", fname)
     img.save(fname, **save_options)
+    overviews = save_options.get('overviews', None)
+    if overviews is not None:
+        from trollflow_sat.utils import add_overviews
+        add_overviews([fname], overviews, logger=logging)
 
 
 def _pil_to_xrimage(img, adef, fill_value=None):
