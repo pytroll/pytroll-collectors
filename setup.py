@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013-2017 Martin Raspaud
+# Copyright (c) 2013 - 2018 PyTroll Community
 
 # Author(s):
 
@@ -29,11 +29,20 @@ import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 # Set PPP_CONFIG_DIR for tests
-os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors',
-                                            'tests', 'data')
+os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors', 'tests', 'data')
 
 version = imp.load_source(
     'pytroll_collectors.version', 'pytroll_collectors/version.py')
+
+extras_require = {
+    'image_scaler': ['satpy>=v0.8.0'],
+    'global_mosaic': ['satpy>=v0.8.0'],
+}
+all_extras = []
+for extra_deps in extras_require.values():
+    all_extras.extend(extra_deps)
+extras_require['all'] = list(set(all_extras))
+
 
 setup(name="pytroll_collectors",
       version=version.__version__,
@@ -70,4 +79,5 @@ setup(name="pytroll_collectors",
                         'pillow', 'pycoast', 'six'],
       tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],
       test_suite='pytroll_collectors.tests.suite',
+      extras_require=extras_require,
       )
