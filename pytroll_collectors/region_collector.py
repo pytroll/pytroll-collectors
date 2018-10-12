@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2014, 2015 Martin Raspaud
+# Copyright (c) 2012, 2014, 2015, 2018 Martin Raspaud
 
 # Author(s):
 
@@ -35,6 +35,7 @@ import logging
 LOG = logging.getLogger(__name__)
 
 PLOT = False
+
 
 class RegionCollector(object):
 
@@ -77,7 +78,7 @@ class RegionCollector(object):
 
         start_time = granule_metadata['start_time']
         if ("end_time" not in granule_metadata and
-            self.granule_duration is not None):
+                self.granule_duration is not None):
             granule_metadata["end_time"] = (granule_metadata["start_time"] +
                                             self.granule_duration)
 
@@ -140,6 +141,10 @@ class RegionCollector(object):
             self.granule_duration = end_time - start_time
             LOG.debug("Estimated granule duration to %s",
                       str(self.granule_duration))
+
+        LOG.info("Platform name %s and sensor %s: Start and end times = %s %s", str(platform),
+                 str(granule_metadata["sensor"]),
+                 start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         granule_pass = Pass(platform, start_time, end_time,
                             instrument=granule_metadata["sensor"])
@@ -232,7 +237,6 @@ class RegionCollector(object):
                 LOG.info("Adjusted timeout: %s", self.timeout.isoformat())
 
         return False
-
 
     def cleanup(self):
         '''Clear members.
