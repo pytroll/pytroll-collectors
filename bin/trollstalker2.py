@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013, 2014, 2015, 2017
+# Copyright (c) 2013 - 2018 PyTroll Community
 
 # Author(s):
 
 #   Joonas Karjalainen <joonas.karjalainen@fmi.fi>
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,11 +27,9 @@
 """
 
 import argparse
-from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
-import pyinotify
 import sys
 import time
-from six.moves.configparser import RawConfigParser
+from six.moves.configparser import ConfigParser
 import logging
 import logging.config
 import os.path
@@ -162,7 +161,7 @@ def main():
     parser.add_argument("-C", "--config_item",
                         help="Name of the configuration item to use")
     parser.add_argument("-e", "--event_names",
-                        help="Name of the pyinotify events to monitor")
+                        help="Name of the events to monitor")
     parser.add_argument("-f", "--filepattern",
                         help="Filepath pattern used to parse "
                         "satellite/orbit/date/etc information")
@@ -192,7 +191,7 @@ def main():
                   " aborting!")
             sys.exit()
 
-        cparser = RawConfigParser()
+        cparser = ConfigParser()
         cparser.read(config_fname)
         config = dict(cparser.items(args.config_item, vars=args_dict))
 
@@ -239,6 +238,7 @@ def main():
         LOGGER.info("Interrupting TrollStalker")
     finally:
         notifier.stop()
+
 
 if __name__ == "__main__":
     # LOGGER = logging.getLogger("trollstalker")
