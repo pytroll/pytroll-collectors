@@ -38,7 +38,7 @@ import gc
 from posttroll.listener import ListenerContainer
 from pycoast import ContourWriter
 from trollsift import parse, compose
-from trollsift.parser import _extract_parsedef as extract_parsedef
+from trollsift.parser import get_convert_dict
 from satpy.resample import get_area_def
 from satpy import Scene
 from trollimage.xrimage import XRImage
@@ -930,21 +930,17 @@ def adjust_pattern_time_name(pattern, time_name):
     """Adjust filename pattern so that time_name is present."""
     # Get parse definitions and try to figure out if there's
     # an item for time
-    parsedefs, _ = extract_parsedef(pattern)
-    for itm in parsedefs:
-        if isinstance(itm, dict):
-            key, val = list(itm.items())[0]
-            if val is None:
-                continue
-            # Need to exclude 'end_time' and 'proc_time' / 'processing_time'
-            if ("time" in key or "%" in val) and \
-               "end" not in key and key != time_name:
-                logging.debug("Updating pattern from '%s' ...", pattern)
+    convert_dict = get_convert_dict(pattern)
+    for key, val in convert_dict.items():
+        # Need to exclude 'end_time' and 'proc_time' / 'processing_time'
+        if ("time" in key or "%" in val) and \
+           "end" not in key and key != time_name:
+            logging.debug("Updating pattern from '%s' ...", pattern)
 
-                while '{' + key in pattern:
-                    pattern = pattern.replace('{' + key,
-                                              '{' + time_name)
-                logging.debug("... to '%s'", pattern)
+            while '{' + key in pattern:
+                pattern = pattern.replace('{' + key,
+                                          '{' + time_name)
+            logging.debug("... to '%s'", pattern)
     return pattern
 
 
