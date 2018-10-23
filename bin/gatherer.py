@@ -38,7 +38,10 @@ from trollsift import Parser, compose
 from pytroll_collectors import trigger
 from pytroll_collectors import region_collector
 from posttroll import message, publisher
-from satpy.resample import get_area_def
+try:
+    from satpy.resample import get_area_def
+except ImportError:
+    from mpop.projector import get_area_def
 
 
 LOGGER = logging.getLogger(__name__)
