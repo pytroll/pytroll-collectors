@@ -2,6 +2,67 @@ Changelog
 =========
 
 
+v0.8.0 (2018-10-23)
+-------------------
+- Update changelog. [Panu Lahtinen]
+- Bump version: 0.7.0 → 0.8.0. [Panu Lahtinen]
+- Merge pull request #21 from pytroll/bugfix-pattern-time-name. [Panu
+  Lahtinen]
+
+  Fix adjust_pattern_time_name to use public trollsift functions
+- Fix adjust_pattern_time_name to use public trollsift functions. [David
+  Hoese]
+- Merge pull request #19 from pytroll/scale-images-overviews. [Panu
+  Lahtinen]
+
+  Add overview support to scale_images
+- Fix save options, add overview settings. [Panu Lahtinen]
+- Set PPP_CONFIG_DIR. [Panu Lahtinen]
+- Use areas.yaml instead of areas.def. [Panu Lahtinen]
+- Merge pull request #20 from pytroll/feature-satpy-independency. [Panu
+  Lahtinen]
+
+  Feature satpy independency
+- Bug fix: Use ConfigParser instead of RawConfigParser. [Adam.Dybbroe]
+- Add log info. [Adam.Dybbroe]
+- Make satpy optional. [Adam.Dybbroe]
+- Fix test correct results. [Panu Lahtinen]
+- Fix handling of missing/empty segment string. [Panu Lahtinen]
+- Merge branch 'master' of github.com:pytroll/pytroll-collectors.
+  [Adam.Dybbroe]
+- Ensure `sensors` is a list. [Panu Lahtinen]
+- Fix sensor name collection. [Panu Lahtinen]
+- Remove obsolete keyword argument. [Panu Lahtinen]
+- Merge pull request #18 from pytroll/bugfix-segment_gatherer. [Panu
+  Lahtinen]
+
+  Fix checks for slot readiness in segment gatherer
+- Fix slot readines, fix reading variable tags from config. [Panu
+  Lahtinen]
+- Merge pull request #17 from pytroll/bugfix-fill_value. [Panu Lahtinen]
+
+  Fix fill value handling in image scaler
+- Adjust image mode to match overlay, if necessary. [Panu Lahtinen]
+- Add fill_value to save options, fix value used to check masking. [Panu
+  Lahtinen]
+- Update image scaler unit tests. [Panu Lahtinen]
+- Fix copy-paste typo, use single-value fill_value. [Panu Lahtinen]
+- Fix testing for NoneType. [Panu Lahtinen]
+- Fix typo in variable name. [Panu Lahtinen]
+- Get the datatype min/max from the input image. [Panu Lahtinen]
+- Fix fill value handling. [Panu Lahtinen]
+- Change default fill_value to None, read a single fill_value from
+  config. [Panu Lahtinen]
+- Merge pull request #16 from TAlonglong/develop. [Panu Lahtinen]
+
+  Add pyinotify watch to directories created under current watched directory
+- Merge branch 'master-fork' into develop-fork. [Trygve Aspenes]
+- Possible to more than one directory separated by comma. [Trygve
+  Aspenes]
+- Added feature inotify watch new directories. [Trygve Aspenes]
+- Try catch exception when there is an OSError. [Adam.Dybbroe]
+
+
 v0.7.0 (2018-08-23)
 -------------------
 
