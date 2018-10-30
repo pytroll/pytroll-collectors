@@ -661,6 +661,7 @@ def _pil_to_xrimage(img, adef, fill_value=None):
 
     return img
 
+
 def _get_crange(num):
     """Get crange for interval (0, 1) for *num* image channels."""
     tupl = (0., 1.)
@@ -845,21 +846,17 @@ def update_existing_image(fname, new_img,
         old_img = Image.open(fname).copy()
     except IOError:
         return new_img
-    height = old_img.height
-    width = old_img.width
-    old_img_mode = old_img.mode
-    old_img = np.array(
-        old_img.getdata(), dtype=np.uint8).reshape((height, width,
-                                                    len(old_img_mode)))
-    new_img_mode = new_img.mode
 
-    try:
-        new_img = np.array(new_img.getdata(),
-                           dtype=np.uint8).reshape((height, width,
-                                                    len(new_img_mode)))
-    except ValueError:
+    old_img_mode = old_img.mode
+    new_img_mode = new_img.mode
+    if (old_img.height != new_img.height or
+        old_img.width != new_img.height or
+        old_img_mode != new_img_mode):
         logging.warning("Image are different sizes, using new image")
         return new_img
+
+    old_img = np.array(old_img)
+    new_img = np.array(new_img)
 
     logging.debug("Image dimensions: old_img: %s, new_img: %s",
                   str(old_img.shape), str(new_img.shape))
