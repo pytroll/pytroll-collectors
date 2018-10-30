@@ -852,7 +852,7 @@ def update_existing_image(fname, new_img,
     if (old_img.height != new_img.height or
         old_img.width != new_img.height or
         old_img_mode != new_img_mode):
-        logging.warning("Image are different sizes, using new image")
+        logging.warning("Images have different shape/mode, using new image")
         return new_img
 
     old_img = np.array(old_img)
