@@ -146,8 +146,11 @@ class RegionCollector(object):
                  str(granule_metadata["sensor"]),
                  start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
+        sensor = granule_metadata["sensor"]
+        if isinstance(sensor, list):
+            sensor = sensor[0]
         granule_pass = Pass(platform, start_time, end_time,
-                            instrument=granule_metadata["sensor"])
+                            instrument=sensor)
 
         # If file is within region, make pass prediction to know what to wait
         # for

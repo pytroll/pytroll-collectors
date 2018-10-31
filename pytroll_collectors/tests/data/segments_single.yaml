@@ -1,7 +1,7 @@
 patterns:
   msg:
     pattern:
-      "H-000-{orig_platform_name:4s}__-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+      "H-000-{hrit_format:4s}__-{platform_shortname:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
     critical_files: :EPI,:PRO
     wanted_files: VIS006:000001-000008,:PRO,:EPI
     all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
