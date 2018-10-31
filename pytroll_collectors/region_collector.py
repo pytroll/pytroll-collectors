@@ -57,6 +57,7 @@ class RegionCollector(object):
         self.timeout = None
         self.granule_duration = granule_duration
         self.last_file_added = False
+        self.sensor = None
 
     def __call__(self, granule_metadata):
         return self.collect(granule_metadata)
@@ -146,11 +147,11 @@ class RegionCollector(object):
                  str(granule_metadata["sensor"]),
                  start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
-        sensor = granule_metadata["sensor"]
+        self.sensor = granule_metadata["sensor"]
         if isinstance(sensor, list):
-            sensor = sensor[0]
+            self.sensor = self.sensor[0]
         granule_pass = Pass(platform, start_time, end_time,
-                            instrument=sensor)
+                            instrument=self.sensor)
 
         # If file is within region, make pass prediction to know what to wait
         # for
@@ -174,7 +175,7 @@ class RegionCollector(object):
                     gr_time += self.granule_duration
                     gr_pass = Pass(platform, gr_time,
                                    gr_time + self.granule_duration,
-                                   instrument=granule_metadata["sensor"])
+                                   instrument=self.sensor)
                     if not gr_pass.area_coverage(self.region) > 0:
                         break
                     self.planned_granule_times.add(gr_time)
@@ -184,7 +185,7 @@ class RegionCollector(object):
                     gr_time -= self.granule_duration
                     gr_pass = Pass(platform, gr_time,
                                    gr_time + self.granule_duration,
-                                   instrument=granule_metadata["sensor"])
+                                   instrument=self.sensor)
                     if not gr_pass.area_coverage(self.region) > 0:
                         break
                     self.planned_granule_times.add(gr_time)
