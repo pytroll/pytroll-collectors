@@ -148,7 +148,7 @@ class RegionCollector(object):
                  start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         self.sensor = granule_metadata["sensor"]
-        if isinstance(sensor, list):
+        if isinstance(self.sensor, list):
             self.sensor = self.sensor[0]
         granule_pass = Pass(platform, start_time, end_time,
                             instrument=self.sensor)
