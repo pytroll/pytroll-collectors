@@ -2,6 +2,32 @@ Changelog
 =========
 
 
+v0.8.1 (2018-11-08)
+-------------------
+- Update changelog. [Panu Lahtinen]
+- Bump version: 0.8.0 → 0.8.1. [Panu Lahtinen]
+- Merge pull request #24 from pytroll/bugfix-Pass-single-sensor. [Panu
+  Lahtinen]
+
+  Pass only one instrument to overpass calculations
+- Fix a typo: use attribute instead of variable. [Panu Lahtinen]
+- Ensure only one instrument is used in Pass() [Panu Lahtinen]
+- Merge pull request #23 from pytroll/bugfix-sensors-in-a-list. [Panu
+  Lahtinen]
+
+  Pass only one sensor name to overpass calculations
+- Remove duplicate format tags from filename patterns. [Panu Lahtinen]
+- Ensure that only one instrument is passed to Pass() calculations.
+  [Panu Lahtinen]
+- Merge pull request #22 from pytroll/feature-faster-image-scaler. [Panu
+  Lahtinen]
+
+  Make scale_image faster
+- Clarify log message. [Panu Lahtinen]
+- Remove use of .get_data(), replace old with new if mode/shape doesn't
+  match. [Panu Lahtinen]
+
+
 v0.8.0 (2018-10-23)
 -------------------
 - Update changelog. [Panu Lahtinen]
