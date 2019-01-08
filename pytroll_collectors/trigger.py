@@ -299,6 +299,21 @@ try:
                 LOG.exception(
                     "Something wrong happened in the event processing!")
 
+        def on_moved(self, event):
+            """On a file been moved to the destination directory.
+            """
+            try:
+                for pattern in self.patterns:
+                    if fnmatch(event.dest_path, pattern):
+                        LOG.debug(
+                            "New file detected (moved): " + event.dest_path)
+                        self.process(event.dest_path)
+                        LOG.debug("Done processing file")
+                        return
+            except:
+                LOG.exception(
+                    "Something wrong happened in the 'moved' event processing!")
+
         def process(self, pathname):
             raise NotImplementedError
 
