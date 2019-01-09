@@ -287,32 +287,24 @@ try:
         def on_created(self, event):
             """On creating a file.
             """
+            _process(event.src_path)
+
+        def on_moved(self, event):
+            """On a file been moved to the destination directory.
+            """
+            _process(event.dest_path)
+
+        def _process(self, pathname):
             try:
                 for pattern in self.patterns:
-                    if fnmatch(event.src_path, pattern):
-                        LOG.debug(
-                            "New file detected (created): " + event.src_path)
-                        self.process(event.src_path)
+                    if fnmatch(pathname, pattern):
+                        LOG.debug("New file detected : " + pathname)
+                        self.process(pathname)
                         LOG.debug("Done processing file")
                         return
             except:
                 LOG.exception(
                     "Something wrong happened in the event processing!")
-
-        def on_moved(self, event):
-            """On a file been moved to the destination directory.
-            """
-            try:
-                for pattern in self.patterns:
-                    if fnmatch(event.dest_path, pattern):
-                        LOG.debug(
-                            "New file detected (moved): " + event.dest_path)
-                        self.process(event.dest_path)
-                        LOG.debug("Done processing file")
-                        return
-            except:
-                LOG.exception(
-                    "Something wrong happened in the 'moved' event processing!")
 
         def process(self, pathname):
             raise NotImplementedError
