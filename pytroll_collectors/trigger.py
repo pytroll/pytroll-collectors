@@ -287,12 +287,12 @@ try:
         def on_created(self, event):
             """On creating a file.
             """
-            _process(event.src_path)
+            self._process(event.src_path)
 
         def on_moved(self, event):
             """On a file been moved to the destination directory.
             """
-            _process(event.dest_path)
+            self._process(event.dest_path)
 
         def _process(self, pathname):
             try:
