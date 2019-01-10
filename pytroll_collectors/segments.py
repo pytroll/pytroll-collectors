@@ -374,7 +374,11 @@ class SegmentGatherer(object):
         """Process message"""
         mda = None
 
-        uid = msg.data['uid']
+        try:
+            uid = msg.data['uid']
+        except KeyError:
+            self.logger.debug("Ignoring: %s", str(msg))
+            return
 
         # Find the correct parser for this file
         key = self.key_from_fname(uid)
