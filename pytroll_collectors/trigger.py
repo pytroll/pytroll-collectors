@@ -287,12 +287,19 @@ try:
         def on_created(self, event):
             """On creating a file.
             """
+            self._process(event.src_path)
+
+        def on_moved(self, event):
+            """On a file been moved to the destination directory.
+            """
+            self._process(event.dest_path)
+
+        def _process(self, pathname):
             try:
                 for pattern in self.patterns:
-                    if fnmatch(event.src_path, pattern):
-                        LOG.debug(
-                            "New file detected (created): " + event.src_path)
-                        self.process(event.src_path)
+                    if fnmatch(pathname, pattern):
+                        LOG.debug("New file detected : " + pathname)
+                        self.process(pathname)
                         LOG.debug("Done processing file")
                         return
             except:
