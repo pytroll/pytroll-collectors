@@ -291,7 +291,10 @@ class SegmentGatherer(object):
                 return SLOT_READY
             elif all([val == SLOT_NONCRITICAL_NOT_READY for val in
                       status_values]):
-                return SLOT_READY
+                for key in status.keys():
+                    if len(self.slots[time_slot][key]['received_files']) > 0:
+                        return SLOT_READY
+                return SLOT_OBSOLETE_TIMEOUT
             else:
                 self.logger.warning("Timeout occured and required files "
                                     "were not present, data discarded for "
