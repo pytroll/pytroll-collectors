@@ -45,6 +45,8 @@ CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
 CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
                                        "data/segments_double_no_segments.yaml"))
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
+CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
+                                "goes16")
 
 
 class TestSegmentGatherer(unittest.TestCase):
@@ -64,10 +66,23 @@ class TestSegmentGatherer(unittest.TestCase):
         self.mda_hrpt = {"uid": "hrpt_metop01_20180319_0955_28538.l1b", "platform_shortname": "metop01", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "orbit_number":
                          28538, "uri": "/home/lahtinep/data/satellite/new/hrpt_metop01_20180319_0955_28538.l1b", "platform_name": "Metop-B", "path": "", "sensor": ["avhrr/3"]}
 
+        self.mda_goes16 = {"uid": "OR_ABI-L1b-RadF-M3C08_G16_s20190320600324_e20190320611091_c20190320611138.nc",
+                           "creation_time": "20190320611138",
+                           "start_time": dt.datetime(2019, 2, 1, 6, 0, 0),
+                           "area_code": "F", "mission_id": "ABI", "path": "",
+                           "system_environment": "OR", "scan_mode": "M3",
+                           "uri": "/path/OR_ABI-L1b-RadF-M3C08_G16_s20190320600324_e20190320611091_c20190320611138.nc",
+                           "start_seconds": dt.datetime(1900, 1, 1, 0, 0, 32, 400000),
+                           "platform_name": "GOES-16",
+                           "end_time": dt.datetime(2019, 2, 1, 6, 11, 9, 100000),
+                           "orig_platform_name": "G16", "dataset_name": "Rad",
+                           "sensor": ["abi"], "channel": "C08"}
+
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
+        self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
 
     def test_init(self):
         self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
@@ -133,7 +148,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set)
         fname_set = self.msg0deg._compose_filenames('msg', slot_str, None)
-        self.assertTrue("H-000-MSG3__-MSG3________-_________-_________-201611281100-__" in fname_set)
+        self.assertEqual(len(fname_set), 0)
         # Check that MSG segments can be given as range, and the
         # result is same as with explicit segment names
         fname_set_range = self.msg0deg._compose_filenames(
@@ -145,18 +160,27 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(fname_set_range), len(fname_set_explicit))
         self.assertEqual(len(fname_set_range.difference(fname_set_explicit)), 0)
 
-        # Tests using to filesets with no segments
+        # Tests using filesets with no segments
         mda = self.mda_hrpt.copy()
         self.hrpt_pps._init_data(mda)
         slot_str = str(mda["start_time"])
         fname_set = self.hrpt_pps._compose_filenames(
             'hrpt', slot_str,
             self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
-        self.assertEqual(len(fname_set), 1)
+        self.assertEqual(len(fname_set), 0)
         fname_set = self.hrpt_pps._compose_filenames(
             'pps', slot_str,
             self.hrpt_pps._config['patterns']['pps']['critical_files'])
-        self.assertEqual(len(fname_set), 1)
+        self.assertEqual(len(fname_set), 0)
+
+        # Tests using filesets with no segments, INI config
+        mda = self.mda_goes16.copy()
+        self.goes_ini._init_data(mda)
+        slot_str = str(mda["start_time"])
+        fname_set = self.goes_ini._compose_filenames(
+            'goes16', slot_str,
+            self.goes_ini._config['patterns']['goes16']['critical_files'])
+        self.assertEqual(len(fname_set), 0)
 
     def test_set_logger(self):
         logger = logging.getLogger('foo')
@@ -200,6 +224,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
 
         status = {'foo': SLOT_NONCRITICAL_NOT_READY}
+        self.msg0deg.slots[slot_str] = {'foo': {'received_files': [0, 1]}}
         self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str),
                          SLOT_NONCRITICAL_NOT_READY)
@@ -309,11 +334,9 @@ class TestSegmentGatherer(unittest.TestCase):
             res = col.add_file(time_slot, key, mda, msg_data[key])
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             1)
+                             0)
             meta = col.slots[time_slot]['metadata']
-            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
-            self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
-            self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
+            self.assertEqual(len(meta['collection'][key]['dataset']), 0)
             i += 1
 
     def test_ini_to_dict(self):

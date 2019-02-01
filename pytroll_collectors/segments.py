@@ -165,6 +165,8 @@ class SegmentGatherer(object):
 
         for itm in itm_str.split(','):
             channel_name, segments = itm.split(':')
+            if channel_name == '' and segments == '':
+                continue
             segments = segments.split('-')
             if len(segments) > 1:
                 format_string = '%d'
