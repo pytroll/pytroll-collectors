@@ -133,7 +133,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set)
         fname_set = self.msg0deg._compose_filenames('msg', slot_str, None)
-        self.assertTrue("H-000-MSG3__-MSG3________-_________-_________-201611281100-__" in fname_set)
+        self.assertEqual(len(fname_set), 0)
         # Check that MSG segments can be given as range, and the
         # result is same as with explicit segment names
         fname_set_range = self.msg0deg._compose_filenames(
@@ -145,18 +145,18 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(fname_set_range), len(fname_set_explicit))
         self.assertEqual(len(fname_set_range.difference(fname_set_explicit)), 0)
 
-        # Tests using to filesets with no segments
+        # Tests using filesets with no segments
         mda = self.mda_hrpt.copy()
         self.hrpt_pps._init_data(mda)
         slot_str = str(mda["start_time"])
         fname_set = self.hrpt_pps._compose_filenames(
             'hrpt', slot_str,
             self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
-        self.assertEqual(len(fname_set), 1)
+        self.assertEqual(len(fname_set), 0)
         fname_set = self.hrpt_pps._compose_filenames(
             'pps', slot_str,
             self.hrpt_pps._config['patterns']['pps']['critical_files'])
-        self.assertEqual(len(fname_set), 1)
+        self.assertEqual(len(fname_set), 0)
 
     def test_set_logger(self):
         logger = logging.getLogger('foo')
@@ -200,6 +200,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(func(status, future, slot_str), SLOT_NOT_READY)
 
         status = {'foo': SLOT_NONCRITICAL_NOT_READY}
+        self.msg0deg.slots[slot_str] = {'foo': {'received_files': [0, 1]}}
         self.assertEqual(func(status, past, slot_str), SLOT_READY)
         self.assertEqual(func(status, future, slot_str),
                          SLOT_NONCRITICAL_NOT_READY)
@@ -309,11 +310,9 @@ class TestSegmentGatherer(unittest.TestCase):
             res = col.add_file(time_slot, key, mda, msg_data[key])
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             1)
+                             0)
             meta = col.slots[time_slot]['metadata']
-            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
-            self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
-            self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
+            self.assertEqual(len(meta['collection'][key]['dataset']), 0)
             i += 1
 
     def test_ini_to_dict(self):
