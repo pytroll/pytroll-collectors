@@ -24,7 +24,10 @@
 """
 
 import unittest
-from mock import patch
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
 from pytroll_collectors.trigger import PostTrollTrigger
 from datetime import datetime, timedelta
 import time
