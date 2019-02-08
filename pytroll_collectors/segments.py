@@ -163,9 +163,17 @@ class SegmentGatherer(object):
         meta = _copy_without_ignore_items(meta,
                                           ignored_keys=var_tags)
 
+        parser = self._parsers[key]
+
         for itm in itm_str.split(','):
             channel_name, segments = itm.split(':')
             if channel_name == '' and segments == '':
+                # If the filename pattern has no segments/channels,
+                # add the "plain" globified filename to the filename
+                # set
+                if ('channel_name' not in parser.fmt and
+                    'segment' not in parser.fmt):
+                    result.add(parser.globify(meta))
                 continue
             segments = segments.split('-')
             if len(segments) > 1:
@@ -178,7 +186,7 @@ class SegmentGatherer(object):
             meta['channel_name'] = channel_name
             for seg in segments:
                 meta['segment'] = seg
-                fname = self._parsers[key].globify(meta)
+                fname = parser.globify(meta)
 
                 result.add(fname)
 
