@@ -45,8 +45,20 @@ if __name__ == '__main__':
                         help="Name of the environment (e.g. dev, test, oper)",
                         default="dev")
     parser.add_argument("-l", "--log", help="File to log to", default=None)
-    opts = parser.parse_args()
+    parser.add_argument("-f", "--ftp_prefix", dest="ftp_prefix",
+                        type=str,
+                        help="FTP path prefix for message uri")
+    parser.add_argument("-t", "--target_server", dest="target_server",
+                        type=str,
+                        help="Name of the target server. "
+                        "In case of multiple dispatches in GMC.")
+    parser.add_argument("-T", "--topic_postfix", 
+                        dest="topic_postfix",
+                        type=str,
+                        help="Publish topic postfix. "
+                             "Prefix will be /format/data_processing_level/")
 
+    opts = parser.parse_args()
     no_sats = opts.excluded_satellites
 
     if opts.log:
@@ -68,7 +80,9 @@ if __name__ == '__main__':
 
     try:
         receive_from_zmq(opts.host, opts.port,
-                         opts.station, opts.environment, no_sats, 1)
+                         opts.station, opts.environment, no_sats,
+                         opts.target_server, opts.ftp_prefix,
+                         opts.topic_postfix, 1)
     except KeyboardInterrupt:
         pass
     except:
