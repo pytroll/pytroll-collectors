@@ -111,6 +111,7 @@ def terminator(metadata, publish_topic=None):
         subject = "/".join(("", mda["format"], mda["data_processing_level"],
                             ''))
 
+    mda['start_time'] = sorted_mda[0]['start_time']
     mda['end_time'] = sorted_mda[-1]['end_time']
     mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
     mda['collection'] = []
