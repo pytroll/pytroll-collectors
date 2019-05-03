@@ -150,9 +150,13 @@ class EventHandler(ProcessEvent):
                 ref_file_parse = self.file_parser.parse(file_to_check)
                 if(file_check_size<=1000):
                     # if event is on a ref file, read inside the referenced directories
-                    LOGGER.info("Found ref file: ", str(file_to_check))
-                    reffile = RawConfigParser()
-                    reffile.read(file_to_check)
+                    LOGGER.info("Found ref file: {}".format(file_to_check))
+                    try:
+                        reffile = RawConfigParser()
+                        reffile.read(file_to_check)
+                    except:
+                        LOGGER.error("Wrong ref file format: " + str(file_to_check))
+                        pass
                     if(reffile.has_option('REF', 'sourcepath')):
                         # found referenced path: event triggered on all files inside, confirming with filepattern defined in config file
                         path_to_scan = reffile.get('REF', 'sourcepath')
@@ -176,7 +180,7 @@ class EventHandler(ProcessEvent):
                                         LOGGER.info("Data has been published recently, skipping.")
                                 self.__clean__()
                     else:
-                        LOGGER.error("Empty ref file: ", str(file_to_check))
+                        LOGGER.error("Empty ref file: {}".format(file_to_check))
                 else:
                     self.parse_file_info(event)
                     if len(self.info) > 0:
