@@ -141,17 +141,57 @@ class EventHandler(ProcessEvent):
         if not event.dir:
             LOGGER.debug("processing %s", event.pathname)
             # parse information and create self.info OrderedDict{}
-            self.parse_file_info(event)
-            if len(self.info) > 0:
-                # Check if this file has been recently dealt with
-                if event.pathname not in self._deque:
-                    self._deque.append(event.pathname)
-                    message = self.create_message()
-                    LOGGER.info("Publishing message %s", str(message))
-                    self.pub.send(str(message))
+
+            # check if event is triggered on a ref file
+            #   if filesize<1kb it is a ref file
+            file_to_check = event.pathname
+            try:
+                file_check_size = os.path.getsize(file_to_check)
+                ref_file_parse = self.file_parser.parse(file_to_check)
+                if(file_check_size<=1000):
+                    # if event is on a ref file, read inside the referenced directories
+                    LOGGER.info("Found ref file: ", str(file_to_check))
+                    reffile = RawConfigParser()
+                    reffile.read(file_to_check)
+                    if(reffile.has_option('REF', 'sourcepath')):
+                        # found referenced path: event triggered on all files inside, confirming with filepattern defined in config file
+                        path_to_scan = reffile.get('REF', 'sourcepath')
+                        LOGGER.info("Generating messages for referenced path: ", str(path_to_scan))
+                        # scan all files on referenced folder and generate messages for all these files
+                        for file in os.listdir(path_to_scan):
+                            if not os.path.isdir(file):
+                                event_new = event
+                                event_new.name = file
+                                event_new.path = path_to_scan
+                                event_new.pathname = path_to_scan + "/" + file
+                                self.parse_file_info(event_new)
+                                if len(self.info) > 0:
+                                    # Check if this file has been recently dealt with
+                                    if event.pathname not in self._deque:
+                                        self._deque.append(event.pathname)
+                                        message = self.create_message()
+                                        LOGGER.info("Publishing message %s", str(message))
+                                        self.pub.send(str(message))
+                                    else:
+                                        LOGGER.info("Data has been published recently, skipping.")
+                                self.__clean__()
+                    else:
+                        LOGGER.error("Empty ref file: ", str(file_to_check))
                 else:
-                    LOGGER.info("Data has been published recently, skipping.")
-            self.__clean__()
+                    self.parse_file_info(event)
+                    if len(self.info) > 0:
+                        # Check if this file has been recently dealt with
+                        if event.pathname not in self._deque:
+                            self._deque.append(event.pathname)
+                            message = self.create_message()
+                            LOGGER.info("Publishing message %s", str(message))
+                            self.pub.send(str(message))
+                        else:
+                            LOGGER.info("Data has been published recently, skipping.")
+                    self.__clean__()
+            except (OSError, ValueError) as error:
+                LOGGER.error("Cannot access file: "+str(error))
+                pass
         elif (event.mask & pyinotify.IN_ISDIR):
             tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
                      pyinotify.IN_CREATE | pyinotify.IN_DELETE)
