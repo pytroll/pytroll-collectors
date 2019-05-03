@@ -150,6 +150,11 @@ class EventHandler(ProcessEvent):
                 ref_file_parse = self.file_parser.parse(file_to_check)
                 if(file_check_size<=1000):
                     # if event is on a ref file, read inside the referenced directories
+                    """REF file internal format:
+                       [REF]
+                       SourcePath = /path/to/dataset
+                       FileName = ref_file_filename
+                    """
                     LOGGER.info("Found ref file: {}".format(file_to_check))
                     try:
                         reffile = RawConfigParser()
