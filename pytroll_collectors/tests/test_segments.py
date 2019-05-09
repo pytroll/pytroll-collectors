@@ -167,11 +167,15 @@ class TestSegmentGatherer(unittest.TestCase):
         fname_set = self.hrpt_pps._compose_filenames(
             'hrpt', slot_str,
             self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
-        self.assertEqual(len(fname_set), 0)
+        self.assertEqual(len(fname_set), 1)
+        self.assertTrue("hrpt_*_20180319_0955_28538.l1b" in fname_set)
         fname_set = self.hrpt_pps._compose_filenames(
             'pps', slot_str,
             self.hrpt_pps._config['patterns']['pps']['critical_files'])
-        self.assertEqual(len(fname_set), 0)
+        self.assertEqual(len(fname_set), 1)
+        self.assertTrue(
+            "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in \
+            fname_set)
 
         # Tests using filesets with no segments, INI config
         mda = self.mda_goes16.copy()
@@ -334,9 +338,9 @@ class TestSegmentGatherer(unittest.TestCase):
             res = col.add_file(time_slot, key, mda, msg_data[key])
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             0)
+                             1)
             meta = col.slots[time_slot]['metadata']
-            self.assertEqual(len(meta['collection'][key]['dataset']), 0)
+            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
             i += 1
 
     def test_ini_to_dict(self):
