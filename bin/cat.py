@@ -84,7 +84,7 @@ class bunzipped(object):
             if filename.endswith(".bz2"):
                 LOG.debug("bunzipping %s...", filename)
                 tmp_fd, tmp_filename = tempfile.mkstemp()
-                tmp_file = os.fdopen(tmp_fd, "w")
+                tmp_file = os.fdopen(tmp_fd, "wb")
                 try:
                     with BZ2File(filename) as bzfile:
                         tmp_file.write(bzfile.read())
