@@ -1,0 +1,15 @@
+# This config is used in Trollstalker.
+[hrit]
+topic=/HRIT/topic/or/something/
+# to use reference files to trigger data: watch directory of reference files
+directory=/path/to/reference/files/
+# satellite data pattern
+filepattern={path}H-000-{platform_name:4s}__-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__
+# reference files name pattern
+ref_filepattern={path}H-REF-000-{platform_name:4s}__-MSG4________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__
+instruments=seviri
+stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
+loglevel=DEBUG
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+posttroll_port=0
+alias_platform_name = MSG2:Meteosat-9|MSG3:Meteosat-10
