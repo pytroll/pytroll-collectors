@@ -22,10 +22,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Gather granule messages to send them in a bunch.
-"""
+"""Gather granule messages to send them in a bunch."""
 
-from datetime import timedelta, datetime
 import time
 import logging
 import logging.handlers
@@ -50,9 +48,7 @@ PUB = None
 
 
 def get_metadata(fname):
-    """Parse metadata from the file.
-    """
-
+    """Parse metadata from the file."""
     res = None
     for section in CONFIG.sections():
         try:
@@ -67,25 +63,7 @@ def get_metadata(fname):
         for key in ["watcher", "pattern", "timeliness", "regions"]:
             res.pop(key, None)
 
-        if "duration" in res and "end_time" not in res:
-            res["end_time"] = (res["start_time"] +
-                               timedelta(seconds=int(res["duration"])))
-        if "start_date" in res:
-            res["start_time"] = datetime.combine(res["start_date"].date(),
-                                                 res["start_time"].time())
-            if "end_date" not in res:
-                res["end_date"] = res["start_date"]
-            del res["start_date"]
-        if "end_date" in res:
-            res["end_time"] = datetime.combine(res["end_date"].date(),
-                                               res["end_time"].time())
-            del res["end_date"]
-
-        while res["start_time"] > res["end_time"]:
-            res["end_time"] += timedelta(days=1)
-
-        if "duration" in res:
-            del res["duration"]
+        res = trigger.fix_start_end_time(res)
 
         if ("sensor" in res) and ("," in res["sensor"]):
             res["sensor"] = res["sensor"].split(",")
