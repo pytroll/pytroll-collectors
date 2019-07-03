@@ -22,13 +22,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Triggers for region_collectors
-"""
+"""Triggers for region_collectors."""
 
 from pyinotify import (ProcessEvent, Notifier, WatchManager,
                        IN_CLOSE_WRITE, IN_MOVED_TO)
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from fnmatch import fnmatch
 import os.path
 from posttroll.subscriber import NSSubscriber
@@ -38,10 +37,34 @@ LOG = logging.getLogger(__name__)
 
 
 def total_seconds(tdef):
-    """Calculate total time in seconds.
-    """
+    """Calculate total time in seconds."""
     return ((tdef.microseconds +
              (tdef.seconds + tdef.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
+
+
+def fix_start_end_time(mda):
+    """Make start and end time coherent."""
+    if "duration" in mda and "end_time" not in mda:
+        mda["end_time"] = (mda["start_time"]
+                           + timedelta(seconds=int(mda["duration"])))
+    if "start_date" in mda:
+        mda["start_time"] = datetime.combine(mda["start_date"].date(),
+                                             mda["start_time"].time())
+        if "end_date" not in mda:
+            mda["end_date"] = mda["start_date"]
+        del mda["start_date"]
+    if "end_date" in mda:
+        mda["end_time"] = datetime.combine(mda["end_date"].date(),
+                                           mda["end_time"].time())
+        del mda["end_date"]
+
+    while mda["start_time"] > mda["end_time"]:
+        mda["end_time"] += timedelta(days=1)
+
+    if "duration" in mda:
+        del mda["duration"]
+
+    return mda
 
 
 class Trigger(object):
@@ -402,7 +425,8 @@ class PostTrollTrigger(FileTrigger):
     """
 
     def __init__(self, collectors, terminator, services, topics,
-                 publish_topic=None, nameserver="localhost", publish_message_after_each_reception=False):
+                 publish_topic=None, nameserver="localhost",
+                 publish_message_after_each_reception=False):
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
@@ -410,19 +434,16 @@ class PostTrollTrigger(FileTrigger):
                              publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
-        """Start the posttroll trigger.
-        """
+        """Start the posttroll trigger."""
         FileTrigger.start(self)
         self.msgproc.start()
 
     @staticmethod
     def decode_message(message):
-        """Return the message data.
-        """
-        return message.data
+        """Return the message data."""
+        return fix_start_end_time(message.data)
 
     def stop(self):
-        """Stop the posttroll trigger.
-        """
+        """Stop the posttroll trigger."""
         self.msgproc.stop()
         FileTrigger.stop(self)
