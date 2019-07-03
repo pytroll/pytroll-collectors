@@ -2,6 +2,35 @@ Changelog
 =========
 
 
+v0.8.4 (2019-07-03)
+-------------------
+- Update changelog. [Martin Raspaud]
+- Bump version: 0.8.3 → 0.8.4. [Martin Raspaud]
+- Merge pull request #36 from mraspaud/fix-posttroll-times. [Martin
+  Raspaud]
+
+  Fix times comming from posttroll messages.
+- Add missing import. [Martin Raspaud]
+- Fix times comming from posttroll messages. [Martin Raspaud]
+- Merge pull request #35 from pytroll/add-stickler-config. [Martin
+  Raspaud]
+
+  Adding .stickler.yml configuration file
+- Adding .stickler.yml. [stickler-ci]
+- Merge pull request #34 from hundahl/fix-for-python3. [Martin Raspaud]
+
+  Change write mode from 'w' to 'wb' for tmp files
+- Change write mode from 'w' to 'wb' for tmp files. [Camilla Hundahl
+  Johnsen]
+- Bugfix segment gatherer when files have no segments nor channels (#29)
+  [Martin Raspaud]
+
+  Bugfix segment gatherer when files have no segments nor channels
+- Update unit tests. [Panu Lahtinen]
+- Add globified filename to fname set when there are no
+  segments/channels in pattern. [Panu Lahtinen]
+
+
 v0.8.3 (2019-04-24)
 -------------------
 - Update changelog. [Martin Raspaud]
