@@ -23,6 +23,7 @@
 import argparse
 import os
 import logging
+import logging.config
 import logging.handlers
 import time
 
@@ -61,29 +62,39 @@ def main():
     os.environ["TZ"] = "UTC"
     time.tzset()
 
-    handlers = []
-    if args.log:
-        handlers.append(
-            logging.handlers.TimedRotatingFileHandler(args.log,
+    # gathere log file
+
+    if 'gatherer_log_config' in config:
+        # Logger configured using a configuration file
+        log_config = config['gatherer_log_config']
+        logging.getLogger("posttroll").setLevel(logging.INFO)
+        logger = logging.getLogger("gatherer")
+        logging.config.fileConfig(log_config)
+    else:
+        # Use the default Logger
+        handlers = []
+        if args.log:
+            handlers.append(
+                logging.handlers.TimedRotatingFileHandler(args.log,
                                                       "midnight",
                                                       backupCount=7))
 
-    handlers.append(logging.StreamHandler())
+        handlers.append(logging.StreamHandler())
 
-    if args.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-    for handler in handlers:
-        handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
+        if args.verbose:
+            loglevel = logging.DEBUG
+        else:
+            loglevel = logging.INFO
+        for handler in handlers:
+            handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
                                                " %(name)s] %(message)s",
                                                '%Y-%m-%d %H:%M:%S'))
-        handler.setLevel(loglevel)
-        logging.getLogger('').setLevel(loglevel)
-        logging.getLogger('').addHandler(handler)
+            handler.setLevel(loglevel)
+            logging.getLogger('').setLevel(loglevel)
+            logging.getLogger('').addHandler(handler)
 
-    logging.getLogger("posttroll").setLevel(logging.INFO)
-    logger = logging.getLogger("segment_gatherer")
+        logging.getLogger("posttroll").setLevel(logging.INFO)
+        logger = logging.getLogger("segment_gatherer")
 
     gatherer = SegmentGatherer(config)
     gatherer.set_logger(logger)
