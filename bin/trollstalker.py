@@ -207,6 +207,11 @@ class EventHandler(ProcessEvent):
             tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
                      pyinotify.IN_CREATE | pyinotify.IN_DELETE)
             try:
+                # If watched mask has been configured in cfg, use the configured one
+                if self._watchManager._wmd is not None:
+                    for wmd in self._watchManager._wmd:
+                        tmask = self._watchManager._wmd[wmd].mask
+                        break
                 self._watched_dirs.update(self._watchManager.add_watch(event.pathname, tmask))
                 LOGGER.debug("Added watch on dir: {}".format(event.pathname))
             except AttributeError:
