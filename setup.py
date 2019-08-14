@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2018 PyTroll Community
+# Copyright (c) 2013 - 2019 PyTroll Community
 
 # Author(s):
 
@@ -26,13 +26,14 @@
 from setuptools import setup
 import imp
 import os
+import versioneer
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 # Set PPP_CONFIG_DIR for tests
 os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors', 'tests', 'data')
 
-version = imp.load_source(
-    'pytroll_collectors.version', 'pytroll_collectors/version.py')
+# version = imp.load_source(
+#    'pytroll_collectors.version', 'pytroll_collectors/version.py')
 
 extras_require = {
     'image_scaler': ['satpy>=v0.8.0'],
@@ -45,7 +46,8 @@ extras_require['all'] = list(set(all_extras))
 
 
 setup(name="pytroll_collectors",
-      version=version.__version__,
+      version=versioneer.get_version(),
+      cmdclass=versioneer.get_cmdclass(),
       description='Pytroll data collectors',
       author='Martin Raspaud',
       author_email='martin.raspaud@smhi.se',

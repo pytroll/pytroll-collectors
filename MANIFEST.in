@@ -1,0 +1,2 @@
+include versioneer.py
+include pytroll_collectors/version.py
