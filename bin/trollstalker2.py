@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2018 PyTroll Community
+# Copyright (c) 2013 - 2019 PyTroll Community
 
 # Author(s):
 
@@ -29,7 +29,7 @@
 import argparse
 import sys
 import time
-from six.moves.configparser import ConfigParser
+from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os.path
@@ -41,6 +41,12 @@ from trollsift import Parser
 
 LOGGER = logging.getLogger(__name__)
 
+try:
+    # Python 2
+    str_or_unicode = (str, unicode)
+except NameError:
+    # Pyton 3
+    str_or_unicode = (str, bytes)
 
 from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
@@ -49,7 +55,7 @@ class FilePublisher(AbstractWatchDogProcessor):
 
     def __init__(self, config):
         self.config = config.copy()
-        if isinstance(config["filepattern"], (str, unicode)):
+        if isinstance(config["filepattern"], str_or_unicode):
             self.config["filepattern"] = [self.config["filepattern"]]
 
         self.parsers = [Parser(filepattern)
@@ -75,7 +81,7 @@ class FilePublisher(AbstractWatchDogProcessor):
         obsolete_keys = ["topic", "filepattern", "tbus_orbit",
                          "posttroll_port", "watch", "config_item", "configuration_file"]
 
-        for key in self.config.keys():
+        for key in list(self.config.keys()):
             if key.startswith("alias_") or key in obsolete_keys:
                 del self.config[key]
 
@@ -191,7 +197,7 @@ def main():
                   " aborting!")
             sys.exit()
 
-        cparser = ConfigParser()
+        cparser = RawConfigParser()
         cparser.read(config_fname)
         config = dict(cparser.items(args.config_item, vars=args_dict))
 
