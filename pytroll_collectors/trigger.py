@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2014, 2015 Martin Raspaud
+# Copyright (c) 2012, 2014, 2015, 2019 Martin Raspaud
 
 # Author(s):
 
@@ -229,6 +229,7 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
             self.stop()
             self.join()
 
+
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
@@ -373,7 +374,7 @@ try:
 
 
 except ImportError:
-    LOG.error("Watchdog import failed!")
+    LOG.exception("Watchdog import failed!")
     WatchDogTrigger = None
 
 
