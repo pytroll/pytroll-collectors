@@ -161,19 +161,8 @@ class EventHandler(ProcessEvent):
         # New file created and closed
         if not event.dir:
             LOGGER.debug("processing %s", event.pathname)
-            # parse information and create self.info OrderedDict{}
-            self.parse_file_info(event)
-            if len(self.info) > 0:
-                # Check if this file has been recently dealt with
-                if event.pathname not in self._deque:
-                    self._deque.append(event.pathname)
-                    message = self.create_message()
-                    LOGGER.info("Publishing message %s", str(message))
-                    self.pub.send(str(message))
-                else:
-                    LOGGER.info("Data has been published recently, skipping.")
 
-            elif self.ref_file_parser is not None and self.ref_file_parser.validate(event.pathname):
+            if self.ref_file_parser is not None and self.ref_file_parser.validate(event.pathname):
                 # It is a REF file
                 # Generate messages for files found in referenced directory
                 event_file = event.pathname
@@ -182,9 +171,14 @@ class EventHandler(ProcessEvent):
                 if "REF" in ref_file_content and "sourcepath" in ref_file_content["REF"]:
                     scan_path = ref_file_content["REF"]["sourcepath"]
                     LOGGER.info("Generating messages for referenced path: %s", str(scan_path))
+                    # use Filter to trigger file in referenced directory
+                    if "filter" in ref_file_content["REF"]:
+                        filter_ref = ref_file_content["REF"]["filter"]
+                    else:
+                        filter_ref = ".*"
                     for file in os.listdir(scan_path):
                         # scan all files in referenced folder and generate messages for all the files
-                        if not os.path.isdir(file):
+                        if not os.path.isdir(file) and re.search(filter_ref, file):
                             event_new = event
                             event_new.name = file
                             event_new.path = scan_path
@@ -202,6 +196,18 @@ class EventHandler(ProcessEvent):
                             self.__clean__()
                 else:
                     LOGGER.debug("Cannot extract information from REF file")
+            else:
+                # parse information and create self.info OrderedDict{}
+                self.parse_file_info(event)
+                if len(self.info) > 0:
+                    # Check if this file has been recently dealt with
+                    if event.pathname not in self._deque:
+                        self._deque.append(event.pathname)
+                        message = self.create_message()
+                        LOGGER.info("Publishing message %s", str(message))
+                        self.pub.send(str(message))
+                    else:
+                        LOGGER.info("Data has been published recently, skipping.")
             self.__clean__()
         elif (event.mask & pyinotify.IN_ISDIR):
             tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
