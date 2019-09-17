@@ -86,15 +86,18 @@ class SegmentGatherer(object):
                     startH, startM = startTime.split(':')
                     endH, endM = endTime.split(':')
                     deltaH, deltaM = deltaTime.split(':')
-                    self._patterns[key]["_hour_pattern"] = {}
-                    self._patterns[key]["_hour_pattern"]["start"] = (
-                        60 * int(startH)) + int(startM)
-                    self._patterns[key]["_hour_pattern"]["end"] = (
-                        60 * int(endH)) + int(endM)
-                    self._patterns[key]["_hour_pattern"]["delta"] = (
-                        60 * int(deltaH)) + int(deltaM)
-                    self.logger.info(
-                        "Hour pattern '%s' filter: %s", key, checkTime)
+                    self._patterns[key]["_hour_pattern"]= {}
+                    self._patterns[key]["_hour_pattern"]["start"] = (60 * int(startH)) + int(startM)
+                    self._patterns[key]["_hour_pattern"]["end"] = (60 * int(endH)) + int(endM)
+                    self._patterns[key]["_hour_pattern"]["delta"] = (60 * int(deltaH)) + int(deltaM)
+                    
+                    # Start-End time across midnight
+                    self._patterns[key]["_hour_pattern"]["midnight"] = 0
+                    if self._patterns[key]["_hour_pattern"]["start"] > self._patterns[key]["_hour_pattern"]["end"]:
+                        self._patterns[key]["_hour_pattern"]["end"] += 24*60
+                        self._patterns[key]["_hour_pattern"]["midnight"] = 1
+                    self.logger.info("Hour pattern '%s' filter: %s", key, checkTime)
+ 
 
     def _clear_data(self, time_slot):
         """Clear data."""
@@ -525,6 +528,8 @@ class SegmentGatherer(object):
 
         # Convert check time into int variables
         rawT = (60 * rawHour) + rawMinute
+        if checkTime["midnight"] and rawT < checkTime["start"]:
+            rawT += 24*60
 
         # Check start end time
         if rawT >= checkTime["start"] and rawT <= checkTime["end"]:
