@@ -86,12 +86,16 @@ class SegmentGatherer(object):
                     startH, startM = startTime.split(':')
                     endH, endM = endTime.split(':')
                     deltaH, deltaM = deltaTime.split(':')
-                    self._patterns[key]["_hour_pattern"]= {}
-                    self._patterns[key]["_hour_pattern"]["start"] = (60 * int(startH)) + int(startM)
-                    self._patterns[key]["_hour_pattern"]["end"] = (60 * int(endH)) + int(endM)
-                    self._patterns[key]["_hour_pattern"]["delta"] = (60 * int(deltaH)) + int(deltaM)
-                    self.logger.info("Hour pattern '%s' filter: %s", key, checkTime)
- 
+                    self._patterns[key]["_hour_pattern"] = {}
+                    self._patterns[key]["_hour_pattern"]["start"] = (
+                        60 * int(startH)) + int(startM)
+                    self._patterns[key]["_hour_pattern"]["end"] = (
+                        60 * int(endH)) + int(endM)
+                    self._patterns[key]["_hour_pattern"]["delta"] = (
+                        60 * int(deltaH)) + int(deltaM)
+                    self.logger.info(
+                        "Hour pattern '%s' filter: %s", key, checkTime)
+
     def _clear_data(self, time_slot):
         """Clear data."""
         if time_slot in self.slots:
@@ -422,13 +426,13 @@ class SegmentGatherer(object):
 
         # Check if time of the raw is in scheduled range
         if self._patterns[key]["_hour_pattern"] is not None:
-            scheduleOk = self.check_schedule_time(self._patterns[key]["_hour_pattern"], 
+            scheduleOk = self.check_schedule_time(self._patterns[key]["_hour_pattern"],
                                                   metadata["start_time"].hour,
                                                   metadata["start_time"].minute)
             if not scheduleOk:
-                self.logger.info("Hour pattern '%s' skip: %s", key, msg.data["uid"])
+                self.logger.info("Hour pattern '%s' skip: %s",
+                                 key, msg.data["uid"])
                 return
-
 
         time_slot = self._find_time_slot(metadata["start_time"])
 
@@ -525,10 +529,11 @@ class SegmentGatherer(object):
         # Check start end time
         if rawT >= checkTime["start"] and rawT <= checkTime["end"]:
             # Raw time in range, check interval
-            if ((rawT - checkTime["start"])  % checkTime["delta"]) == 0:
+            if ((rawT - checkTime["start"]) % checkTime["delta"]) == 0:
                 toret = 1
 
         return toret
+
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
     """
