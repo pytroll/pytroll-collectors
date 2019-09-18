@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Cat segments together.
+
 ./l2processor.py -c /path/to/master_config.ini -C noaa_hrpt
 """
 
@@ -45,8 +46,7 @@ LOG = logging.getLogger(__name__)
 
 
 def arg_parse():
-    '''Handle input arguments.
-    '''
+    """Handle input arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log",
                         help="File to log to (defaults to stdout)",
@@ -63,6 +63,7 @@ def arg_parse():
 
 
 def reader(stream, log_func):
+    """Read the stream."""
     while True:
         s = stream.readline()
         if not s:
