@@ -90,16 +90,15 @@ class SegmentGatherer(object):
                     hour["start"] = (60 * int(startH)) + int(startM)
                     hour["end"] = (60 * int(endH)) + int(endM)
                     hour["delta"] = (60 * int(deltaH)) + int(deltaM)
-                    
+
                     # Start-End time across midnight
                     hour["midnight"] = 0
                     if hour["start"] > hour["end"]:
                         hour["end"] += 24*60
                         hour["midnight"] = 1
                     self._patterns[key]["_hour_pattern"] = hour
-                    self.logger.info("Hour pattern '%s' filter: %s", 
+                    self.logger.info("Hour pattern '%s' filter: %s",
                                      key, checkTime)
- 
 
     def _clear_data(self, time_slot):
         """Clear data."""
@@ -432,9 +431,9 @@ class SegmentGatherer(object):
         # Check if time of the raw is in scheduled range
         if "_hour_pattern" in self._patterns[key]:
             scheduleOk = self.check_schedule_time(
-                            self._patterns[key]["_hour_pattern"],
-                            metadata["start_time"].hour,
-                            metadata["start_time"].minute)
+                self._patterns[key]["_hour_pattern"],
+                metadata["start_time"].hour,
+                metadata["start_time"].minute)
             if not scheduleOk:
                 self.logger.info("Hour pattern '%s' skip: %s",
                                  key, msg.data["uid"])
