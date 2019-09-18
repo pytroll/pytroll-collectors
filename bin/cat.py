@@ -73,13 +73,16 @@ def reader(stream, log_func):
 
 
 class bunzipped(object):
+    """Bunzipped context."""
 
     def __init__(self, files, **kwargs):
+        """Init the context."""
         super(bunzipped, self).__init__(**kwargs)
         self._files = files
         self._to_del = []
 
     def __enter__(self):
+        """Enter the context."""
         filenames = []
         for filename in sorted(self._files):
             if filename.endswith(".bz2"):
@@ -98,6 +101,7 @@ class bunzipped(object):
         return filenames
 
     def __exit__(self, *args, **kwargs):
+        """Exit the context."""
         for filename in self._to_del:
             try:
                 LOG.debug("deleting %s...", filename)
@@ -107,6 +111,7 @@ class bunzipped(object):
 
 
 def popen(cmd):
+    """Run cmd in Popen."""
     p = Popen(cmd.split(), stderr=PIPE, stdout=PIPE)
     out_reader = threading.Thread(target=reader, args=(p.stdout, LOG.info))
     err_reader = threading.Thread(target=reader, args=(p.stderr, LOG.error))
@@ -117,6 +122,7 @@ def popen(cmd):
 
 
 def get_aliases(raw_config_str):
+    """Get the aliases from the config."""
     items = raw_config_str.split("|")
     aliases = {}
     for item in items:
@@ -126,6 +132,7 @@ def get_aliases(raw_config_str):
 
 
 def process_message(msg, config):
+    """Process the message."""
     pattern = config["output_file_pattern"]
     input_files = [item["uri"] for item in msg.data["collection"]]
 
@@ -176,6 +183,7 @@ def process_message(msg, config):
     msg2 = Message(msg.subject, "file", new_data)
 
     return msg2
+
 
 if __name__ == '__main__':
 
