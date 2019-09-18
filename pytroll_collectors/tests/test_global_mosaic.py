@@ -29,7 +29,8 @@ from pyresample.geometry import AreaDefinition
 from pyresample.utils import proj4_str_to_dict
 from posttroll import message
 from posttroll.ns import NameServer
-
+import pytest
+satpy = pytest.importorskip("satpy")
 import pytroll_collectors.global_mosaic as gm
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
