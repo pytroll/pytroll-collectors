@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2018 PyTroll Community
+# Copyright (c) 2013 - 2019 PyTroll Community
 
 # Author(s):
 
@@ -74,7 +74,7 @@ setup(name="pytroll_collectors",
       data_files=[],
       zip_safe=False,
       install_requires=['pykdtree', 'pyinotify', 'posttroll>=1.3.0',
-                        'trollsift', 'netifaces',
+                        'trollsift', 'netifaces', 'watchdog',
                         'pytroll-schedule', 'pyresample',
                         'pillow', 'pycoast', 'six'],
       tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],

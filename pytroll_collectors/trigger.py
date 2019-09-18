@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2014, 2015 Martin Raspaud
+# Copyright (c) 2012, 2014, 2015, 2019 Martin Raspaud
 
 # Author(s):
 
@@ -359,7 +359,7 @@ try:
 
 
 except ImportError:
-    LOG.error("Watchdog import failed!")
+    LOG.exception("Watchdog import failed!")
     WatchDogTrigger = None
 
 
