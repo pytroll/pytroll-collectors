@@ -21,22 +21,22 @@ import unittest
 import os
 import os.path
 import datetime as dt
-import time
 from threading import Thread
 
 import numpy as np
 
 from pyresample.geometry import AreaDefinition
-from pyresample.utils import _get_proj4_args
+from pyresample.utils import proj4_str_to_dict
 from posttroll import message
 from posttroll.ns import NameServer
-
+import pytest
+satpy = pytest.importorskip("satpy")
 import pytroll_collectors.global_mosaic as gm
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ADEF = AreaDefinition("EPSG4326", "EPSG:4326", "EPSG:4326",
-                      _get_proj4_args("init=EPSG:4326"),
+                      proj4_str_to_dict("init=EPSG:4326"),
                       200, 100,
                       (-180., -90., 180., 90.))
 

@@ -20,24 +20,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Test suite for the scisys receiver.
-"""
+"""Test suite for the scisys receiver."""
 
 
 # Test cases.
 
 import datetime
 import os
-import socket
 import unittest
 
 from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
 
-if os.environ.get('TRAVIS', False) == 'true':
-    # gethostbyname doesn't work on travis nodes
-    hostname = 'localhost'
-else:
-    hostname = socket.gethostname()
+hostname = 'localhost'
 
 input_stoprc = '<message timestamp="2013-02-18T09:21:35" sequence="7482" severity="INFO" messageID="0" type="2met.message" sourcePU="SMHI-Linux" sourceSU="POESAcquisition" sourceModule="POES" sourceInstance="1"><body>STOPRC Stop reception: Satellite: NPP, Orbit number: 6796, Risetime: 2013-02-18 09:08:09, Falltime: 2013-02-18 09:21:33</body></message>'
 

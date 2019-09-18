@@ -20,17 +20,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unittests for triggers
-"""
+"""Unittests for triggers."""
 
-import unittest
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-from pytroll_collectors.trigger import PostTrollTrigger
-from datetime import datetime, timedelta
 import time
+import unittest
+from datetime import datetime, timedelta
+
+try:
+    from unittest.mock import patch, Mock
+except ImportError:
+    from mock import patch, Mock
 
 messages = ['']
 
@@ -44,9 +43,9 @@ class FakeMessage(object):
 class TestPostTrollTrigger(unittest.TestCase):
 
     @patch('pytroll_collectors.trigger.NSSubscriber')
-    @patch('pytroll_collectors.region_collector.RegionCollector')
-    def test_timeout(self, rc, nssub):
-        collector = rc()
+    def test_timeout(self, nssub):
+        from pytroll_collectors.trigger import PostTrollTrigger
+        collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
         collector.return_value = None
 
@@ -56,9 +55,10 @@ class TestPostTrollTrigger(unittest.TestCase):
                                publish_topic=None)
 
         sub = ptt.msgproc.nssub.start.return_value
-        sub.recv.return_value = iter([FakeMessage({"a": "a"}),
-                                      FakeMessage({"b": "b"}),
-                                      FakeMessage({"c": "c"})])
+        sub.recv.return_value = iter([FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2}),
+                                      FakeMessage(
+                                          {"b": "b", 'start_time': 1, 'end_time': 2}),
+                                      FakeMessage({"c": "c", 'start_time': 1, 'end_time': 2})])
 
         ptt.start()
         time.sleep(.4)
@@ -67,13 +67,13 @@ class TestPostTrollTrigger(unittest.TestCase):
 
 
 def suite():
-    """The suite for test_trigger
-    """
+    """Test suite for test_trigger."""
     loader = unittest.TestLoader()
     mysuite = unittest.TestSuite()
     mysuite.addTest(loader.loadTestsFromTestCase(TestPostTrollTrigger))
 
     return mysuite
+
 
 if __name__ == '__main__':
     unittest.main()
