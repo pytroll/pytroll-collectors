@@ -35,15 +35,19 @@ messages = ['']
 
 
 class FakeMessage(object):
+    """Fake messages."""
 
     def __init__(self, data):
+        """Init the fake message."""
         self.data = data
 
 
 class TestPostTrollTrigger(unittest.TestCase):
+    """Test the posttroll trigger."""
 
     @patch('pytroll_collectors.trigger.NSSubscriber')
     def test_timeout(self, nssub):
+        """Test timing out."""
         from pytroll_collectors.trigger import PostTrollTrigger
         collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
