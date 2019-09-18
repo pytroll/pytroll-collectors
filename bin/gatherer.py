@@ -76,8 +76,7 @@ def get_metadata(fname):
 
 
 def terminator(metadata, publish_topic=None):
-    """Dummy terminator function.
-    """
+    """Terminate the gathering."""
     sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
 
     mda = metadata[0].copy()
@@ -121,8 +120,7 @@ def terminator(metadata, publish_topic=None):
 
 
 def arg_parse():
-    """Handle input arguments.
-    """
+    """Handle input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -140,9 +138,7 @@ def arg_parse():
 
 
 def setup(decoder):
-    """Setup the granule triggerer.
-    """
-
+    """Set up the granule triggerer."""
     granule_triggers = []
 
     for section in CONFIG.sections():
@@ -205,9 +201,7 @@ def setup(decoder):
 
 
 def main():
-    """Main() for gatherer.
-    """
-
+    """Run the gatherer."""
     global LOGGER
     global PUB
 

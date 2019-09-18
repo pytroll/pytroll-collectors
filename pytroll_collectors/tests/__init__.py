@@ -20,8 +20,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""The tests package.
-"""
+"""The tests package."""
 
 import unittest
 # import doctest
@@ -34,8 +33,7 @@ from pytroll_collectors.tests import (test_helper_functions,
 
 
 def suite():
-    """The global test suite.
-    """
+    """Test suite."""
     mysuite = unittest.TestSuite()
     # Test the documentation strings
     # mysuite.addTests(doctest.DocTestSuite(image))

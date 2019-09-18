@@ -65,11 +65,10 @@ SCISYS_NAMES = {'Suomi-NPP': 'NPP',
 
 
 class TwoMetMessage(object):
-
-    """Interperter for 2met! messages.
-    """
+    """Interperter for 2met! messages."""
 
     def __init__(self, mstring=None):
+        """Init the message."""
         self._id = 0
         self._type = ""
         self._time = datetime.utcnow()
@@ -79,8 +78,7 @@ class TwoMetMessage(object):
         self._attrs = {}
 
     def _internal_decode(self, mstring):
-        """Decode 2met! messages, internal format.
-        """
+        """Decode 2met! messages, internal format."""
         dummy, content = mstring.split("[", 1)
         content = content.rsplit("]", 1)[0]
         dic = dict((item.split("=", 1) for item in content.split(", ", 3)))
@@ -94,8 +92,7 @@ class TwoMetMessage(object):
         self._type = eval(dic["type"])
 
     def _xml_decode(self, mstring):
-        """Decode xml 2met! messages.
-        """
+        """Decode xml 2met! messages."""
         root = etree.fromstring(mstring)
         self._attrs = dict(root.items())
 
@@ -108,15 +105,13 @@ class TwoMetMessage(object):
                 self.body = child.text
 
     def _decode(self, mstring):
-        """Decode 2met! messages.
-        """
-
+        """Decode 2met! messages."""
         if mstring.startswith("Message["):
             self._internal_decode(mstring)
         elif mstring.startswith("<message"):
             try:
                 self._xml_decode(mstring)
-            except:
+            except Exception:
                 LOGGER.exception("Spurious message! %s", str(mstring))
         else:
             LOGGER.warning("Don't know how to decode message: %s",
@@ -124,21 +119,23 @@ class TwoMetMessage(object):
 
 
 def pass_name(utctime, satellite):
-    """Construct a unique pass name from a risetime and a satellite name.
-    """
+    """Construct a unique pass name from a risetime and a satellite name."""
     # return utctime.strftime("%Y%m%dT%H%M%S") + "_".join(satellite.split(" "))
     return utctime, "_".join(satellite.split(" "))
 
 
 class PassRecorder(dict):
+    """Recorder for passes."""
 
     def iter(self):
+        """Return an iterator over the passes."""
         if hasattr(self, 'iteritems'):
-            return self.iteritems()
+            return self.iteritems()  # noqa
         else:
             return self.items()
 
     def get(self, key, default=None):
+        """Get a pass."""
         utctime, satellite = key
         for (rectime, recsat), val in self.iter():
             if(recsat == satellite and
@@ -149,11 +146,10 @@ class PassRecorder(dict):
 
 
 class MessageReceiver(object):
-
-    """Interprets received messages between stop reception and file dispatch.
-    """
+    """Interprets received messages between stop reception and file dispatch."""
 
     def __init__(self, emitter, excluded_satellite_list=None):
+        """Init the receiver."""
         self._received_passes = PassRecorder()
         self._distributed_files = {}
         self._emitter = emitter
@@ -163,8 +159,7 @@ class MessageReceiver(object):
             self._excluded_platforms = []
 
     def add_pass(self, message):
-        """Formats pass info and adds it to the object.
-        """
+        """Format pass info and add it to the object."""
         info = dict((item.split(": ", 1) for item in message.split(", ", 3)))
         LOGGER.info("Adding pass: %s", str(info))
         pass_info = {}
@@ -187,8 +182,7 @@ class MessageReceiver(object):
         self._received_passes[pname] = pass_info
 
     def clean_passes(self, days=1):
-        """Clean old passes from the pass dict (_received_passes).
-        """
+        """Clean old passes from the pass dict (`_received_passes`)."""
         oldies = []
 
         for key, val in self._received_passes.items():
@@ -432,8 +426,10 @@ def compose_dest_url(source, dest):
 
 
 class GMCSubscriber(object):
+    """Listener for GMC messages."""
 
     def __init__(self, host, port):
+        """Init the subscriber."""
         self._host = host
         self._port = port
         self._sock = None
@@ -442,8 +438,7 @@ class GMCSubscriber(object):
         self.loop = True
 
     def recv(self):
-        """Receive messages.
-        """
+        """Receive messages."""
         while self.loop:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
@@ -480,14 +475,12 @@ class GMCSubscriber(object):
                 self._sock.close()
 
     def stop(self):
+        """Stop the listener."""
         self.loop = False
 
 
 def receive_from_zmq(host, port, station, environment, excluded_platforms, days=1):
-    """Receive 2met! messages from zeromq.
-    """
-
-    # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
+    """Receive 2met! messages from zeromq."""
     sock = GMCSubscriber(host, port)
     msg_rec = MessageReceiver(host, excluded_platforms)
 
@@ -511,13 +504,3 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms, days=
             pub.send(msg)
             if days:
                 msg_rec.clean_passes(days)
-
-
-if __name__ == '__main__':
-    rawmsg = '<message timestamp="2018-02-07T02:06:05" sequence="152" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN RATMS-RNSCA_npp_d20180207_t0205166_e0205486_b00001_c20180207020559052000_all-_dev.h5 -&gt; 10.120.1.66:/tmp</body></message>'
-    rawmsg = '<message timestamp="2018-02-12T11:14:06" sequence="9194" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN 20180212110043_NOAA_19.hmf -&gt; 192.168.122.1:/tmp</body></message>'
-
-    string = TwoMetMessage(rawmsg)
-    msg_rec = MessageReceiver('merlin')
-    ret = msg_rec.receive(string)
-    print(ret)
