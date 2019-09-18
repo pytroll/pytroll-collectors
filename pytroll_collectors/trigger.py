@@ -24,14 +24,15 @@
 
 """Triggers for region_collectors."""
 
-from pyinotify import (ProcessEvent, Notifier, WatchManager,
-                       IN_CLOSE_WRITE, IN_MOVED_TO)
 import logging
+import os.path
 from datetime import datetime, timedelta
 from fnmatch import fnmatch
-import os.path
-from posttroll.subscriber import NSSubscriber
+from threading import Event, Thread
 
+from posttroll.subscriber import NSSubscriber
+from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
+                       WatchManager)
 
 LOG = logging.getLogger(__name__)
 
@@ -89,13 +90,8 @@ class Trigger(object):
                 return self.terminator(res, publish_topic=self.publish_topic)
 
 
-from threading import Thread, Event
-
-
 class FileTrigger(Trigger, Thread):
-
-    """File trigger, acting upon inotify events.
-    """
+    """File trigger, acting upon inotify events."""
 
     def __init__(self, collectors, terminator, decoder, publish_topic=None, publish_message_after_each_reception=False):
         Thread.__init__(self)

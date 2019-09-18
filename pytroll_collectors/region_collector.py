@@ -22,8 +22,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Region collector.
-"""
+"""Region collector."""
 
 import os
 from datetime import timedelta, datetime
@@ -63,7 +62,7 @@ class RegionCollector(object):
         return self.collect(granule_metadata)
 
     def collect(self, granule_metadata):
-        """ 
+        """
             Parameters:
 
                 granule_metadata : metadata
