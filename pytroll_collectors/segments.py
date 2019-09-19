@@ -78,26 +78,35 @@ class SegmentGatherer(object):
         # Convert check time into int minutes variables
         for key in self._patterns:
             if "hour_pattern" in self._patterns[key]:
-                checkTime = self._patterns[key]["hour_pattern"]
-                # Ex. checkTime =  "06:00 18:00 00:30"
-                startTime, endTime, deltaTime = checkTime.split(' ')
-                if startTime != '' and endTime != '' and deltaTime != '':
-                    startH, startM = startTime.split(':')
-                    endH, endM = endTime.split(':')
-                    deltaH, deltaM = deltaTime.split(':')
-                    hour = {}
-                    hour["start"] = (60 * int(startH)) + int(startM)
-                    hour["end"] = (60 * int(endH)) + int(endM)
-                    hour["delta"] = (60 * int(deltaH)) + int(deltaM)
+                time_conf = self._patterns[key]["hour_pattern"]
+                start_time_str = "00:00"
+                end_time_str = "23:59"
+                delta_time_str = "00:01"
+                if "start_time" in time_conf:
+                    start_time_str = time_conf["start_time"]
+                if "end_time" in time_conf:
+                    end_time_str = time_conf["end_time"]
+                if "delta_time" in time_conf:
+                    delta_time_str = time_conf["delta_time"]
 
-                    # Start-End time across midnight
-                    hour["midnight"] = 0
-                    if hour["start"] > hour["end"]:
-                        hour["end"] += 24*60
-                        hour["midnight"] = 1
-                    self._patterns[key]["_hour_pattern"] = hour
-                    self.logger.info("Hour pattern '%s' filter: %s",
-                                     key, checkTime)
+                start_h, start_m = start_time_str.split(':')
+                end_h, end_m = end_time_str.split(':')
+                delta_h, delta_m = delta_time_str.split(':')
+                hour = {}
+                hour["start"] = (60 * int(start_h)) + int(start_m)
+                hour["end"] = (60 * int(end_h)) + int(end_m)
+                hour["delta"] = (60 * int(delta_h)) + int(delta_m)
+
+                # Start-End time across midnight
+                hour["midnight"] = False
+                if hour["start"] > hour["end"]:
+                    hour["end"] += 24*60
+                    hour["midnight"] = True
+                self._patterns[key]["_hour_pattern"] = hour
+                self.logger.info("Hour pattern '%s' " +
+                                 "filter start:%s end:%s delta:%s",
+                                 key, start_time_str, end_time_str,
+                                 delta_time_str)
 
     def _clear_data(self, time_slot):
         """Clear data."""
@@ -430,11 +439,11 @@ class SegmentGatherer(object):
 
         # Check if time of the raw is in scheduled range
         if "_hour_pattern" in self._patterns[key]:
-            scheduleOk = self.check_schedule_time(
+            schedule_ok = self.check_schedule_time(
                 self._patterns[key]["_hour_pattern"],
                 metadata["start_time"].hour,
                 metadata["start_time"].minute)
-            if not scheduleOk:
+            if not schedule_ok:
                 self.logger.info("Hour pattern '%s' skip: %s",
                                  key, msg.data["uid"])
                 return
@@ -526,20 +535,20 @@ class SegmentGatherer(object):
 
         return str(time_obj)
 
-    def check_schedule_time(self, checkTime, rawHour, rawMinute):
+    def check_schedule_time(self, check_time, raw_hour, raw_minute):
         # Check if raw time is inside configured interval
-        toret = 0
+        toret = False
 
         # Convert check time into int variables
-        rawT = (60 * rawHour) + rawMinute
-        if checkTime["midnight"] and rawT < checkTime["start"]:
-            rawT += 24*60
+        raw_time = (60 * raw_hour) + raw_minute
+        if check_time["midnight"] and raw_time < check_time["start"]:
+            raw_time += 24*60
 
-        # Check start end time
-        if rawT >= checkTime["start"] and rawT <= checkTime["end"]:
+        # Check start and end time
+        if raw_time >= check_time["start"] and raw_time <= check_time["end"]:
             # Raw time in range, check interval
-            if ((rawT - checkTime["start"]) % checkTime["delta"]) == 0:
-                toret = 1
+            if ((raw_time - check_time["start"]) % check_time["delta"]) == 0:
+                toret = True
 
         return toret
 
