@@ -21,8 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Setup for pytroll_collectors.
-"""
+"""Setup for pytroll_collectors."""
 from setuptools import setup
 import imp
 import os
@@ -62,7 +61,6 @@ setup(name="pytroll_collectors",
       scripts=['bin/trollstalker.py',
                'bin/trollstalker2.py',
                'bin/gatherer.py',
-               'bin/geo_gatherer.py',
                'bin/segment_gatherer.py',
                'bin/cat.py',
                'bin/catter.py',
