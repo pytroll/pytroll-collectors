@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2018 PyTroll Community
+# Copyright (c) 2013 - 2019 PyTroll Community
 
 # Author(s):
 
@@ -21,8 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Setup for pytroll_collectors.
-"""
+"""Setup for pytroll_collectors."""
 from setuptools import setup
 import imp
 import os
@@ -62,7 +61,6 @@ setup(name="pytroll_collectors",
       scripts=['bin/trollstalker.py',
                'bin/trollstalker2.py',
                'bin/gatherer.py',
-               'bin/geo_gatherer.py',
                'bin/segment_gatherer.py',
                'bin/cat.py',
                'bin/catter.py',
@@ -74,7 +72,7 @@ setup(name="pytroll_collectors",
       data_files=[],
       zip_safe=False,
       install_requires=['pykdtree', 'pyinotify', 'posttroll>=1.3.0',
-                        'trollsift', 'netifaces',
+                        'trollsift', 'netifaces', 'watchdog',
                         'pytroll-schedule', 'pyresample',
                         'pillow', 'pycoast', 'six'],
       tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],

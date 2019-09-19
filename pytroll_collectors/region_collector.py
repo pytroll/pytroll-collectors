@@ -22,8 +22,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Region collector.
-"""
+"""Region collector."""
 
 import os
 from datetime import timedelta, datetime
@@ -38,38 +37,35 @@ PLOT = False
 
 
 class RegionCollector(object):
+    """This is the region collector.
 
-    """This is the region collector. It collects granules that overlap on a
-    region of interest and return the collection of granules when it's done.
+    It collects granules that overlap on a region of interest and return the
+    collection of granules when it's done.
 
     *timeliness* defines the max allowed age of the granule.
 
     """
 
     def __init__(self, region,
-                 timeliness=timedelta(seconds=600),
+                 timeliness=None,
                  granule_duration=None):
+        """Initialize the region collector."""
         self.region = region  # area def
         self.granule_times = set()
         self.granules = []
         self.planned_granule_times = set()
-        self.timeliness = timeliness
+        self.timeliness = timeliness or timedelta(seconds=600)
         self.timeout = None
         self.granule_duration = granule_duration
         self.last_file_added = False
         self.sensor = None
 
     def __call__(self, granule_metadata):
+        """Perform the collection on the granule."""
         return self.collect(granule_metadata)
 
     def collect(self, granule_metadata):
-        """ 
-            Parameters:
-
-                granule_metadata : metadata
-
-        """
-
+        """Do the collection."""
         # Check if input data is being waited for
 
         if "tle_platform_name" in granule_metadata:
@@ -221,7 +217,7 @@ class RegionCollector(object):
             return self.finish()
 
     def is_swath_complete(self):
-        '''Check if the swath is complete'''
+        """Check if the swath is complete."""
         if self.granule_times:
             if self.planned_granule_times.issubset(self.granule_times):
                 return True
@@ -243,36 +239,29 @@ class RegionCollector(object):
         return False
 
     def cleanup(self):
-        '''Clear members.
-        '''
+        """Clear members."""
         self.granule_times = set()
         self.granules = []
         self.planned_granule_times = set()
         self.timeout = None
 
     def finish(self):
-        '''Finish collection, add area ID to metadata, cleanup and return
-        granule metadata.
-        '''
+        """Finish collection, add area ID to metadata, cleanup and return granule metadata."""
         granules = self.granules
         self.cleanup()
         return granules
 
     def finish_without_reset(self):
-        '''Finish collection, add area ID to metadata, DON'T cleanup and return
-        granule metadata.
-        '''
+        """Finish collection, add area ID to metadata, DON'T cleanup and return granule metadata."""
         return self.granules
 
     def is_last_file_added(self):
-        '''Return if last file was added to the region
-        '''
+        """Return if last file was added to the region."""
         return self.last_file_added
 
 
 def read_granule_metadata(filename):
-    """Read granule metadata.
-    """
+    """Read granule metadata."""
     import json
     with open(filename) as jfp:
         metadata = json.load(jfp)[0]

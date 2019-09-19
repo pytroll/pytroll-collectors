@@ -14,34 +14,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit testing for global mosaic
-"""
+"""Unit testing for global mosaic."""
 
 import unittest
 import os
 import os.path
 import datetime as dt
-import time
 from threading import Thread
 
 import numpy as np
 
 from pyresample.geometry import AreaDefinition
-from pyresample.utils import _get_proj4_args
+from pyresample.utils import proj4_str_to_dict
 from posttroll import message
 from posttroll.ns import NameServer
-
+import pytest
+satpy = pytest.importorskip("satpy")  # noqa
 import pytroll_collectors.global_mosaic as gm
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ADEF = AreaDefinition("EPSG4326", "EPSG:4326", "EPSG:4326",
-                      _get_proj4_args("init=EPSG:4326"),
+                      proj4_str_to_dict("init=EPSG:4326"),
                       200, 100,
                       (-180., -90., 180., 90.))
 
 
 class TestWorldCompositeDaemon(unittest.TestCase):
+    """Test the world composite daemon."""
 
     adef = ADEF
 
@@ -61,19 +61,18 @@ class TestWorldCompositeDaemon(unittest.TestCase):
     empty_image = os.path.join(THIS_DIR, "data", "empty.png")
 
     def setUp(self):
-        # Start a nameserver
+        """Start a nameserver."""
         self.ns_ = NameServer(max_age=dt.timedelta(seconds=3))
         self.thr = Thread(target=self.ns_.run)
         self.thr.start()
 
     def tearDown(self):
-        # Stop nameserver
+        """Stop nameserver."""
         self.ns_.stop()
         self.thr.join()
 
-    def test_WorldCompositeDaemon(self):
-        """Test WorldCompositeDaemon"""
-
+    def test_world_composite_daemon(self):
+        """Test WorldCompositeDaemon."""
         # Test incoming message handling and saving
 
         # Epoch: message sending time
@@ -107,8 +106,8 @@ class TestWorldCompositeDaemon(unittest.TestCase):
             self.assertEqual(comp.slots[self.tslot]["wv"]["num"], i + 1)
 
             # Timeout
-            diff = (comp.slots[self.tslot]["wv"]["timeout"] - (epoch +
-                    dt.timedelta(minutes=config["timeout"])))
+            diff = (comp.slots[self.tslot]["wv"]["timeout"] -
+                    (epoch + dt.timedelta(minutes=config["timeout"])))
             self.assertAlmostEqual(diff.total_seconds(), 0.0, places=2)
 
             comp._check_timeouts_and_save()
@@ -172,6 +171,7 @@ class TestWorldCompositeDaemon(unittest.TestCase):
 
 
 class TestGlobalMosaic(unittest.TestCase):
+    """Test the global mosaic."""
 
     adef = ADEF
 
@@ -191,7 +191,7 @@ class TestGlobalMosaic(unittest.TestCase):
     empty_image = os.path.join(THIS_DIR, "data", "empty.png")
 
     def test_calc_pixel_mask_limits(self):
-        """Test calculation of pixel mask limits"""
+        """Test calculation of pixel mask limits."""
         # Mask data from edges
         lon_limits = [-25., 25.]
         result = gm.calc_pixel_mask_limits(self.adef, lon_limits)
@@ -204,7 +204,7 @@ class TestGlobalMosaic(unittest.TestCase):
         self.assertTrue(np.all(np.array(result) == np.array([[5, 194]])))
 
     def test_read_image(self):
-        """Test reading and masking images"""
+        """Test reading and masking images."""
         # Non-existent image
         result = gm.read_image("asdasd.png", self.adef, lon_limits=None)
         self.assertIsNone(result)
@@ -214,10 +214,9 @@ class TestGlobalMosaic(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(np.array(result))))
 
     def test_create_world_composite(self):
-        """Test world composite creation"""
-
+        """Test world composite creation."""
         def _compare_images(img1, img2):
-            """Compare data and masks for each channel"""
+            """Compare data and masks for each channel."""
             # Smallest step for 8-bit input data
             min_step = 1. / 255.
             diff = np.array(np.abs(img1 - img2))
@@ -245,14 +244,14 @@ class TestGlobalMosaic(unittest.TestCase):
 
 
 def suite():
-    """The suite for test_global_mosaic
-    """
+    """Test suite for test_global_mosaic."""
     loader = unittest.TestLoader()
     mysuite = unittest.TestSuite()
     mysuite.addTest(loader.loadTestsFromTestCase(TestWorldCompositeDaemon))
     mysuite.addTest(loader.loadTestsFromTestCase(TestGlobalMosaic))
 
     return mysuite
+
 
 if __name__ == "__main__":
     unittest.TextTestRunner(verbosity=2).run(suite())

@@ -20,18 +20,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Posttroll runner for the zipcollector: Listen to messages with datasets
-(from gatherer) and zip files in the dataset together into one tar file and
-store on disk in configurable destination directory
+"""Posttroll runner for the zipcollector.
+
+Listen to messages with datasets (from gatherer) and zip files in the dataset
+together into one tar file and store on disk in configurable destination directory.
 
 """
 
-import os
-import yaml
-import shutil
-import tarfile
-
 import logging
+import os
+import shutil
+import sys
+import tarfile
+from datetime import timedelta
+
+import yaml
+from six.moves.urllib.parse import urlparse
+
+import posttroll.subscriber
+from posttroll.publisher import Publish
+from trollsift.parser import compose
+
 LOG = logging.getLogger(__name__)
 
 #: Default time format
@@ -44,13 +53,6 @@ ENV_MODE = os.getenv("ENV_MODE")
 if ENV_MODE is None:
     ENV_MODE = "offline"
 
-import sys
-from six.moves.urllib.parse import urlparse
-from datetime import timedelta
-
-import posttroll.subscriber
-from posttroll.publisher import Publish
-from trollsift.parser import compose
 
 PLATFORM_NAME = {'Meteosat-10': 'met10',
                  'Meteosat-11': 'met11',
@@ -59,10 +61,9 @@ PLATFORM_NAME = {'Meteosat-10': 'met10',
 
 
 def get_arguments():
-    """
-    Get command line arguments
-    Return
-    name of the service and the config filepath
+    """Get command line arguments.
+
+    Return name of the service and the config filepath
     """
     import argparse
 
@@ -102,8 +103,7 @@ def get_arguments():
 
 
 def get_config(configfile, service, procenv):
-    """Get the configuration from file"""
-
+    """Get the configuration from file."""
     with open(configfile, 'r') as fp_:
         config = yaml.load(fp_)
 
@@ -123,8 +123,7 @@ def get_config(configfile, service, procenv):
 
 
 def start_zipcollector(registry, message, options, **kwargs):
-    """From a posttroll (gatherer) message start the pytroll zip collector"""
-
+    """From a posttroll (gatherer) message start the pytroll zip collector."""
     del kwargs
     outdir_destination = options['destination_output_dir']
     outdir_local = options['local_output_dir']
@@ -154,7 +153,7 @@ def start_zipcollector(registry, message, options, **kwargs):
         end_time = message.data['end_time']
     else:
         LOG.warning("No end time in message!")
-        end_time = start_time + timedelta(seconds=60 * 12)
+        end_time = start_time + timedelta(seconds=60 * 12)  # noqa
 
     if 'seviri' not in message.data['sensor']:
         LOG.debug("Scene is not supported")
@@ -212,11 +211,12 @@ def start_zipcollector(registry, message, options, **kwargs):
 
 
 def copy_file_to_destination(inpath, outpath):
-    """Copy a file from one destination (typical local disk or a SAN type disk
-    storage) to another (typically NFS based filesystem) using tempfile
+    """Copy a file.
+
+    Copy a file from one destination (typical local disk or a SAN type disk storage)
+    to another (typically NFS based filesystem) using tempfile
 
     """
-
     import tempfile
     tmp_filepath = tempfile.mktemp(suffix='_' + os.path.basename(outpath),
                                    dir=os.path.dirname(outpath))
@@ -227,8 +227,7 @@ def copy_file_to_destination(inpath, outpath):
 
 
 def zipcollector_live_runner(options):
-    """Listens and triggers processing"""
-
+    """Listen and trigger processing."""
     LOG.info("*** Start the zipcollector runner:")
     LOG.debug("Listens for messages of type: %s", options['message_type'])
     with posttroll.subscriber.Subscribe('', [options['message_type'], ], True) as subscr:
