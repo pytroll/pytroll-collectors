@@ -132,6 +132,11 @@ def arg_parse():
     parser.add_argument("-c", "--config-item",
                         help="config item to use (all by default). Can be specified multiply times",
                         action="append")
+    parser.add_argument("-p", "--publish-port",
+                        help="Port to publish the messages on. Default: automatic")
+    parser.add_argument("-n", "--nameservers",
+                        help=("Connect publisher to given nameservers: "
+                              "'localhost,123.456.789.0'. Default: localhost"))
     parser.add_argument("config", help="config file to be used")
 
     return parser.parse_args()
@@ -247,9 +252,20 @@ def main():
             LOGGER.error("No valid config item provided")
             return
 
+    if opts.publish_port:
+        publish_port = int(opts.publish_port)
+    else:
+        publish_port = 0
+
+    if opts.nameservers:
+        publisher_nameservers = opts.nameservers.split(',')
+    else:
+        publisher_nameservers = None
+
     decoder = get_metadata
 
-    PUB = publisher.NoisyPublisher("gatherer")
+    PUB = publisher.NoisyPublisher("gatherer", port=publish_port,
+                                   nameservers=publisher_nameservers)
 
     granule_triggers = setup(decoder)
 
