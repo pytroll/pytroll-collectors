@@ -56,12 +56,12 @@ class EventHandler(ProcessEvent):
      *filepattern* - filepattern for finding information from the filename
     """
 
-    def __init__(self, topic, instrument, posttroll_port=0, filepattern=None,
+    def __init__(self, topic, instrument, config_item, posttroll_port=0, filepattern=None,
                  aliases=None, tbus_orbit=False, history=0, granule_length=0,
                  custom_vars=None, nameservers=[], watchManager=None):
         super(EventHandler, self).__init__()
 
-        self._pub = NoisyPublisher("trollstalker", posttroll_port, topic,
+        self._pub = NoisyPublisher("trollstalker_" + config_item, posttroll_port, topic,
                                    nameservers=nameservers)
         self.pub = self._pub.start()
         self.topic = topic
@@ -260,7 +260,7 @@ class NewThreadedNotifier(ThreadedNotifier):
 
 
 def create_notifier(topic, instrument, posttroll_port, filepattern,
-                    event_names, monitored_dirs, aliases=None,
+                    event_names, monitored_dirs, config_item, aliases=None,
                     tbus_orbit=False, history=0, granule_length=0,
                     custom_vars=None, nameservers=[]):
     '''Create new notifier'''
@@ -279,6 +279,7 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
             LOGGER.warning('Event ' + event + ' not found in pyinotify')
 
     event_handler = EventHandler(topic, instrument,
+                                 config_item,
                                  posttroll_port=posttroll_port,
                                  filepattern=filepattern,
                                  aliases=aliases,
@@ -381,6 +382,7 @@ def main():
     event_names = args.event_names
     instrument = args.instrument
     nameservers = args.nameservers
+    config_item = args.config_item
 
     filepattern = args.filepattern
     if args.filepattern == '':
@@ -471,7 +473,7 @@ def main():
 
     # Start watching for new files
     notifier = create_notifier(topic, instrument, posttroll_port, filepattern,
-                               event_names, monitored_dirs, aliases=aliases,
+                               event_names, monitored_dirs, config_item, aliases=aliases,
                                tbus_orbit=tbus_orbit, history=history,
                                granule_length=granule_length,
                                custom_vars=custom_vars,

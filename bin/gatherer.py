@@ -258,7 +258,7 @@ def main():
 
     decoder = get_metadata
 
-    PUB = publisher.NoisyPublisher("gatherer", port=publish_port,
+    PUB = publisher.NoisyPublisher("gatherer_" + opts.config_item, port=publish_port,
                                    nameservers=publisher_nameservers)
 
     granule_triggers = setup(decoder)
