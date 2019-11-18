@@ -77,8 +77,7 @@ class SegmentGatherer(object):
         self.add_minutes = config.get('add_minutes', 0)
         self.add_minutes_multiplier = config.get('add_minutes_multiplier', 1)
 
-        self._use_message_start_time = config.get('use_message_start_time',
-                                                  True)
+        self._keep_parsed_keys = config.get('keep_parsed_keys', [])
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
@@ -411,10 +410,8 @@ class SegmentGatherer(object):
         mda = parser.parse(msg.data["uid"])
         mda = self._add_minutes(mda)
 
-        time_name = self.time_name
-        if self._use_message_start_time:
-            time_name = None
-        metadata = copy_metadata(mda, msg, time_name=time_name)
+        metadata = copy_metadata(mda, msg,
+                                 keep_parsed_keys=self.keep_parsed_keys)
 
         time_slot = self._find_time_slot(metadata[self.time_name])
 
@@ -610,16 +607,18 @@ def ini_to_dict(fname, section):
         pass
 
     try:
-        conf['use_message_start_time'] = \
-            config.getboolean(section, 'use_message_start_time')
+        kps = config.get(section, 'keep_parsed_keys')
+        conf['keep_parsed_keys'] = kps.split()
     except NoOptionError:
         pass
 
     return conf
 
 
-def copy_metadata(mda, msg, time_name=None):
+def copy_metadata(mda, msg, keep_parsed_keys=None):
     """Copy metada from filename and message to a combined dictionary."""
+    if keep_parsed_keys is None:
+        keep_parsed_keys = []
     metadata = {}
     # Use values parsed from the filename as basis
     for key in mda:
@@ -629,7 +628,7 @@ def copy_metadata(mda, msg, time_name=None):
     # Update with data given in the message
     for key in msg.data:
         # If time name is given, do not overwrite it
-        if key not in DO_NOT_COPY_KEYS and key != time_name:
+        if key not in DO_NOT_COPY_KEYS and key not in keep_parsed_keys:
             metadata[key] = msg.data[key]
 
     return metadata

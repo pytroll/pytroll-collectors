@@ -404,7 +404,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(res['c'], 3)
 
         # Keep 'a' from parsed metadata
-        res = copy_metadata(mda, msg, time_name='a')
+        res = copy_metadata(mda, msg, keep_parsed_keys=['a'])
         self.assertEqual(res['a'], 1)
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
