@@ -71,6 +71,11 @@ class SegmentGatherer(object):
                          key in self._patterns}
 
         self.time_name = config.get('time_name', 'start_time')
+        # Add `add_minutes * add_minutes_multiplier` to the start time
+        # If these values are strings, use those as filename pattern
+        # field names and get the numbers from the filename
+        self.add_minutes = config.get('add_minutes', 0)
+        self.add_minutes_multiplier = config.get('add_minutes_multiplier', 1)
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
@@ -401,6 +406,7 @@ class SegmentGatherer(object):
 
         parser = self._parsers[key]
         mda = parser.parse(msg.data["uid"])
+        mda = self._add_minutes(mda)
 
         metadata = copy_metadata(mda, msg)
 
@@ -412,6 +418,18 @@ class SegmentGatherer(object):
 
         # Check if this file has been received already
         self.add_file(time_slot, key, mda, msg.data)
+
+    def _add_minutes(self, mda):
+        """Add minutes to the start_time."""
+        minutes = self.add_minutes
+        multiplier = self.add_minutes_multiplier
+        if isinstance(minutes, str):
+            minutes = mda.get(minutes, 0)
+        if instance(multiplier, str):
+            multiplier = mda.get(multiplier, 1)
+        mda[self.time_name] += dt.timedelta(minutes * multiplier)
+
+        return mda
 
     def add_file(self, time_slot, key, mda, msg_data):
         """Add file to the correct filelist."""
@@ -564,6 +582,26 @@ def ini_to_dict(fname, section):
             config.getint(section, "num_files_premature_publish")
     except (NoOptionError, ValueError):
         conf['num_files_premature_publish'] = -1
+
+    try:
+        conf['add_minutes'] = config.get(section, 'add_minutes')
+        try:
+            conf['add_minutes'] = float(conf['add_minutes'])
+        except ValueError:
+            pass
+    except NoOptionError:
+        pass
+
+    try:
+        conf['add_minutes_multiplier'] = config.get(section,
+                                                    'add_minutes_multiplier')
+        try:
+            conf['add_minutes_multiplier'] = \
+                float(conf['add_minutes_multiplier'])
+        except ValueError:
+            pass
+    except NoOptionError:
+        pass
 
     return conf
 
