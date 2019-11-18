@@ -410,7 +410,7 @@ class SegmentGatherer(object):
 
         metadata = copy_metadata(mda, msg)
 
-        time_slot = self._find_time_slot(metadata["start_time"])
+        time_slot = self._find_time_slot(metadata[self.time_name])
 
         # Init metadata etc if this is the first file
         if time_slot not in self.slots:
