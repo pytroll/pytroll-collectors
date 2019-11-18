@@ -408,7 +408,7 @@ class SegmentGatherer(object):
         mda = parser.parse(msg.data["uid"])
         mda = self._add_minutes(mda)
 
-        metadata = copy_metadata(mda, msg)
+        metadata = copy_metadata(msg, mda)
 
         time_slot = self._find_time_slot(metadata[self.time_name])
 
@@ -606,7 +606,7 @@ def ini_to_dict(fname, section):
     return conf
 
 
-def copy_metadata(mda, msg):
+def copy_metadata(msg, mda):
     """Copy metada from filename and message to a combined dictionary."""
     metadata = {}
     # Use values parsed from the filename as basis
