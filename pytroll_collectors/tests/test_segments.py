@@ -386,6 +386,29 @@ class TestSegmentGatherer(unittest.TestCase):
         #    2 * 20 = 20
         self.assertEqual(mda2['start_time'].minute, 20)
 
+    def test_copy_metadata(self):
+        """Test combining metadata from a message and parsed from filename."""
+        from pytroll_collectors.segments import copy_metadata
+        try:
+            from unittest import mock
+        except ImportError:
+            import mock
+
+        mda = {'a': 1, 'b': 2}
+        msg = mock.MagicMock()
+        msg.data = {'a': 2, 'c': 3}
+
+        res = copy_metadata(mda, msg)
+        self.assertEqual(res['a'], 2)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
+
+        # Keep 'a' from parsed metadata
+        res = copy_metadata(mda, msg, time_name='a')
+        self.assertEqual(res['a'], 1)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
+
 
 def suite():
     """Test suite for test_trollduction."""
