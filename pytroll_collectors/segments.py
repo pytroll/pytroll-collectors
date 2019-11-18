@@ -629,7 +629,7 @@ def copy_metadata(mda, msg, time_name=None):
     # Update with data given in the message
     for key in msg.data:
         # If time name is given, do not overwrite it
-        if key not in DO_NOT_COPY_KEYS or key != time_name:
+        if key not in DO_NOT_COPY_KEYS and key != time_name:
             metadata[key] = msg.data[key]
 
     return metadata
