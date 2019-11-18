@@ -28,5 +28,5 @@ add_minutes = 10
 add_minutes_multiplier = start_ten_minutes
 
 # We want the start time which is parsed from the filename so that the
-time slots match the 10-minute periodicity
+# time slots match the 10-minute periodicity
 use_message_start_time = False
