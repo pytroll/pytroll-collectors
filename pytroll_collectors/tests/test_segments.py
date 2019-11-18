@@ -46,7 +46,8 @@ CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
-
+CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
+                                               "himawari-8")
 
 class TestSegmentGatherer(unittest.TestCase):
     """Tests for the segment gatherer."""
@@ -82,6 +83,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
         """Test init."""
@@ -372,6 +374,17 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('all_files' in config['patterns']['msg'])
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
+
+    def test_add_minutes(self):
+        """Test that adding minutes work."""
+        parser = self.himawari_ini._parsers['himawari-8']
+        mda = parser.parse("IMG_DK01IR4_201712081129_010")
+        # The pattern doesn't collect minutes in the start_time variable
+        self.assertEqual(mda['start_time'].minute, 0)
+        mda2 = self.himawari_ini._add_minutes(mda.copy())
+        # multiplier * add_minutes = mda['start_ten_minutes'] * 10 =
+        #    2 * 20 = 20
+        self.assertEqual(mda2['start_time'].minute, 20)
 
 
 def suite():
