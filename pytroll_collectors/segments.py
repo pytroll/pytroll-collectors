@@ -425,7 +425,7 @@ class SegmentGatherer(object):
         multiplier = self.add_minutes_multiplier
         if isinstance(minutes, str):
             minutes = mda.get(minutes, 0)
-        if instance(multiplier, str):
+        if isinstance(multiplier, str):
             multiplier = mda.get(multiplier, 1)
         mda[self.time_name] += dt.timedelta(minutes * multiplier)
 
