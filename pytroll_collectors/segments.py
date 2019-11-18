@@ -77,6 +77,9 @@ class SegmentGatherer(object):
         self.add_minutes = config.get('add_minutes', 0)
         self.add_minutes_multiplier = config.get('add_minutes_multiplier', 1)
 
+        self._use_message_start_time = config.get('use_message_start_time',
+                                                  True)
+
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
 
@@ -408,7 +411,10 @@ class SegmentGatherer(object):
         mda = parser.parse(msg.data["uid"])
         mda = self._add_minutes(mda)
 
-        metadata = copy_metadata(mda, msg)
+        time_name = self.time_name
+        if self._use_message_start_time:
+            time_name = None
+        metadata = copy_metadata(mda, msg, time_name=time_name)
 
         time_slot = self._find_time_slot(metadata[self.time_name])
 
@@ -603,10 +609,16 @@ def ini_to_dict(fname, section):
     except NoOptionError:
         pass
 
+    try:
+        conf['use_message_start_time'] = \
+            config.getboolean(section, 'use_message_start_time')
+    except NoOptionError:
+        pass
+
     return conf
 
 
-def copy_metadata(mda, msg):
+def copy_metadata(mda, msg, time_name=None):
     """Copy metada from filename and message to a combined dictionary."""
     metadata = {}
     # Use values parsed from the filename as basis
@@ -616,7 +628,8 @@ def copy_metadata(mda, msg):
 
     # Update with data given in the message
     for key in msg.data:
-        if key not in DO_NOT_COPY_KEYS:
+        # If time name is given, do not overwrite it
+        if key not in DO_NOT_COPY_KEYS or key != time_name:
             metadata[key] = msg.data[key]
 
     return metadata
