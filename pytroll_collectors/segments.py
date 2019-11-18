@@ -411,7 +411,7 @@ class SegmentGatherer(object):
         mda = self._add_minutes(mda)
 
         metadata = copy_metadata(mda, msg,
-                                 keep_parsed_keys=self.keep_parsed_keys)
+                                 keep_parsed_keys=self._keep_parsed_keys)
 
         time_slot = self._find_time_slot(metadata[self.time_name])
 
