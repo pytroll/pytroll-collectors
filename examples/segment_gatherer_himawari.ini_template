@@ -17,9 +17,6 @@ timeliness = 1200
 # Name of the scene start time in the filename pattern
 time_name = start_time
 
-# Start time varies within the scene
-variable_tags = start_minute
-
 # Group the data for every full 10-minute interval
 # For example in this case time of "201712081129" would go in slot
 # "2017-12-08T11:20:00" along with other files with minutes between 20 and 29.
