@@ -46,6 +46,8 @@ CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
+CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
+                                  "himawari-8")
 
 
 class TestSegmentGatherer(unittest.TestCase):
@@ -82,6 +84,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
         """Test init."""
@@ -372,6 +375,43 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('all_files' in config['patterns']['msg'])
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
+
+    def test_floor_time(self):
+        """Test that flooring the time to set minutes work."""
+        parser = self.himawari_ini._parsers['himawari-8']
+        mda = parser.parse("IMG_DK01IR4_201712081129_010")
+        self.assertEqual(mda['start_time'].minute, 29)
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 20)
+        self.himawari_ini._group_by_minutes = 15
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 15)
+        self.himawari_ini._group_by_minutes = 2
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
+
+    def test_copy_metadata(self):
+        """Test combining metadata from a message and parsed from filename."""
+        from pytroll_collectors.segments import copy_metadata
+        try:
+            from unittest import mock
+        except ImportError:
+            import mock
+
+        mda = {'a': 1, 'b': 2}
+        msg = mock.MagicMock()
+        msg.data = {'a': 2, 'c': 3}
+
+        res = copy_metadata(mda, msg)
+        self.assertEqual(res['a'], 2)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
+
+        # Keep 'a' from parsed metadata
+        res = copy_metadata(mda, msg, keep_parsed_keys=['a'])
+        self.assertEqual(res['a'], 1)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
 
 
 def suite():
