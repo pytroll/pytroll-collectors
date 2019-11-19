@@ -47,7 +47,8 @@ CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
-                                               "himawari-8")
+                                  "himawari-8")
+
 
 class TestSegmentGatherer(unittest.TestCase):
     """Tests for the segment gatherer."""
