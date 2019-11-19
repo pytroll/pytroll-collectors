@@ -405,7 +405,7 @@ class SegmentGatherer(object):
 
         parser = self._parsers[key]
         mda = parser.parse(msg.data["uid"])
-        mda = self._floor_minutes(mda)
+        mda = self._floor_time(mda)
 
         metadata = copy_metadata(mda, msg,
                                  keep_parsed_keys=self._keep_parsed_keys)
