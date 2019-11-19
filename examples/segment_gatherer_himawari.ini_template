@@ -20,12 +20,8 @@ time_name = start_time
 # Start time varies within the scene
 variable_tags = start_minute
 
-# Adjust scene start time to match the data
-# The step is 10 minutes ...
-add_minutes = 10
-# ... multiply "add_minutes" by the value of "start_ten_minutes" field in the
-#     filename pattern
-add_minutes_multiplier = start_ten_minutes
+# Group the data for every full 10-minute interval
+group_by_minutes = 10
 
 # We want the start time which is parsed from the filename so that the
 # time slots match the 10-minute periodicity.  It is possible to give

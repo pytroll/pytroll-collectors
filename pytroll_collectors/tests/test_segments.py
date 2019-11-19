@@ -375,16 +375,19 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
 
-    def test_add_minutes(self):
-        """Test that adding minutes work."""
+    def test_floor_time(self):
+        """Test that flooring the time to set minutes work."""
         parser = self.himawari_ini._parsers['himawari-8']
         mda = parser.parse("IMG_DK01IR4_201712081129_010")
-        # The pattern doesn't collect minutes in the start_time variable
-        self.assertEqual(mda['start_time'].minute, 0)
-        mda2 = self.himawari_ini._add_minutes(mda.copy())
-        # multiplier * add_minutes = mda['start_ten_minutes'] * 10 =
-        #    2 * 20 = 20
+        self.assertEqual(mda['start_time'].minute, 29)
+        mda2 = self.himawari_ini._floor_time(mda.copy())
         self.assertEqual(mda2['start_time'].minute, 20)
+        self.himawari_ini._group_by_minutes = 15
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 15)
+        self.himawari_ini._group_by_minutes = 2
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
 
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""
