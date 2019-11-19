@@ -22,7 +22,7 @@ variable_tags = start_minute
 
 # Group the data for every full 10-minute interval
 # For example in this case time of "201712081129" would go in slot
-# "2017-12-08T11:20:00" along with other files with minutes less than 30.
+# "2017-12-08T11:20:00" along with other files with minutes between 20 and 29.
 group_by_minutes = 10
 
 # We want the start time which is parsed from the filename so that the
