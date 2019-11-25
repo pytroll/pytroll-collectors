@@ -437,7 +437,7 @@ class SegmentGatherer(object):
                 self._patterns[key]["_start_time_pattern"],
                 metadata["start_time"])
             if not schedule_ok:
-                self.logger.info("Hour pattern '%s' skip: %s" + 
+                self.logger.info("Hour pattern '%s' skip: %s" +
                                  " for start_time: %s:%s",
                                  key, msg.data["uid"],
                                  metadata["start_time"].hour,
