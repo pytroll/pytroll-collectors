@@ -97,11 +97,11 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(self.msg0deg._listener, None)
         self.assertEqual(self.msg0deg._publisher, None)
 
-        # Tests using two filesets hour_pattern
-        self.assertTrue('hour_pattern' in self.msg0deg_iodc._patterns['msg'])
-        self.assertTrue('_hour_pattern' in self.msg0deg_iodc._patterns['msg'])
-        self.assertTrue('hour_pattern' in self.msg0deg_iodc._patterns['iodc'])
-        self.assertTrue('_hour_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        # Tests using two filesets start_time_pattern
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
 
     def test_init_data(self):
         """Test initializing the data."""
@@ -381,14 +381,16 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_check_schedule_time(self):
         """Test Check Schedule Time."""
-        hour = self.msg0deg_iodc._patterns['msg']['_hour_pattern']
-        self.assertTrue(self.msg0deg.check_schedule_time(hour, 9, 00))
-        self.assertFalse(self.msg0deg.check_schedule_time(hour, 9, 30))
-        self.assertFalse(self.msg0deg.check_schedule_time(hour, 23, 00))
-        hour = self.msg0deg_iodc._patterns['iodc']['_hour_pattern']
-        self.assertTrue(self.msg0deg.check_schedule_time(hour, 4, 15))
-        self.assertFalse(self.msg0deg.check_schedule_time(hour, 4, 30))
-        self.assertFalse(self.msg0deg.check_schedule_time(hour, 11, 00))
+        import datetime
+
+        hour = self.msg0deg_iodc._patterns['msg']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(9, 0)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(9, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(23, 0)))
+        hour = self.msg0deg_iodc._patterns['iodc']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(4, 15)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(4, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(11, 0)))
 
 
 def suite():
