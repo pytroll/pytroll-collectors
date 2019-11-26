@@ -100,6 +100,12 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(self.msg0deg._listener, None)
         self.assertEqual(self.msg0deg._publisher, None)
 
+        # Tests using two filesets start_time_pattern
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+
     def test_init_data(self):
         """Test initializing the data."""
         mda = self.mda_msg0deg.copy()
@@ -375,6 +381,19 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('all_files' in config['patterns']['msg'])
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
+
+    def test_check_schedule_time(self):
+        """Test Check Schedule Time."""
+        import datetime
+
+        hour = self.msg0deg_iodc._patterns['msg']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(9, 0)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(9, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(23, 0)))
+        hour = self.msg0deg_iodc._patterns['iodc']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(4, 15)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(4, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(11, 0)))
 
     def test_floor_time(self):
         """Test that flooring the time to set minutes work."""
