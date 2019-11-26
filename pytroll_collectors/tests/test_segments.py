@@ -382,7 +382,6 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
 
-
     def test_check_schedule_time(self):
         """Test Check Schedule Time."""
         import datetime
