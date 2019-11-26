@@ -216,7 +216,7 @@ if __name__ == '__main__':
         config['service'] = ''
 
     try:
-        with Publish("cat") as pub:
+        with Publish("cat_" + opts.config_item) as pub:
             with Subscribe(config['service'], config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:

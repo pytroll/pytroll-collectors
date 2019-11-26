@@ -1,0 +1,29 @@
+[himawari-8]
+#IMG_DK01IR4_201712081109_010
+pattern = IMG_{platform_name:4s}{channel_name:3s}_{start_time:%Y%m%d%H%M}_{segment:0>3s}
+critical_files = B01:001-010,B02:001-010,B04:001-010,B05:001-010,B09:001-010,B10:001-010,B11:001-010,B14:001-010,B16:001-010,IR1:001-010,IR2:001-010,IR3:001-010,IR4:001-010,VIS:001-010
+wanted_files = B01:001-010,B02:001-010,B04:001-010,B05:001-010,B06:001-010,B09:001-010,B10:001-010,B11:001-010,B12:001-010,B14:001-010,B16:001-010,IR1:001-010,IR2:001-010,IR3:001-010,IR4:001-010,VIS:001-010
+all_files = B01:001-010,B02:001-010,B04:001-010,B05:001-010,B06:001-010,B09:001-010,B10:001-010,B11:001-010,B12:001-010,B14:001-010,B16:001-010,IR1:001-010,IR2:001-010,IR3:001-010,IR4:001-010,VIS:001-010
+
+# Topic to listen to
+topics = /listener/topic
+
+# Topic in the published message
+publish_topic = /publish/topic
+
+# Wait for 20 minutes for the missing files
+timeliness = 1200
+
+# Name of the scene start time in the filename pattern
+time_name = start_time
+
+# Group the data for every full 10-minute interval
+# For example in this case time of "201712081129" would go in slot
+# "2017-12-08T11:20:00" along with other files with minutes between 20 and 29.
+group_by_minutes = 10
+
+# We want the start time which is parsed from the filename so that the
+# time slots match the 10-minute periodicity.  It is possible to give
+# a space-separated list of keys that are kept from the filename
+# pattern and not replaced with message metadata
+keep_parsed_keys = start_time
