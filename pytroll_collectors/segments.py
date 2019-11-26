@@ -550,7 +550,6 @@ class SegmentGatherer(object):
 
     def check_schedule_time(self, check_time, raw_start_time):
         """Check if raw time is inside configured interval."""
-        
         time_ok = False
 
         # Convert check time into int variables
