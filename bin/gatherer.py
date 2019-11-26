@@ -252,13 +252,16 @@ def main():
         if len(CONFIG.sections()) == 0:
             LOGGER.error("No valid config item provided")
             return
+        publisher_name = "gatherer_" + "_".join(opts.config_item)
+    else:
+        publisher_name = "gatherer"
 
     publish_port = opts.publish_port
     publisher_nameservers = opts.nameservers
 
     decoder = get_metadata
 
-    PUB = publisher.NoisyPublisher("gatherer_" + opts.config_item, port=publish_port,
+    PUB = publisher.NoisyPublisher(publisher_name, port=publish_port,
                                    nameservers=publisher_nameservers)
 
     granule_triggers = setup(decoder)
