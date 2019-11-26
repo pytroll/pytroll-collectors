@@ -1,0 +1,45 @@
+# Filename patterns that are collected
+patterns:
+  msg:
+    pattern:
+      "H-000-{orig_platform_name:4s}__-{orig_platform_name:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    # Process images hourly
+    start_time_pattern:
+       start_time: "00:00"
+       end_time: "23:59"
+       delta_time: "01:00"
+    critical_files: :EPI,:PRO
+    wanted_files: VIS006:000006-000008,VIS008:000006-000008,IR_016:000006-000008,IR_039:000006-000008,WV_062:000006-000008,WV_073:000006-000008,IR_087:000006-000008,IR_097:000006-000008,IR_108:000006-000008,IR_120:000006-000008,IR_134:000006-000008,HRV:000022-000024,:PRO,:EPI
+    all_files: VIS006:000001-000008,VIS008:000001-000008,IR_016:000001-000008,IR_039:000001-000008,WV_062:000001-000008,WV_073:000001-000008,IR_087:000001-000008,IR_097:000001-000008,IR_108:000001-000008,IR_120:000001-000008,IR_134:000001-000008,HRV:000001-000024,:PRO,:EPI
+    variable_tags: []
+
+# Time in seconds until timeout, from first received file. Default: 1200
+timeliness:
+  900
+# Name of the time tag in filename patterns. Default: start_time
+time_name:
+  start_time
+
+# Settings for messaging
+posttroll:
+  # List of incoming message topics
+  topics:
+    - /foo/bar
+  # Topic for the published messages
+  publish_topic:
+    /segment-foo/bar
+
+  # Publish messages in this port. Default: 0 (auto-select)
+  # publish_port:
+  #   0
+
+  # List of nameserver hosts to register publisher, or null
+  # WARNING:
+  # If nameservers option is set, address broadcasting via
+  # multicasting is not used any longer. The corresponding nameserver
+  # has to be started with command line option "--no-multicast".
+  # nameservers: null
+
+  # List of addresses for incoming messages. Default: [] (use multicast)
+  # format: 123.456.78.9:12345
+  # addresses: null
