@@ -408,6 +408,22 @@ class TestSegmentGatherer(unittest.TestCase):
         self.himawari_ini._group_by_minutes = 2
         mda2 = self.himawari_ini._floor_time(mda.copy())
         self.assertEqual(mda2['start_time'].minute, 28)
+        # Add seconds
+        mod_mda = mda.copy()
+        start_time = mda['start_time']
+        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                            start_time.day, start_time.hour,
+                                            start_time.minute, 42)
+        # The seconds should also be zero'd
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
+        self.assertEqual(mda2['start_time'].second, 0)
+
+        # Test that nothing is changed when groub_by_minutes has not
+        # been configured
+        self.himawari_ini._group_by_minutes = None
+        mda2 = self.himawari_ini._floor_time(mod_mda.copy())
+        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
 
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""

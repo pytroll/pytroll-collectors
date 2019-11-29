@@ -72,7 +72,7 @@ class SegmentGatherer(object):
 
         self.time_name = config.get('time_name', 'start_time')
         # Floor the scene start time to the given full minutes
-        self._group_by_minutes = config.get('group_by_minutes', 1)
+        self._group_by_minutes = config.get('group_by_minutes', None)
 
         self._keep_parsed_keys = config.get('keep_parsed_keys', [])
 
@@ -461,6 +461,8 @@ class SegmentGatherer(object):
 
     def _floor_time(self, mda):
         """Floor time to full minutes."""
+        if self._group_by_minutes is None:
+            return mda
         start_time = mda[self.time_name]
         mins = start_time.minute
         fl_mins = int(mins / self._group_by_minutes) * self._group_by_minutes
