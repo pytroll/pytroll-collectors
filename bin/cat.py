@@ -226,7 +226,6 @@ if __name__ == '__main__':
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
-                    LOG.info("msg type: %s", msg.type)
                     if msg.type == "collection":
                         new_msg = str(process_message(msg, config))
                         if new_msg is None:
