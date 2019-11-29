@@ -99,7 +99,7 @@ class SegmentGatherer(object):
                 # Start-End time across midnight
                 interval["midnight"] = False
                 if interval["start"] > interval["end"]:
-                    interval["end"] += 24*60
+                    interval["end"] += 24 * 60
                     interval["midnight"] = True
                 self._patterns[key]["_start_time_pattern"] = interval
                 self.logger.info("Start Time pattern '%s' " +
@@ -403,7 +403,7 @@ class SegmentGatherer(object):
                 continue
 
             if msg.type == "file":
-                #If providing server is configured skip message if not from providing server
+                # If providing server is configured skip message if not from providing server
                 if self._providing_server and self._providing_server != msg.host:
                     continue
                 self.logger.info("New message received: %s", str(msg))
@@ -560,7 +560,7 @@ class SegmentGatherer(object):
         # Convert check time into int variables
         raw_time = (60 * raw_start_time.hour) + raw_start_time.minute
         if check_time["midnight"] and raw_time < check_time["start"]:
-            raw_time += 24*60
+            raw_time += 24 * 60
 
         # Check start and end time
         if raw_time >= check_time["start"] and raw_time <= check_time["end"]:
