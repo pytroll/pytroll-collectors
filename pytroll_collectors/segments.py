@@ -594,7 +594,7 @@ def ini_to_dict(fname, section):
     posttroll = conf['posttroll']
     posttroll['topics'] = config.get(section, 'topics').split()
     try:
-        nameservers = config.get(section, 'nameserver')
+        nameservers = config.get(section, 'nameservers')
         nameservers = nameservers.split()
     except (NoOptionError, ValueError):
         nameservers = None
