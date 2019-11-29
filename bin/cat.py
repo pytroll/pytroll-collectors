@@ -222,10 +222,6 @@ if __name__ == '__main__':
     try:
         with Publish("cat_" + opts.config_item,
                      nameservers=nameservers) as pub:
-=======
-        with Publish("cat", nameservers=nameservers) as pub:
-            LOG.info("nameservers: %s", nameservers)
->>>>>>> fork/develop
             with Subscribe(config['service'], config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:

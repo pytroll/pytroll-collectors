@@ -139,8 +139,6 @@ def arg_parse():
                               "'-n localhost -n 123.456.789.0'. Default: localhost"),
                         action="append")
     parser.add_argument("config", help="config file to be used")
-    parser.add_argument("-n", "--nameservers", default=None,
-                        help="Comma separeted list of Nameservers.")
 
     return parser.parse_args()
 
