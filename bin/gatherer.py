@@ -173,9 +173,9 @@ def setup(decoder):
             publish_topic = None
 
         try:
-            nameserver = CONFIG.get(section, "nameservers")
+            nameserver = CONFIG.get(section, "nameserver")
         except NoOptionError:
-            nameserver = 'localhost'
+            nameserver = "localhost"
 
         try:
             publish_message_after_each_reception = CONFIG.get(section, "publish_message_after_each_reception")
