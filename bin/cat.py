@@ -215,12 +215,22 @@ if __name__ == '__main__':
     if 'service' not in config:
         config['service'] = ''
 
+    nameservers = []
+    if 'nameservers' in config:
+        nameservers = config['nameservers'].split(',')
+
     try:
-        with Publish("cat_" + opts.config_item) as pub:
+        with Publish("cat_" + opts.config_item,
+                     nameservers=nameservers) as pub:
+=======
+        with Publish("cat", nameservers=nameservers) as pub:
+            LOG.info("nameservers: %s", nameservers)
+>>>>>>> fork/develop
             with Subscribe(config['service'], config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
+                    LOG.info("msg type: %s", msg.type)
                     if msg.type == "collection":
                         new_msg = str(process_message(msg, config))
                         if new_msg is None:

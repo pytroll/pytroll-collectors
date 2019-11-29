@@ -78,6 +78,7 @@ class SegmentGatherer(object):
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
+        self._providing_server = config.get('providing_server')
 
         # Convert check time into int minutes variables
         for key in self._patterns:
@@ -357,7 +358,8 @@ class SegmentGatherer(object):
         addresses = self._config['posttroll'].get('addresses')
         publish_port = self._config['posttroll'].get('publish_port', 0)
         nameservers = self._config['posttroll'].get('nameservers', [])
-        self._listener = ListenerContainer(topics=topics, addresses=addresses)
+        services = self._config['posttroll'].get('services')
+        self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
         self._publisher = publisher.NoisyPublisher("segment_gatherer",
                                                    port=publish_port,
                                                    nameservers=nameservers)
@@ -401,6 +403,9 @@ class SegmentGatherer(object):
                 continue
 
             if msg.type == "file":
+                #If providing server is configured skip message if not from providing server
+                if self._providing_server and self._providing_server != msg.host:
+                    continue
                 self.logger.info("New message received: %s", str(msg))
                 self.process(msg)
 
@@ -603,6 +608,13 @@ def ini_to_dict(fname, section):
     posttroll['addresses'] = addresses
 
     try:
+        services = config.get(section, 'services')
+        services = services.split()
+    except (NoOptionError, ValueError):
+        services = ""
+    posttroll['services'] = services
+
+    try:
         publish_port = config.get(section, 'publish_port')
     except NoOptionError:
         publish_port = 0
@@ -649,6 +661,11 @@ def ini_to_dict(fname, section):
         conf['keep_parsed_keys'] = kps.split()
     except NoOptionError:
         pass
+
+    try:
+        conf['providing_server'] = config.get(section, "providing_server")
+    except (NoOptionError, ValueError):
+        conf['providing_server'] = None
 
     return conf
 

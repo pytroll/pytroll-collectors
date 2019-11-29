@@ -139,6 +139,8 @@ def arg_parse():
                               "'-n localhost -n 123.456.789.0'. Default: localhost"),
                         action="append")
     parser.add_argument("config", help="config file to be used")
+    parser.add_argument("-n", "--nameservers", default=None,
+                        help="Comma separeted list of Nameservers.")
 
     return parser.parse_args()
 
@@ -173,9 +175,9 @@ def setup(decoder):
             publish_topic = None
 
         try:
-            nameserver = CONFIG.get(section, "nameserver")
+            nameserver = CONFIG.get(section, "nameservers")
         except NoOptionError:
-            nameserver = "localhost"
+            nameserver = 'localhost'
 
         try:
             publish_message_after_each_reception = CONFIG.get(section, "publish_message_after_each_reception")
