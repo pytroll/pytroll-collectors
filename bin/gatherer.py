@@ -151,6 +151,8 @@ def arg_parse():
                         help="config item to use (all by default). Can be specified multiply times",
                         action="append")
     parser.add_argument("config", help="config file to be used")
+    parser.add_argument("-n", "--nameservers", default=None,
+                        help="Comma separeted list of Nameservers.")
 
     return parser.parse_args()
 
@@ -187,9 +189,9 @@ def setup(decoder):
             publish_topic = None
 
         try:
-            nameserver = CONFIG.get(section, "nameserver")
+            nameserver = CONFIG.get(section, "nameservers")
         except NoOptionError:
-            nameserver = "localhost"
+            nameserver = 'localhost'
 
         try:
             publish_message_after_each_reception = CONFIG.get(section, "publish_message_after_each_reception")
@@ -271,7 +273,11 @@ def main():
 
     decoder = get_metadata
 
-    PUB = publisher.NoisyPublisher("gatherer")
+    nameservers = []
+    if opts.nameservers:
+        nameservers = opts.nameservers.split(',')
+    LOGGER.info("nameservers: %s", nameservers)
+    PUB = publisher.NoisyPublisher("gatherer", nameservers=nameservers)
 
     granule_triggers = setup(decoder)
 
