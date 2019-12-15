@@ -48,7 +48,9 @@ class RegionCollector(object):
 
     def __init__(self, region,
                  timeliness=None,
-                 granule_duration=None):
+                 granule_duration=None,
+                 schedule_cut=None,
+                 schedule_cut_method=None):
         """Initialize the region collector."""
         self.region = region  # area def
         self.granule_times = set()
@@ -59,6 +61,8 @@ class RegionCollector(object):
         self.granule_duration = granule_duration
         self.last_file_added = False
         self.sensor = None
+        self.schedule_cut = schedule_cut
+        self.schedule_cut_method = schedule_cut_method
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
@@ -185,6 +189,46 @@ class RegionCollector(object):
                     if not gr_pass.area_coverage(self.region) > 0:
                         break
                     self.planned_granule_times.add(gr_time)
+
+                if self.schedule_cut:
+                    # Sometimes the planned coverage of a pass over the configured region
+                    # is not complete. If you have information of this, this can be harvested
+                    # from such a source like Eumetsat EARS passes. This is the default harvest
+                    # method and source.
+                    # Any other source can be implemented in a method passed in the configuration.
+                    # The method will be pasted a dict (see params below) and the method must return
+                    # two datetimes, minimum and maximum allowed time
+                    # The self.planned_granule_times will then be modified accordingly
+
+                    method_file_name = "pytroll_collectors.harvest_schedules"
+                    name = "harvest_schedules"
+                    if self.schedule_cut_method:
+                        LOG.debug("Use custom schedule cut method provided i config file...")
+                        LOG.debug("method_name = %s", str(self.schedule_cut_method))
+                        method_file_name = self.schedule_cut_method
+                    try:
+                        method = __import__(method_file_name, globals(), locals(), [name])
+                        LOG.info("function : {} loaded from module: {}".format([name],method_file_name))
+                    except ImportError:
+                        LOG.debug("Failed to import schedule_cut for %s from %s. Will not perform schedule cut.",
+                                  str(name),
+                                  str(method_file_name))
+                    else:
+                        params = {'planned_granule_times': self.planned_granule_times,
+                                  'sensor': granule_metadata["sensor"],
+                                  'platform_name': platform}
+                        LOG.debug("Start harvest of cut schedules")
+                        LOG.debug("method: %s, with type %s", method, type(method))
+
+                        min_times, max_times = getattr(method, name)(params)
+                        LOG.debug("From schedule min_times: %s, max_times %s", str(min_times), str(max_times))
+                        remove_pgt = []
+                        for pgt in self.planned_granule_times:
+                            if pgt < min_times or pgt > max_times:
+                                LOG.debug("Append to removing list due to schedule cut %s", str(pgt))
+                                remove_pgt.append(pgt)
+                        for pgt in remove_pgt:
+                            self.planned_granule_times.remove(pgt)
 
                 LOG.info("Planned granules for %s: %s", self.region.name,
                          str(sorted(self.planned_granule_times)))
