@@ -214,8 +214,12 @@ class RegionCollector(object):
                                   str(name),
                                   str(method_file_name))
                     else:
+                        sensor = granule_metadata["sensor"]
+                        if type(granule_metadata["sensor"]) is list:
+                            sensor = granule_metadata["sensor"][0]
+                            
                         params = {'planned_granule_times': self.planned_granule_times,
-                                  'sensor': granule_metadata["sensor"],
+                                  'sensor': sensor,
                                   'platform_name': platform}
                         LOG.debug("Start harvest of cut schedules")
                         LOG.debug("method: %s, with type %s", method, type(method))
@@ -223,12 +227,13 @@ class RegionCollector(object):
                         min_times, max_times = getattr(method, name)(params)
                         LOG.debug("From schedule min_times: %s, max_times %s", str(min_times), str(max_times))
                         remove_pgt = []
-                        for pgt in self.planned_granule_times:
-                            if pgt < min_times or pgt > max_times:
-                                LOG.debug("Append to removing list due to schedule cut %s", str(pgt))
-                                remove_pgt.append(pgt)
-                        for pgt in remove_pgt:
-                            self.planned_granule_times.remove(pgt)
+                        if min_times is not None and max_times is not None:
+                            for pgt in self.planned_granule_times:
+                                if pgt < min_times or pgt > max_times:
+                                    LOG.debug("Append to removing list due to schedule cut %s", str(pgt))
+                                    remove_pgt.append(pgt)
+                            for pgt in remove_pgt:
+                                self.planned_granule_times.remove(pgt)
 
                 LOG.info("Planned granules for %s: %s", self.region.name,
                          str(sorted(self.planned_granule_times)))

@@ -23,6 +23,7 @@
 """Harvest schedules. Download schedules from EUM and parse to limit gatherer"""
 
 import re
+import os
 from datetime import datetime, timedelta
 try:
     from urllib.request import urlopen
@@ -40,7 +41,6 @@ LOG = logging.getLogger(__name__)
 
 EUM_DOWNLOAD_URL = ''
 EUM_BASE_URL = 'https://uns.eumetsat.int/downloads/ears/'
-save_basename = '/tmp'
 download_file = 'ears_{}_pass_prediction_'
 
 eum_platform_name_translate = {'metopa': 'metop-a',
@@ -53,27 +53,45 @@ eum_platform_name_translate = {'metopa': 'metop-a',
                                'fy3d': 'fengyun 3d'}
 
 
-sensor_translate = {'avhrr/3': 'avhrr'}
-def harvest_schedules(params):
+sensor_translate = {'avhrr/3': 'avhrr',
+                    'mersi2': 'mersi'}
+
+def harvest_schedules(params, save_basename = '/tmp'):
     LOG.debug("params: %s", params)
     planned_pass_start_time = min(params['planned_granule_times'])
     planned_pass_end_time = max(params['planned_granule_times'])
     planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
 
     now = datetime.now()
+    now -= timedelta(days=1)
     if 'sensor' in params:
-        EUM_URL = EUM_BASE_URL + download_file.format(sensor_translate[params['sensor']]) + now.strftime('%y-%m-%d') + '.txt'
-        LOG.debug("EUM_URL, %s", EUM_URL)
+        pass_list_file = download_file.format(sensor_translate.get(params['sensor'], params['sensor'])) + now.strftime('%y-%m-%d') + '.txt'
     else:
         LOG.error("sensor not given in params. Can not continue.")
         return (None, None)
-    try:
-        filedata = urlopen(EUM_URL)
-    except httperror as httpe:
-        LOG.error("Failed to download file: ", EUM_URL, httpe)
-        return (None, None)
-
-    passes = filedata.readlines()
+    EUM_URL = EUM_BASE_URL + pass_list_file
+    save_file = os.path.join(save_basename, pass_list_file)
+    LOG.debug("Pass list save file, %s", save_file)
+    passes = []
+    if os.path.exists(save_file):
+        with open(save_file, "r") as fd_:
+            LOG.debug("Reading from cached files")
+            for line in fd_:
+                passes.append(line)
+    else:
+        try: 
+            LOG.debug("EUM_URL, %s", EUM_URL)
+            filedata = urlopen(EUM_URL)
+            passes = filedata.readlines()
+        except httperror as httpe:
+            LOG.error("Failed to download file: ", EUM_URL, httpe)
+            return (None, None)
+        else:
+            with open(save_file, 'w') as saving_file:
+                LOG.debug("Saving to file")
+                for passe in passes:
+                    saving_file.write(passe.decode('utf-8'))
+                
 
     aos_los = re.compile('(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
 
