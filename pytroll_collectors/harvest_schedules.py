@@ -39,7 +39,6 @@ import logging
 
 LOG = logging.getLogger(__name__)
 
-EUM_DOWNLOAD_URL = ''
 EUM_BASE_URL = 'https://uns.eumetsat.int/downloads/ears/'
 download_file = 'ears_{}_pass_prediction_'
 
@@ -57,11 +56,40 @@ sensor_translate = {'avhrr/3': 'avhrr',
                     'mersi2': 'mersi'}
 
 
-def harvest_schedules(params, save_basename='/tmp'):
-    LOG.debug("params: %s", params)
+def _parse_schedules(params, passes):
     planned_pass_start_time = min(params['planned_granule_times'])
     planned_pass_end_time = max(params['planned_granule_times'])
     planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
+
+    aos_los = re.compile('(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
+
+    min_time = None
+    max_time = None
+    for passe in passes:
+        al = aos_los.match(passe.decode('utf-8'))
+        if al:
+            eum_aos = datetime(int(al.group(1)), int(al.group(2)), int(al.group(3)),
+                               int(al.group(4)), int(al.group(5)))
+            eum_los = datetime(int(al.group(6)), int(al.group(7)), int(al.group(8)),
+                               int(al.group(9)), int(al.group(10)))
+            eum_platform_name = al.group(11)
+            platform_name = eum_platform_name_translate.get(eum_platform_name, eum_platform_name)
+            if platform_name.upper() != params['granule_metadata']['platform_name'].upper():
+                # print("SKipping platform: ", platform_name, params['platform_name'])
+                continue
+            planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
+            eum_pass_mid_time = eum_aos + (eum_los - eum_aos) / 2
+            if abs(eum_pass_mid_time - planned_pass_mid_time) < timedelta(seconds=1000):
+                LOG.debug("Found pass matching the current planned granule times: %s", str(passe))
+                min_time = eum_aos
+                max_time = eum_los
+                break
+
+    return (min_time, max_time)
+
+
+def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
+    LOG.debug("params: %s", params)
 
     now = datetime.now()
     now -= timedelta(days=1)
@@ -98,31 +126,7 @@ def harvest_schedules(params, save_basename='/tmp'):
                 for passe in passes:
                     saving_file.write(passe.decode('utf-8'))
 
-    aos_los = re.compile('(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
-
-    min_time = None
-    max_time = None
-    for passe in passes:
-        al = aos_los.match(passe.decode('utf-8'))
-        if al:
-            eum_aos = datetime(int(al.group(1)), int(al.group(2)), int(al.group(3)),
-                               int(al.group(4)), int(al.group(5)))
-            eum_los = datetime(int(al.group(6)), int(al.group(7)), int(al.group(8)),
-                               int(al.group(9)), int(al.group(10)))
-            eum_platform_name = al.group(11)
-            platform_name = eum_platform_name_translate.get(eum_platform_name, eum_platform_name)
-            if platform_name.upper() != params['granule_metadata']['platform_name'].upper():
-                # print("SKipping platform: ", platform_name, params['platform_name'])
-                continue
-            planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
-            eum_pass_mid_time = eum_aos + (eum_los - eum_aos) / 2
-            if abs(eum_pass_mid_time - planned_pass_mid_time) < timedelta(seconds=1000):
-                LOG.debug("Found pass matching the current planned granule times: %s", str(passe))
-                min_time = eum_aos
-                max_time = eum_los
-                break
-
-    return (min_time, max_time)
+    return _parse_schedules(params, passes)
 
 
 if __name__ == "__main__":
