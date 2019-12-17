@@ -87,25 +87,27 @@ def _parse_schedules(params, passes):
 
     return (min_time, max_time)
 
-
-def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
-    LOG.debug("params: %s", params)
-
-    now = datetime.now()
-    now -= timedelta(days=1)
+def _generate_pass_list_file_name(params, save_basename, eum_base_url):
+    start_time = params['granule_metadata']['start_time']
     if 'sensor' in params['granule_metadata']:
         sensor = params['granule_metadata']['sensor']
         if type(params['granule_metadata']['sensor']) is list:
             sensor = params['granule_metadata']['sensor'][0]
 
         pass_list_file = download_file.format(
-            sensor_translate.get(sensor, sensor)) + now.strftime('%y-%m-%d') + '.txt'
+            sensor_translate.get(sensor, sensor)) + start_time.strftime('%y-%m-%d') + '.txt'
     else:
         LOG.error("sensor not given in params in granule_metadata. Can not continue.")
         return (None, None)
     EUM_URL = EUM_BASE_URL + pass_list_file
     save_file = os.path.join(save_basename, pass_list_file)
     LOG.debug("Pass list save file, %s", save_file)
+    return EUM_URL, save_file
+
+def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
+    LOG.debug("params: %s", params)
+
+    EUM_URL, save_file = _generate_pass_list_file_name(params, save_basename, eum_base_url)
     passes = []
     if os.path.exists(save_file):
         with open(save_file, "r") as fd_:
