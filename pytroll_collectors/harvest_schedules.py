@@ -61,7 +61,7 @@ def _parse_schedules(params, passes):
     planned_pass_end_time = max(params['planned_granule_times'])
     planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
 
-    aos_los = re.compile('(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
+    aos_los = re.compile(r'(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
 
     min_time = None
     max_time = None
