@@ -56,7 +56,8 @@ eum_platform_name_translate = {'metopa': 'metop-a',
 sensor_translate = {'avhrr/3': 'avhrr',
                     'mersi2': 'mersi'}
 
-def harvest_schedules(params, save_basename = '/tmp'):
+
+def harvest_schedules(params, save_basename='/tmp'):
     LOG.debug("params: %s", params)
     planned_pass_start_time = min(params['planned_granule_times'])
     planned_pass_end_time = max(params['planned_granule_times'])
@@ -64,10 +65,15 @@ def harvest_schedules(params, save_basename = '/tmp'):
 
     now = datetime.now()
     now -= timedelta(days=1)
-    if 'sensor' in params:
-        pass_list_file = download_file.format(sensor_translate.get(params['sensor'], params['sensor'])) + now.strftime('%y-%m-%d') + '.txt'
+    if 'sensor' in params['granule_metadata']:
+        sensor = params['granule_metadata']['sensor']
+        if type(params['granule_metadata']['sensor']) is list:
+            sensor = params['granule_metadata']['sensor'][0]
+
+        pass_list_file = download_file.format(
+            sensor_translate.get(sensor, sensor)) + now.strftime('%y-%m-%d') + '.txt'
     else:
-        LOG.error("sensor not given in params. Can not continue.")
+        LOG.error("sensor not given in params in granule_metadata. Can not continue.")
         return (None, None)
     EUM_URL = EUM_BASE_URL + pass_list_file
     save_file = os.path.join(save_basename, pass_list_file)
@@ -79,7 +85,7 @@ def harvest_schedules(params, save_basename = '/tmp'):
             for line in fd_:
                 passes.append(line)
     else:
-        try: 
+        try:
             LOG.debug("EUM_URL, %s", EUM_URL)
             filedata = urlopen(EUM_URL)
             passes = filedata.readlines()
@@ -91,7 +97,6 @@ def harvest_schedules(params, save_basename = '/tmp'):
                 LOG.debug("Saving to file")
                 for passe in passes:
                     saving_file.write(passe.decode('utf-8'))
-                
 
     aos_los = re.compile('(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
 
@@ -106,7 +111,7 @@ def harvest_schedules(params, save_basename = '/tmp'):
                                int(al.group(9)), int(al.group(10)))
             eum_platform_name = al.group(11)
             platform_name = eum_platform_name_translate.get(eum_platform_name, eum_platform_name)
-            if platform_name.upper() != params['platform_name'].upper():
+            if platform_name.upper() != params['granule_metadata']['platform_name'].upper():
                 # print("SKipping platform: ", platform_name, params['platform_name'])
                 continue
             planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
@@ -119,12 +124,22 @@ def harvest_schedules(params, save_basename = '/tmp'):
 
     return (min_time, max_time)
 
+
 if __name__ == "__main__":
     planned_granule_times = set([datetime(2019, 12, 13, 13, 19),
-                                 datetime(2019, 12, 13, 13, 38),
-                                 datetime(2019, 12, 13, 13, 27),
-                                 datetime(2019, 12, 13, 13, 35),
-                                 datetime(2019, 12, 13, 13, 16), datetime(2019, 12, 13, 13, 24), datetime(2019, 12, 13, 13, 13), datetime(2019, 12, 13, 13, 32), datetime(2019, 12, 13, 13, 21), datetime(2019, 12, 13, 13, 29), datetime(2019, 12, 13, 13, 18), datetime(2019, 12, 13, 13, 37), datetime(2019, 12, 13, 13, 26), datetime(2019, 12, 13, 13, 15), datetime(2019, 12, 13, 13, 34), datetime(2019, 12, 13, 13, 23), datetime(2019, 12, 13, 13, 31), datetime(2019, 12, 13, 13, 20), datetime(2019, 12, 13, 13, 28), datetime(2019, 12, 13, 13, 17), datetime(2019, 12, 13, 13, 36), datetime(2019, 12, 13, 13, 25), datetime(2019, 12, 13, 13, 14), datetime(2019, 12, 13, 13, 33), datetime(2019, 12, 13, 13, 22), datetime(2019, 12, 13, 13, 30)])
+                                 datetime(2019, 12, 13, 13, 38), datetime(2019, 12, 13, 13, 27),
+                                 datetime(2019, 12, 13, 13, 35), datetime(2019, 12, 13, 13, 16),
+                                 datetime(2019, 12, 13, 13, 24), datetime(2019, 12, 13, 13, 13),
+                                 datetime(2019, 12, 13, 13, 32), datetime(2019, 12, 13, 13, 21),
+                                 datetime(2019, 12, 13, 13, 29), datetime(2019, 12, 13, 13, 18),
+                                 datetime(2019, 12, 13, 13, 37), datetime(2019, 12, 13, 13, 26),
+                                 datetime(2019, 12, 13, 13, 15), datetime(2019, 12, 13, 13, 34),
+                                 datetime(2019, 12, 13, 13, 23), datetime(2019, 12, 13, 13, 31),
+                                 datetime(2019, 12, 13, 13, 20), datetime(2019, 12, 13, 13, 28),
+                                 datetime(2019, 12, 13, 13, 17), datetime(2019, 12, 13, 13, 36),
+                                 datetime(2019, 12, 13, 13, 25), datetime(2019, 12, 13, 13, 14),
+                                 datetime(2019, 12, 13, 13, 33), datetime(2019, 12, 13, 13, 22),
+                                 datetime(2019, 12, 13, 13, 30)])
     params = {'planned_granule_times': planned_granule_times,
               'sensor': 'avhrr/3',
               'platform_name': 'Metop-A'}

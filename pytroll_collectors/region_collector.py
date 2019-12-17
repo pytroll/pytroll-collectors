@@ -207,20 +207,16 @@ class RegionCollector(object):
                         LOG.debug("method_name = %s", str(self.schedule_cut_method))
                         method_file_name = self.schedule_cut_method
                     try:
+                        LOG.debug("Try import {} module: {}".format([name], method_file_name))
                         method = __import__(method_file_name, globals(), locals(), [name])
-                        LOG.info("function : {} loaded from module: {}".format([name],method_file_name))
+                        LOG.info("function : {} loaded from module: {}".format([name], method_file_name))
                     except ImportError:
                         LOG.debug("Failed to import schedule_cut for %s from %s. Will not perform schedule cut.",
                                   str(name),
                                   str(method_file_name))
                     else:
-                        sensor = granule_metadata["sensor"]
-                        if type(granule_metadata["sensor"]) is list:
-                            sensor = granule_metadata["sensor"][0]
-                            
                         params = {'planned_granule_times': self.planned_granule_times,
-                                  'sensor': sensor,
-                                  'platform_name': platform}
+                                  'granule_metadata': granule_metadata}
                         LOG.debug("Start harvest of cut schedules")
                         LOG.debug("method: %s, with type %s", method, type(method))
 
