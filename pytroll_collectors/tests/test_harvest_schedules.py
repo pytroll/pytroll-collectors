@@ -37,31 +37,13 @@ import datetime
 from pytroll_collectors.harvest_schedules import harvest_schedules, _generate_pass_list_file_name, _parse_schedules
 import os
 import shutil
-import logging
 
-_is_logging_on = False
-
-if not _is_logging_on:
-    console = logging.StreamHandler()
-    console.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
-                                           " %(name)s] %(message)s",
-                                           '%Y-%m-%d %H:%M:%S'))
-    console.setLevel(logging.DEBUG)
-    logging.getLogger('').addHandler(console)
-    _is_logging_on = True
-
-LOG = logging.getLogger('')
-LOG.setLevel(logging.DEBUG)
-for h in LOG.handlers:
-    h.setLevel(logging.DEBUG)
 
 class FakeResponse:
     def __init__(self, data):
-        LOG.debug("fake response init")
         self.data = data.split("\n")
 
     def readlines(self):
-        LOG.debug("fake response readlines")
         self.status = 200 if self.data is not None else 404
         return self.data
 
