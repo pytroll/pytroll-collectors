@@ -87,6 +87,7 @@ def _parse_schedules(params, passes):
 
     return (min_time, max_time)
 
+
 def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     start_time = params['granule_metadata']['start_time']
     if 'sensor' in params['granule_metadata']:
@@ -103,6 +104,7 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     save_file = os.path.join(save_basename, pass_list_file)
     LOG.debug("Pass list save file, %s", save_file)
     return EUM_URL, save_file
+
 
 def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
     LOG.debug("params: %s", params)

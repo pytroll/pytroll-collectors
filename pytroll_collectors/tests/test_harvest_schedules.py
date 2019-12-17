@@ -27,12 +27,8 @@ try:
     from unittest.mock import mock
 except ImportError:
     import mock
-try:
-    from urllib.request import urlopen
-except ImportError:
-    from urllib import urlopen
 
-from tempfile import NamedTemporaryFile, mkdtemp
+from tempfile import mkdtemp
 import datetime
 from pytroll_collectors.harvest_schedules import harvest_schedules, _generate_pass_list_file_name, _parse_schedules
 import os
@@ -49,6 +45,7 @@ class FakeResponse:
 
     def close(self):
         pass
+
 
 fake_test_pass_file = """
 EARS-VIIRS Pass Predictions
@@ -84,6 +81,7 @@ scheduleBeginEumetsat,scheduleEndEumetsat,Satellite
 2019-12-16 23:14,2019-12-16 23:41,noaa20
 """
 
+
 class TestHarvestSchedules(unittest.TestCase):
     """Harvest schedule tests."""
 
@@ -97,7 +95,18 @@ class TestHarvestSchedules(unittest.TestCase):
             pass
 
     def test_pass_list_file_name(self):
-        granule_metadata = {'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp', 'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154, 'dataset': [{'uri': '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5', 'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}], 'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp', 'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3,
+            'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS',
+            'orbit_number': 42154, 'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears',
+            'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5',
+            'collection_area_id': 'eurol'}
 
         planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
                                      datetime.datetime(2019, 12, 13, 13, 38),
@@ -108,10 +117,20 @@ class TestHarvestSchedules(unittest.TestCase):
         eum, save_file = _generate_pass_list_file_name(params, self.basedir, 'https://uns.eumetsat.int/downloads/ears/')
         self.assertEqual('https://uns.eumetsat.int/downloads/ears/ears_viirs_pass_prediction_19-12-16.txt', eum)
         self.assertEqual(os.path.join(self.basedir, 'ears_viirs_pass_prediction_19-12-16.txt'), save_file)
-               
+
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
     def test_harvest_schedule_2(self, mock_harvest_schedules_urlopen):
-        granule_metadata = {'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp', 'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154, 'dataset': [{'uri': '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5', 'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}], 'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp', 'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
+            'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
+            'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
+            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
 
         planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
                                      datetime.datetime(2019, 12, 13, 13, 38),
@@ -122,12 +141,21 @@ class TestHarvestSchedules(unittest.TestCase):
         harvest_schedules(params, save_basename=self.basedir)
         self.assertEqual(mock_harvest_schedules_urlopen.call_count, 1)
 
-
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
     def test_harvest_schedule(self, mock_harvest_schedules):
         mock_harvest_schedules.readline.side_effect = 'test2'
         # self.cloud_image.fetch()
-        granule_metadata = {'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp', 'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154, 'dataset': [{'uri': '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5', 'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}], 'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp', 'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
+            'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
+            'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
+            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
 
         planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
                                      datetime.datetime(2019, 12, 13, 13, 38),
@@ -140,7 +168,17 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertEqual(mock_harvest_schedules.call_count, 1)
 
     def test_parse_schedules(self):
-        granule_metadata = {'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp', 'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154, 'dataset': [{'uri': '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5', 'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}], 'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'suomi npp', 'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
+            'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
+            'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
+            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'suomi npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
 
         planned_granule_times = set([datetime.datetime(2019, 12, 16, 13, 41, 18, 200000),
                                      datetime.datetime(2019, 12, 16, 13, 42, 43, 600000),
@@ -159,6 +197,7 @@ class TestHarvestSchedules(unittest.TestCase):
         min_times, max_times = _parse_schedules(params, fake_test_pass_file.split("\n"))
         self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37))
         self.assertEqual(max_times, datetime.datetime(2019, 12, 16, 14, 5))
+
 
 def suite():
     """Test suite."""
