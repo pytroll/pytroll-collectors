@@ -72,12 +72,39 @@ class SegmentGatherer(object):
 
         self.time_name = config.get('time_name', 'start_time')
         # Floor the scene start time to the given full minutes
-        self._group_by_minutes = config.get('group_by_minutes', 1)
+        self._group_by_minutes = config.get('group_by_minutes', None)
 
         self._keep_parsed_keys = config.get('keep_parsed_keys', [])
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
+
+        # Convert check time into int minutes variables
+        for key in self._patterns:
+            if "start_time_pattern" in self._patterns[key]:
+                time_conf = self._patterns[key]["start_time_pattern"]
+                start_time_str = time_conf.get("start_time", "00:00")
+                end_time_str = time_conf.get("end_time", "23:59")
+                delta_time_str = time_conf.get("delta_time", "00:01")
+
+                start_h, start_m = start_time_str.split(':')
+                end_h, end_m = end_time_str.split(':')
+                delta_h, delta_m = delta_time_str.split(':')
+                interval = {}
+                interval["start"] = (60 * int(start_h)) + int(start_m)
+                interval["end"] = (60 * int(end_h)) + int(end_m)
+                interval["delta"] = (60 * int(delta_h)) + int(delta_m)
+
+                # Start-End time across midnight
+                interval["midnight"] = False
+                if interval["start"] > interval["end"]:
+                    interval["end"] += 24*60
+                    interval["midnight"] = True
+                self._patterns[key]["_start_time_pattern"] = interval
+                self.logger.info("Start Time pattern '%s' " +
+                                 "filter start:%s end:%s delta:%s",
+                                 key, start_time_str, end_time_str,
+                                 delta_time_str)
 
     def _clear_data(self, time_slot):
         """Clear data."""
@@ -410,6 +437,19 @@ class SegmentGatherer(object):
         metadata = copy_metadata(mda, msg,
                                  keep_parsed_keys=self._keep_parsed_keys)
 
+        # Check if time of the raw is in scheduled range
+        if "_start_time_pattern" in self._patterns[key]:
+            schedule_ok = self.check_schedule_time(
+                self._patterns[key]["_start_time_pattern"],
+                metadata[self.time_name])
+            if not schedule_ok:
+                self.logger.info("Hour pattern '%s' skip: %s" +
+                                 " for start_time: %s:%s",
+                                 key, msg.data["uid"],
+                                 metadata[self.time_name].hour,
+                                 metadata[self.time_name].minute)
+                return
+
         time_slot = self._find_time_slot(metadata[self.time_name])
 
         # Init metadata etc if this is the first file
@@ -421,6 +461,8 @@ class SegmentGatherer(object):
 
     def _floor_time(self, mda):
         """Floor time to full minutes."""
+        if self._group_by_minutes is None:
+            return mda
         start_time = mda[self.time_name]
         mins = start_time.minute
         fl_mins = int(mins / self._group_by_minutes) * self._group_by_minutes
@@ -507,6 +549,23 @@ class SegmentGatherer(object):
                 return str(time_slot)
 
         return str(time_obj)
+
+    def check_schedule_time(self, check_time, raw_start_time):
+        """Check if raw time is inside configured interval."""
+        time_ok = False
+
+        # Convert check time into int variables
+        raw_time = (60 * raw_start_time.hour) + raw_start_time.minute
+        if check_time["midnight"] and raw_time < check_time["start"]:
+            raw_time += 24*60
+
+        # Check start and end time
+        if raw_time >= check_time["start"] and raw_time <= check_time["end"]:
+            # Raw time in range, check interval
+            if ((raw_time - check_time["start"]) % check_time["delta"]) == 0:
+                time_ok = True
+
+        return time_ok
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):

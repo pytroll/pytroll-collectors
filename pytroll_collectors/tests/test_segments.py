@@ -100,6 +100,12 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(self.msg0deg._listener, None)
         self.assertEqual(self.msg0deg._publisher, None)
 
+        # Tests using two filesets start_time_pattern
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+
     def test_init_data(self):
         """Test initializing the data."""
         mda = self.mda_msg0deg.copy()
@@ -376,6 +382,19 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
 
+    def test_check_schedule_time(self):
+        """Test Check Schedule Time."""
+        import datetime
+
+        hour = self.msg0deg_iodc._patterns['msg']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(9, 0)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(9, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(23, 0)))
+        hour = self.msg0deg_iodc._patterns['iodc']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(4, 15)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(4, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(11, 0)))
+
     def test_floor_time(self):
         """Test that flooring the time to set minutes work."""
         parser = self.himawari_ini._parsers['himawari-8']
@@ -389,6 +408,22 @@ class TestSegmentGatherer(unittest.TestCase):
         self.himawari_ini._group_by_minutes = 2
         mda2 = self.himawari_ini._floor_time(mda.copy())
         self.assertEqual(mda2['start_time'].minute, 28)
+        # Add seconds
+        mod_mda = mda.copy()
+        start_time = mda['start_time']
+        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                            start_time.day, start_time.hour,
+                                            start_time.minute, 42)
+        # The seconds should also be zero'd
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
+        self.assertEqual(mda2['start_time'].second, 0)
+
+        # Test that nothing is changed when groub_by_minutes has not
+        # been configured
+        self.himawari_ini._group_by_minutes = None
+        mda2 = self.himawari_ini._floor_time(mod_mda.copy())
+        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
 
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""

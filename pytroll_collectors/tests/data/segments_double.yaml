@@ -2,6 +2,10 @@ patterns:
   msg:
     pattern:
       "H-000-{hrit_format:4s}__-{platform_shortname:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    start_time_pattern:
+       start_time: "06:00"
+       end_time: "18:00"
+       delta_time: "01:00"
     critical_files: :EPI,:PRO
     wanted_files: VIS006:000001-000008,:PRO,:EPI
     all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
@@ -10,6 +14,10 @@ patterns:
   iodc:
     pattern:
       "H-000-{hrit_format:4s}__-{platform_shortname:4s}_IODC___-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    start_time_pattern:
+       start_time: "16:15"
+       end_time: "06:15"
+       delta_time: "01:00"
     critical_files: :EPI,:PRO
     wanted_files: VIS006:000001-000008,:PRO,:EPI
     all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
