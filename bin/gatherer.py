@@ -47,7 +47,6 @@ LOGGER = logging.getLogger(__name__)
 CONFIG = RawConfigParser()
 PUB = None
 
-trigger.LOG.setLevel(logging.DEBUG)
 
 def get_metadata(fname):
     """Parse metadata from the file."""
@@ -266,17 +265,15 @@ def main():
     publish_port = opts.publish_port
     publisher_nameservers = opts.nameservers
 
+    decoder = get_metadata
 
     PUB = publisher.NoisyPublisher(publisher_name, port=publish_port,
                                    nameservers=publisher_nameservers)
 
-    LOGGER.debug("Setup trigger")
-    granule_triggers = setup(get_metadata)
+    granule_triggers = setup(decoder)
 
-    LOGGER.debug("Start piublisher")
     PUB.start()
 
-    LOGGER.debug("Start granula trigger")
     for granule_trigger in granule_triggers:
         granule_trigger.start()
     try:

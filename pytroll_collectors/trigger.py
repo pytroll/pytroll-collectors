@@ -58,6 +58,7 @@ def fix_start_end_time(mda):
         mda["end_time"] = datetime.combine(mda["end_date"].date(),
                                            mda["end_time"].time())
         del mda["end_date"]
+
     while mda["start_time"] > mda["end_time"]:
         mda["end_time"] += timedelta(days=1)
 
@@ -420,7 +421,6 @@ class PostTrollTrigger(FileTrigger):
         FileTrigger.start(self)
         self.msgproc.start()
 
-    #@staticmethod
     def decode_message(self, message):
         """Return the message data."""
         if self.duration:
