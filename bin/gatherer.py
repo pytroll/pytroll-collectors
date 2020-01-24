@@ -197,7 +197,7 @@ def setup(decoder):
         else:
             LOGGER.debug("Using posttroll for %s", section)
             try:
-                duration = timedelta(seconds=CONFIG.getfloat(section, "duration"))
+                duration = CONFIG.getfloat(section, "duration")
             except NoOptionError:
                 duration = None
 
