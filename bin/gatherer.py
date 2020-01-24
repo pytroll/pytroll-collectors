@@ -47,6 +47,7 @@ LOGGER = logging.getLogger(__name__)
 CONFIG = RawConfigParser()
 PUB = None
 
+trigger.LOGGER.setLevel(logging.DEBUG)
 
 def get_metadata(fname):
     """Parse metadata from the file."""
@@ -195,10 +196,16 @@ def setup(decoder):
 
         else:
             LOGGER.debug("Using posttroll for %s", section)
+            try:
+                duration = timedelta(seconds=CONFIG.getfloat(section, "duration"))
+            except NoOptionError:
+                duration = None
+
             granule_trigger = trigger.PostTrollTrigger(
                 collectors, terminator,
                 CONFIG.get(section, 'service').split(','),
                 CONFIG.get(section, 'topics').split(','),
+                duration,
                 publish_topic=publish_topic, nameserver=nameserver,
                 publish_message_after_each_reception=publish_message_after_each_reception)
         granule_triggers.append(granule_trigger)
@@ -259,15 +266,17 @@ def main():
     publish_port = opts.publish_port
     publisher_nameservers = opts.nameservers
 
-    decoder = get_metadata
 
     PUB = publisher.NoisyPublisher(publisher_name, port=publish_port,
                                    nameservers=publisher_nameservers)
 
-    granule_triggers = setup(decoder)
+    LOGGER.debug("Setup trigger")
+    granule_triggers = setup(get_metadata)
 
+    LOGGER.debug("Start piublisher")
     PUB.start()
 
+    LOGGER.debug("Start granula trigger")
     for granule_trigger in granule_triggers:
         granule_trigger.start()
     try:
@@ -282,8 +291,6 @@ def main():
         LOGGER.critical('Something went wrong!')
     except OSError:
         LOGGER.critical('Something went wrong!')
-    except BaseException:
-        LOGGER.exception('Something went wrong!')
     finally:
         LOGGER.warning('Ending publication the gathering of granules...')
         for granule_trigger in granule_triggers:
