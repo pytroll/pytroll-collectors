@@ -282,6 +282,8 @@ def main():
         LOGGER.critical('Something went wrong!')
     except OSError:
         LOGGER.critical('Something went wrong!')
+    except BaseException:
+        LOGGER.exception('Something went wrong!')
     finally:
         LOGGER.warning('Ending publication the gathering of granules...')
         for granule_trigger in granule_triggers:
