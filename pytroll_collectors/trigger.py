@@ -423,15 +423,18 @@ class PostTrollTrigger(FileTrigger):
 
     def decode_message(self, message):
         """Return the message data."""
+
+        # Include file duration in message data
         if self.duration:
             message.data["duration"] = self.duration
-        LOG.debug("Decode message {}".format(message))
+
+        # Fix start and end time
         try:
             mgs_data = fix_start_end_time(message.data)
-            return mgs_data
         except KeyError:
-            LOG.exception("Key error")
-
+            LOG.exception("Something went wrong!")
+        else:
+            return mgs_data
 
     def stop(self):
         """Stop the posttroll trigger."""
