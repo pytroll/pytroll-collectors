@@ -420,11 +420,11 @@ class PostTrollTrigger(FileTrigger):
         FileTrigger.start(self)
         self.msgproc.start()
 
-    @staticmethod
-    def decode_message(message):
+    #@staticmethod
+    def decode_message(self, message):
         """Return the message data."""
         if self.duration:
-            message.data["duration"] = duration
+            message.data["duration"] = self.duration
         LOG.debug("Decode message {}".format(message))
         try:
             mgs_data = fix_start_end_time(message.data)
