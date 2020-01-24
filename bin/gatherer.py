@@ -47,7 +47,7 @@ LOGGER = logging.getLogger(__name__)
 CONFIG = RawConfigParser()
 PUB = None
 
-trigger.LOGGER.setLevel(logging.DEBUG)
+trigger.LOG.setLevel(logging.DEBUG)
 
 def get_metadata(fname):
     """Parse metadata from the file."""
