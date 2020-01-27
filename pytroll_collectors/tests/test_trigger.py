@@ -69,6 +69,16 @@ class TestPostTrollTrigger(unittest.TestCase):
         ptt.stop()
         self.assertTrue(collector.timeout is None)
 
+    def test_duration(self):
+        """Test duration"""
+        from pytroll_collectors.trigger import PostTrollTrigger
+        ptt = PostTrollTrigger(None, None, None, None, duration=60)
+
+        msg_data = ptt.decode_message(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
+
+        self.assertIn("end_time", msg_data)
+        self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
+
 
 def suite():
     """Test suite for test_trigger."""
