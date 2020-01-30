@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2014, 2015 Martin Raspaud
+# Copyright (c) 2012, 2014, 2015, 2019 Martin Raspaud
 
 # Author(s):
 
@@ -22,41 +22,63 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Triggers for region_collectors
-"""
+"""Triggers for region_collectors."""
 
-from pyinotify import (ProcessEvent, Notifier, WatchManager,
-                       IN_CLOSE_WRITE, IN_MOVED_TO)
 import logging
-from datetime import datetime
-from fnmatch import fnmatch
 import os.path
-from posttroll.subscriber import NSSubscriber
+from datetime import datetime, timedelta
+from fnmatch import fnmatch
+from threading import Event, Thread
 
+from posttroll.subscriber import NSSubscriber
+from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
+                       WatchManager)
 
 LOG = logging.getLogger(__name__)
 
 
 def total_seconds(tdef):
-    """Calculate total time in seconds.
-    """
+    """Calculate total time in seconds."""
     return ((tdef.microseconds +
              (tdef.seconds + tdef.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
 
 
-class Trigger(object):
+def fix_start_end_time(mda):
+    """Make start and end time coherent."""
+    if "duration" in mda and "end_time" not in mda:
+        mda["end_time"] = (mda["start_time"]
+                           + timedelta(seconds=int(mda["duration"])))
+    if "start_date" in mda:
+        mda["start_time"] = datetime.combine(mda["start_date"].date(),
+                                             mda["start_time"].time())
+        if "end_date" not in mda:
+            mda["end_date"] = mda["start_date"]
+        del mda["start_date"]
+    if "end_date" in mda:
+        mda["end_time"] = datetime.combine(mda["end_date"].date(),
+                                           mda["end_time"].time())
+        del mda["end_date"]
 
-    """Abstract trigger class.
-    """
+    while mda["start_time"] > mda["end_time"]:
+        mda["end_time"] += timedelta(days=1)
+
+    if "duration" in mda:
+        del mda["duration"]
+
+    return mda
+
+
+class Trigger(object):
+    """Abstract trigger class."""
 
     def __init__(self, collectors, terminator, publish_topic=None):
+        """Init the trigger."""
         self.collectors = collectors
         self.terminator = terminator
         self.publish_topic = publish_topic
 
     def _do(self, metadata):
-        """Execute the collectors and terminator.
-        """
+        """Execute the collectors and terminator."""
         if not metadata:
             LOG.warning("No metadata")
             return
@@ -66,15 +88,11 @@ class Trigger(object):
                 return self.terminator(res, publish_topic=self.publish_topic)
 
 
-from threading import Thread, Event
-
-
 class FileTrigger(Trigger, Thread):
-
-    """File trigger, acting upon inotify events.
-    """
+    """File trigger, acting upon inotify events."""
 
     def __init__(self, collectors, terminator, decoder, publish_topic=None, publish_message_after_each_reception=False):
+        """Init the file trigger."""
         Thread.__init__(self)
         Trigger.__init__(self, collectors, terminator,
                          publish_topic=publish_topic)
@@ -89,14 +107,12 @@ class FileTrigger(Trigger, Thread):
         Trigger._do(self, mda)
 
     def add_file(self, pathname):
-        """On arrival of a file.
-        """
+        """React to arrival of a file."""
         self._do(pathname)
         self.new_file.set()
 
     def run(self):
-        """The timeouts are handled here.
-        """
+        """Handle the timeouts."""
         # The wait for new files is handled through the event mechanism of the
         # threading module:
         # - first a new file arrives, and an event is triggered
@@ -144,19 +160,17 @@ class FileTrigger(Trigger, Thread):
                 self.new_file.clear()
 
     def stop(self):
-        """Stopping everything.
-        """
+        """Stop everything."""
         self._running = False
         self.new_file.set()
 
 
 class InotifyTrigger(ProcessEvent, FileTrigger):
-
-    """File trigger, acting upon inotify events.
-    """
+    """File trigger, acting upon inotify events."""
 
     def __init__(self, collectors, terminator, decoder, patterns,
                  publish_topic=None):
+        """Init the inotify trigger."""
         ProcessEvent.__init__(self)
         FileTrigger.__init__(self, collectors, terminator, decoder,
                              publish_topic=publish_topic)
@@ -167,8 +181,7 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         self.new_file = Event()
 
     def process_IN_CLOSE_WRITE(self, event):
-        """On closing a file.
-        """
+        """Process a closing file."""
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
                 LOG.debug("New file detected (close write): %s",
@@ -176,8 +189,7 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
                 self.add_file(event.pathname)
 
     def process_IN_MOVED_TO(self, event):
-        """On moving a file into the directory.
-        """
+        """Process a file moving into the directory."""
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
                 LOG.debug("New file detected (moved to): %s",
@@ -185,8 +197,7 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
                 self.add_file(event.pathname)
 
     def loop(self):
-        """The main function.
-        """
+        """Loop until done."""
         self.start()
         try:
             # inotify interface
@@ -206,74 +217,72 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
             self.stop()
             self.join()
 
+
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
     from watchdog.observers import Observer
 
-    class WatchDogTriggerOld(FileSystemEventHandler, FileTrigger):
-
-        """File trigger, acting upon inotify events.
-        """
-
-        cases = {"PollingObserver": PollingObserver,
-                 "Observer": Observer}
-
-        def __init__(self, collectors, terminator, decoder, patterns,
-                     observer_class_name, publish_topic=None):
-            FileSystemEventHandler.__init__(self)
-            FileTrigger.__init__(self, collectors, terminator, decoder,
-                                 publish_topic=publish_topic)
-            self.input_dirs = []
-            for pattern in patterns:
-                self.input_dirs.append(os.path.dirname(pattern))
-            self.patterns = patterns
-
-            self.new_file = Event()
-            self.observer = self.cases.get(observer_class_name, Observer)()
-
-        def on_created(self, event):
-            """On creating a file.
-            """
-            try:
-                for pattern in self.patterns:
-                    if fnmatch(event.src_path, pattern):
-                        LOG.debug("New file detected (created): %s",
-                                  event.src_path)
-                        self.add_file(event.src_path)
-                        LOG.debug("Done adding")
-                        return
-            except Exception as e:
-                LOG.exception(
-                    "Something wrong happened in the event processing: %s",
-                    e.message)
-
-        def start(self):
-            """Start trigger.
-            """
-            # add watches
-            for idir in self.input_dirs:
-                self.observer.schedule(self, idir)
-            self.observer.start()
-
-            FileTrigger.start(self)
-            LOG.debug("Started polling")
-
-        def stop(self):
-            self.observer.stop()
-            FileTrigger.stop(self)
-            self.observer.join()
-            self.join()
+    # class WatchDogTriggerOld(FileSystemEventHandler, FileTrigger):
+    #     """File trigger, acting upon inotify events."""
+    #
+    #     cases = {"PollingObserver": PollingObserver,
+    #              "Observer": Observer}
+    #
+    #     def __init__(self, collectors, terminator, decoder, patterns,
+    #                  observer_class_name, publish_topic=None):
+    #         """Init the watchdog trigger."""
+    #         FileSystemEventHandler.__init__(self)
+    #         FileTrigger.__init__(self, collectors, terminator, decoder,
+    #                              publish_topic=publish_topic)
+    #         self.input_dirs = []
+    #         for pattern in patterns:
+    #             self.input_dirs.append(os.path.dirname(pattern))
+    #         self.patterns = patterns
+    #
+    #         self.new_file = Event()
+    #         self.observer = self.cases.get(observer_class_name, Observer)()
+    #
+    #     def on_created(self, event):
+    #         """Process file creation."""
+    #         try:
+    #             for pattern in self.patterns:
+    #                 if fnmatch(event.src_path, pattern):
+    #                     LOG.debug("New file detected (created): %s",
+    #                               event.src_path)
+    #                     self.add_file(event.src_path)
+    #                     LOG.debug("Done adding")
+    #                     return
+    #         except Exception as e:
+    #             LOG.exception(
+    #                 "Something wrong happened in the event processing: %s",
+    #                 e.message)
+    #
+    #     def start(self):
+    #         """Start trigger."""
+    #         # add watches
+    #         for idir in self.input_dirs:
+    #             self.observer.schedule(self, idir)
+    #         self.observer.start()
+    #
+    #         FileTrigger.start(self)
+    #         LOG.debug("Started polling")
+    #
+    #     def stop(self):
+    #         """Stop the trigger."""
+    #         self.observer.stop()
+    #         FileTrigger.stop(self)
+    #         self.observer.join()
+    #         self.join()
 
     class AbstractWatchDogProcessor(FileSystemEventHandler):
-
-        """File trigger, acting upon file system events.
-        """
+        """File trigger, acting upon file system events."""
 
         cases = {"PollingObserver": PollingObserver,
                  "Observer": Observer}
 
         def __init__(self, patterns, observer_class_name="Observer"):
+            """Init the processor."""
             FileSystemEventHandler.__init__(self)
             self.input_dirs = []
             for pattern in patterns:
@@ -285,16 +294,15 @@ try:
             self.observer = self.cases.get(observer_class_name, Observer)()
 
         def on_created(self, event):
-            """On creating a file.
-            """
+            """Process creating a file."""
             self._process(event.src_path)
 
         def on_moved(self, event):
-            """On a file been moved to the destination directory.
-            """
+            """Process a file being moved to the destination directory."""
             self._process(event.dest_path)
 
         def _process(self, pathname):
+            """Process a file."""
             try:
                 for pattern in self.patterns:
                     if fnmatch(pathname, pattern):
@@ -302,15 +310,16 @@ try:
                         self.process(pathname)
                         LOG.debug("Done processing file")
                         return
-            except:
+            except Exception:
                 LOG.exception(
                     "Something wrong happened in the event processing!")
 
         def process(self, pathname):
+            """Process, abstract."""
             raise NotImplementedError
 
         def start(self):
-            """Start processor"""
+            """Start processor."""
             # add watches
             for idir in self.input_dirs:
                 self.observer.schedule(self, idir)
@@ -319,24 +328,23 @@ try:
             LOG.debug("Started watching filesystem")
 
         def stop(self):
-            """Stop processor"""
+            """Stop processor."""
             self.observer.stop()
             self.observer.join()
 
     class WatchDogTrigger(FileTrigger):
-
-        """File trigger, acting upon filesystem events.
-        """
+        """File trigger, acting upon filesystem events."""
 
         def __init__(self, collectors, terminator, decoder,
                      patterns, observer_class_name, publish_topic=None):
+            """Init the trigger."""
             self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
             FileTrigger.__init__(self, collectors, terminator, decoder,
                                  publish_topic=publish_topic)
             self.wdp.process = self.add_file
 
         def start(self):
-
+            """Start the trigger."""
             # add watches
             self.wdp.start()
 
@@ -344,22 +352,22 @@ try:
             LOG.debug("Started polling")
 
         def stop(self):
+            """Stop the trigger."""
             FileTrigger.stop(self)
             self.wdp.stop()
             self.join()
 
 
 except ImportError:
-    LOG.error("Watchdog import failed!")
+    LOG.exception("Watchdog import failed!")
     WatchDogTrigger = None
 
 
 class AbstractMessageProcessor(Thread):
-
-    """Process Messages
-    """
+    """Process Messages."""
 
     def __init__(self, services, topics, nameserver="localhost"):
+        """Init the message processor."""
         Thread.__init__(self)
         LOG.debug("Nameserver: {}".format(nameserver))
         self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
@@ -367,18 +375,17 @@ class AbstractMessageProcessor(Thread):
         self.loop = True
 
     def start(self):
+        """Start the processor."""
         self.sub = self.nssub.start()
         Thread.start(self)
 
     def process(self, msg):
-        """Process the message.
-        """
+        """Process the message."""
         del msg
         raise NotImplementedError("process is not implemented!")
 
     def run(self):
-        """Run the trigger.
-        """
+        """Run the trigger."""
         try:
             for msg in self.sub.recv(2):
                 if not self.loop:
@@ -390,19 +397,18 @@ class AbstractMessageProcessor(Thread):
             self.stop()
 
     def stop(self):
-        """Stop the trigger.
-        """
+        """Stop the trigger."""
         self.nssub.stop()
         self.loop = False
 
 
 class PostTrollTrigger(FileTrigger):
-
-    """Get posttroll messages.
-    """
+    """Get posttroll messages."""
 
     def __init__(self, collectors, terminator, services, topics,
-                 publish_topic=None, nameserver="localhost", publish_message_after_each_reception=False):
+                 publish_topic=None, nameserver="localhost",
+                 publish_message_after_each_reception=False):
+        """Init the posttroll trigger."""
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
@@ -410,19 +416,16 @@ class PostTrollTrigger(FileTrigger):
                              publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
-        """Start the posttroll trigger.
-        """
+        """Start the posttroll trigger."""
         FileTrigger.start(self)
         self.msgproc.start()
 
     @staticmethod
     def decode_message(message):
-        """Return the message data.
-        """
-        return message.data
+        """Return the message data."""
+        return fix_start_end_time(message.data)
 
     def stop(self):
-        """Stop the posttroll trigger.
-        """
+        """Stop the posttroll trigger."""
         self.msgproc.stop()
         FileTrigger.stop(self)

@@ -20,8 +20,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit testing for segment gatherer
-"""
+"""Unit testing for segment gatherer."""
 
 import unittest
 import datetime as dt
@@ -47,24 +46,26 @@ CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
+CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
+                                  "himawari-8")
 
 
 class TestSegmentGatherer(unittest.TestCase):
+    """Tests for the segment gatherer."""
 
     def setUp(self):
-        """Setting up the testing
-        """
-        self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
-            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}
+        """Set up the testing."""
+        self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
-        self.mda_iodc = {"segment": "EPI", "uid": "H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "platform_shortname": "MSG2", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(
-            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "platform_name": "Meteosat-9", "channel_name": "", "path": "", "sensor": ["seviri"]}
+        self.mda_iodc = {"segment": "EPI", "uid": "H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "platform_shortname": "MSG2", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281100-__", "platform_name": "Meteosat-9", "channel_name": "", "path": "", "sensor": ["seviri"]}  # noqa
 
-        self.mda_pps = {"end_tenths": 4, "uid": "S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "platform_shortname": "metopb", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "start_tenths": 7, "orbit_number": 28538, "uri":
-                        "/home/lahtinep/data/satellite/hrpt-pps/S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "start_seconds": 38, "platform_name": "Metop-B", "end_seconds": 54, "end_time": dt.datetime(2018, 3, 19, 10, 9, 0), "path": "", "sensor": ["avhrr/3"]}
+        self.mda_pps = {"end_tenths": 4, "uid": "S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "platform_shortname": "metopb", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "start_tenths": 7, "orbit_number": 28538, "uri":  # noqa
+                        "/home/lahtinep/data/satellite/hrpt-pps/S_NWC_CMA_metopb_28538_20180319T0955387Z_20180319T1009544Z.nc", "start_seconds": 38, "platform_name": "Metop-B", "end_seconds": 54, "end_time": dt.datetime(2018, 3, 19, 10, 9, 0), "path": "", "sensor": ["avhrr/3"]}  # noqa
 
-        self.mda_hrpt = {"uid": "hrpt_metop01_20180319_0955_28538.l1b", "platform_shortname": "metop01", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "orbit_number":
-                         28538, "uri": "/home/lahtinep/data/satellite/new/hrpt_metop01_20180319_0955_28538.l1b", "platform_name": "Metop-B", "path": "", "sensor": ["avhrr/3"]}
+        self.mda_hrpt = {"uid": "hrpt_metop01_20180319_0955_28538.l1b", "platform_shortname": "metop01", "start_time": dt.datetime(2018, 3, 19, 9, 55, 0), "orbit_number":  # noqa
+                         28538, "uri": "/home/lahtinep/data/satellite/new/hrpt_metop01_20180319_0955_28538.l1b", "platform_name": "Metop-B", "path": "", "sensor": ["avhrr/3"]}  # noqa
 
         self.mda_goes16 = {"uid": "OR_ABI-L1b-RadF-M3C08_G16_s20190320600324_e20190320611091_c20190320611138.nc",
                            "creation_time": "20190320611138",
@@ -83,8 +84,10 @@ class TestSegmentGatherer(unittest.TestCase):
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
+        """Test init."""
         self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
         self.assertTrue(self.msg0deg._subject is None)
         self.assertEqual(list(self.msg0deg._patterns.keys()), ['msg'])
@@ -97,7 +100,14 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(self.msg0deg._listener, None)
         self.assertEqual(self.msg0deg._publisher, None)
 
+        # Tests using two filesets start_time_pattern
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
+        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+
     def test_init_data(self):
+        """Test initializing the data."""
         mda = self.mda_msg0deg.copy()
         self.msg0deg._init_data(mda)
 
@@ -137,6 +147,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(slot['msg']['all_files']), 114)
 
     def test_compose_filenames(self):
+        """Test composing the filenames."""
         mda = self.mda_msg0deg.copy()
         self.msg0deg._init_data(mda)
         slot_str = str(mda["start_time"])
@@ -167,11 +178,14 @@ class TestSegmentGatherer(unittest.TestCase):
         fname_set = self.hrpt_pps._compose_filenames(
             'hrpt', slot_str,
             self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
-        self.assertEqual(len(fname_set), 0)
+        self.assertEqual(len(fname_set), 1)
+        self.assertTrue("hrpt_*_20180319_0955_28538.l1b" in fname_set)
         fname_set = self.hrpt_pps._compose_filenames(
             'pps', slot_str,
             self.hrpt_pps._config['patterns']['pps']['critical_files'])
-        self.assertEqual(len(fname_set), 0)
+        self.assertEqual(len(fname_set), 1)
+        self.assertTrue(
+            "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in fname_set)
 
         # Tests using filesets with no segments, INI config
         mda = self.mda_goes16.copy()
@@ -183,11 +197,13 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(fname_set), 0)
 
     def test_set_logger(self):
+        """Test setting the logger."""
         logger = logging.getLogger('foo')
         self.msg0deg.set_logger(logger)
         self.assertTrue(logger is self.msg0deg.logger)
 
     def test_update_timeout(self):
+        """Test updating the timeout."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
         self.msg0deg._init_data(mda)
@@ -197,6 +213,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertAlmostEqual(diff.total_seconds(), 10.0, places=3)
 
     def test_slot_ready(self):
+        """Test if a slot is ready."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
         self.msg0deg._init_data(mda)
@@ -208,6 +225,7 @@ class TestSegmentGatherer(unittest.TestCase):
         # TODO
 
     def test_get_collection_status(self):
+        """Test getting the collection status."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
 
@@ -289,6 +307,7 @@ class TestSegmentGatherer(unittest.TestCase):
                          SLOT_READY_BUT_WAIT_FOR_MORE)
 
     def test_add_file(self):
+        """Test adding a file."""
         # Single fileset
         msg_data = self.mda_msg0deg.copy()
         col = self.msg0deg
@@ -334,12 +353,13 @@ class TestSegmentGatherer(unittest.TestCase):
             res = col.add_file(time_slot, key, mda, msg_data[key])
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             0)
+                             1)
             meta = col.slots[time_slot]['metadata']
-            self.assertEqual(len(meta['collection'][key]['dataset']), 0)
+            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
             i += 1
 
     def test_ini_to_dict(self):
+        """Test ini conversion to dict."""
         config = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
         self.assertTrue('patterns' in config)
         self.assertTrue('posttroll' in config)
@@ -362,20 +382,81 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
 
-    def tearDown(self):
-        """Closing down
-        """
-        pass
+    def test_check_schedule_time(self):
+        """Test Check Schedule Time."""
+        import datetime
+
+        hour = self.msg0deg_iodc._patterns['msg']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(9, 0)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(9, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(23, 0)))
+        hour = self.msg0deg_iodc._patterns['iodc']['_start_time_pattern']
+        self.assertTrue(self.msg0deg.check_schedule_time(hour, datetime.time(4, 15)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(4, 30)))
+        self.assertFalse(self.msg0deg.check_schedule_time(hour, datetime.time(11, 0)))
+
+    def test_floor_time(self):
+        """Test that flooring the time to set minutes work."""
+        parser = self.himawari_ini._parsers['himawari-8']
+        mda = parser.parse("IMG_DK01IR4_201712081129_010")
+        self.assertEqual(mda['start_time'].minute, 29)
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 20)
+        self.himawari_ini._group_by_minutes = 15
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 15)
+        self.himawari_ini._group_by_minutes = 2
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
+        # Add seconds
+        mod_mda = mda.copy()
+        start_time = mda['start_time']
+        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                            start_time.day, start_time.hour,
+                                            start_time.minute, 42)
+        # The seconds should also be zero'd
+        mda2 = self.himawari_ini._floor_time(mda.copy())
+        self.assertEqual(mda2['start_time'].minute, 28)
+        self.assertEqual(mda2['start_time'].second, 0)
+
+        # Test that nothing is changed when groub_by_minutes has not
+        # been configured
+        self.himawari_ini._group_by_minutes = None
+        mda2 = self.himawari_ini._floor_time(mod_mda.copy())
+        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
+
+    def test_copy_metadata(self):
+        """Test combining metadata from a message and parsed from filename."""
+        from pytroll_collectors.segments import copy_metadata
+        try:
+            from unittest import mock
+        except ImportError:
+            import mock
+
+        mda = {'a': 1, 'b': 2}
+        msg = mock.MagicMock()
+        msg.data = {'a': 2, 'c': 3}
+
+        res = copy_metadata(mda, msg)
+        self.assertEqual(res['a'], 2)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
+
+        # Keep 'a' from parsed metadata
+        res = copy_metadata(mda, msg, keep_parsed_keys=['a'])
+        self.assertEqual(res['a'], 1)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
 
 
 def suite():
-    """The suite for test_trollduction
-    """
+    """Test suite for test_trollduction."""
     loader = unittest.TestLoader()
     mysuite = unittest.TestSuite()
     mysuite.addTest(loader.loadTestsFromTestCase(TestSegmentGatherer))
 
     return mysuite
+
 
 if __name__ == "__main__":
     unittest.TextTestRunner(verbosity=2).run(suite())

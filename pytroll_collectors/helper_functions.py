@@ -22,8 +22,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-'''Helper functions
-'''
+"""Helper functions."""
 
 import os
 import datetime as dt
@@ -39,12 +38,13 @@ LOG = logging.getLogger(__name__)
 
 
 def create_aligned_datetime_var(var_pattern, info_dict):
-    """
-    uses *var_patterns* like "{time:%Y%m%d%H%M|align(15)}"
+    """Create an aligned datetime variable.
+
+    Uses *var_patterns* like "{time:%Y%m%d%H%M|align(15)}"
     to new datetime including support for temporal
     alignment (Ceil/Round a datetime object to a multiple of a timedelta.
     Useful to equalize small time differences in name of files
-    belonging to the same timeslot)
+    belonging to the same timeslot).
     """
     mtch = re.match(
         '{(.*?)(!(.*?))?(\\:(.*?))?(\\|(.*?))?}',
@@ -76,16 +76,13 @@ def create_aligned_datetime_var(var_pattern, info_dict):
     if res is None:
         # fallback to default compose when no special handling needed
         # NOTE: This will fail, there's no `var_val`!!!
-        res = compose(var_val, self.info)
+        res = compose(var_val, self.info)  # noqa
 
     return res
 
 
 def _parse_align_time_transform(transform_spec):
-    """
-    Parse the align-time transformation string "align(15,0,-1)"
-    and returns *(steps, offset, intv_add)*
-    """
+    """Parse the align-time transformation string "align(15,0,-1)" and returns *(steps, offset, intv_add)*."""
     match = re.search('align\\((.*)\\)', transform_spec)
     if match:
         al_args = match.group(1).split(',')
@@ -103,17 +100,20 @@ def _parse_align_time_transform(transform_spec):
         return None
 
 
-def align_time(input_val, steps=dt.timedelta(minutes=5),
-               offset=dt.timedelta(minutes=0), intervals_to_add=0):
-    """
-    Ceil/Round a datetime object to a multiple of a timedelta.
+def align_time(input_val, steps=None,
+               offset=None, intervals_to_add=0):
+    """Ceil/Round a datetime object to a multiple of a timedelta.
+
     Useful to equalize small time differences in name of files
     belonging to the same timeslot
     """
+    offset = offset or dt.timedelta(minutes=0)
+    steps = steps or dt.timedelta(minutes=5)
+
     try:
         stepss = steps.total_seconds()
     # Python 2.6 compatibility hack
-    except AttributError:
+    except AttributeError:
         stepss = steps.days * 86400. + \
             steps.seconds + steps.microseconds * 1e-6
     val = input_val - offset
@@ -124,7 +124,7 @@ def align_time(input_val, steps=dt.timedelta(minutes=5),
 
 
 def parse_aliases(config):
-    '''Parse aliases from the config.
+    """Parse aliases from the config.
 
     Aliases are given in the config as:
 
@@ -135,7 +135,7 @@ def parse_aliases(config):
     replaced. The later form is there to support several possible
     substitutions (eg. '2' -> '9' and '3' -> '10' in the case of MSG).
 
-    '''
+    """
     aliases = {}
 
     for key in config:
@@ -154,6 +154,7 @@ def parse_aliases(config):
 
 
 def get_local_ips():
+    """Get the local ips."""
     inet_addrs = [netifaces.ifaddresses(iface).get(netifaces.AF_INET)
                   for iface in netifaces.interfaces()]
     ips = []
@@ -201,10 +202,10 @@ def is_uri_on_server(uri, strict=False):
 
 
 def read_yaml(fname):
-    """Read YAML file"""
+    """Read YAML file."""
     import yaml
 
     with open(fname, 'r') as fid:
-        data = yaml.load(fid)
+        data = yaml.load(fid, Loader=yaml.SafeLoader)
 
     return data

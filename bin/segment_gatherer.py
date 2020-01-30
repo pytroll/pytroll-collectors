@@ -19,6 +19,7 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""Segment gatherer."""
 
 import argparse
 import os
@@ -32,8 +33,7 @@ from pytroll_collectors.helper_functions import read_yaml
 
 
 def arg_parse():
-    '''Handle input arguments.
-    '''
+    """Handle input arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log",
                         help="File to log to (defaults to stdout)",
@@ -48,8 +48,7 @@ def arg_parse():
 
 
 def main():
-    '''Main. Parse cmdline, read config etc.'''
-
+    """Parse cmdline, read config etc."""
     args = arg_parse()
 
     if args.config_item:

@@ -22,10 +22,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Gather granule messages to send them in a bunch.
-"""
+"""Gather granule messages to send them in a bunch."""
 
-from datetime import timedelta, datetime
+from datetime import timedelta
 import time
 import logging
 import logging.handlers
@@ -50,9 +49,7 @@ PUB = None
 
 
 def get_metadata(fname):
-    """Parse metadata from the file.
-    """
-
+    """Parse metadata from the file."""
     res = None
     for section in CONFIG.sections():
         try:
@@ -67,25 +64,7 @@ def get_metadata(fname):
         for key in ["watcher", "pattern", "timeliness", "regions"]:
             res.pop(key, None)
 
-        if "duration" in res and "end_time" not in res:
-            res["end_time"] = (res["start_time"] +
-                               timedelta(seconds=int(res["duration"])))
-        if "start_date" in res:
-            res["start_time"] = datetime.combine(res["start_date"].date(),
-                                                 res["start_time"].time())
-            if "end_date" not in res:
-                res["end_date"] = res["start_date"]
-            del res["start_date"]
-        if "end_date" in res:
-            res["end_time"] = datetime.combine(res["end_date"].date(),
-                                               res["end_time"].time())
-            del res["end_date"]
-
-        while res["start_time"] > res["end_time"]:
-            res["end_time"] += timedelta(days=1)
-
-        if "duration" in res:
-            del res["duration"]
+        res = trigger.fix_start_end_time(res)
 
         if ("sensor" in res) and ("," in res["sensor"]):
             res["sensor"] = res["sensor"].split(",")
@@ -97,8 +76,7 @@ def get_metadata(fname):
 
 
 def terminator(metadata, publish_topic=None):
-    """Dummy terminator function.
-    """
+    """Terminate the gathering."""
     sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
 
     mda = metadata[0].copy()
@@ -111,6 +89,7 @@ def terminator(metadata, publish_topic=None):
         subject = "/".join(("", mda["format"], mda["data_processing_level"],
                             ''))
 
+    mda['start_time'] = sorted_mda[0]['start_time']
     mda['end_time'] = sorted_mda[-1]['end_time']
     mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
     mda['collection'] = []
@@ -141,8 +120,7 @@ def terminator(metadata, publish_topic=None):
 
 
 def arg_parse():
-    """Handle input arguments.
-    """
+    """Handle input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -154,15 +132,19 @@ def arg_parse():
     parser.add_argument("-c", "--config-item",
                         help="config item to use (all by default). Can be specified multiply times",
                         action="append")
+    parser.add_argument("-p", "--publish-port", default=0, type=int,
+                        help="Port to publish the messages on. Default: automatic")
+    parser.add_argument("-n", "--nameservers",
+                        help=("Connect publisher to given nameservers: "
+                              "'-n localhost -n 123.456.789.0'. Default: localhost"),
+                        action="append")
     parser.add_argument("config", help="config file to be used")
 
     return parser.parse_args()
 
 
 def setup(decoder):
-    """Setup the granule triggerer.
-    """
-
+    """Set up the granule triggerer."""
     granule_triggers = []
 
     for section in CONFIG.sections():
@@ -225,9 +207,7 @@ def setup(decoder):
 
 
 def main():
-    """Main() for gatherer.
-    """
-
+    """Run the gatherer."""
     global LOGGER
     global PUB
 
@@ -272,10 +252,17 @@ def main():
         if len(CONFIG.sections()) == 0:
             LOGGER.error("No valid config item provided")
             return
+        publisher_name = "gatherer_" + "_".join(opts.config_item)
+    else:
+        publisher_name = "gatherer"
+
+    publish_port = opts.publish_port
+    publisher_nameservers = opts.nameservers
 
     decoder = get_metadata
 
-    PUB = publisher.NoisyPublisher("gatherer")
+    PUB = publisher.NoisyPublisher(publisher_name, port=publish_port,
+                                   nameservers=publisher_nameservers)
 
     granule_triggers = setup(decoder)
 

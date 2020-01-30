@@ -17,6 +17,7 @@
 """Unit testing for global mosaic
 """
 
+import pytest
 import unittest
 import datetime as dt
 import tempfile
@@ -80,24 +81,25 @@ class TestImageScaler(unittest.TestCase):
                                   fill_value=None)
         self.assertEqual(res.mode, 'L')
         res = sca._pil_to_xrimage(self.img_la.copy(), None,
-                                   fill_value=42)
+                                  fill_value=42)
         self.assertEqual(res.mode, 'L')
         res = sca._pil_to_xrimage(self.img_la.copy(), None,
-                                   fill_value=None)
+                                  fill_value=None)
         self.assertEqual(res.mode, 'LA')
         res = sca._pil_to_xrimage(self.img_rgb.copy(), None,
-                                   fill_value=42)
+                                  fill_value=42)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_xrimage(self.img_rgb.copy(), None,
-                                   fill_value=None)
+                                  fill_value=None)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_xrimage(self.img_rgba.copy(), None,
-                                   fill_value=42)
+                                  fill_value=42)
         self.assertEqual(res.mode, 'RGB')
         res = sca._pil_to_xrimage(self.img_rgba.copy(), None,
-                                   fill_value=None)
+                                  fill_value=None)
         self.assertEqual(res.mode, 'RGBA')
 
+    @pytest.mark.xfail
     def test_save_image(self):
         out_dir = tempfile.gettempdir()
         fname = os.path.join(out_dir, 'img.png')
