@@ -405,10 +405,11 @@ class AbstractMessageProcessor(Thread):
 class PostTrollTrigger(FileTrigger):
     """Get posttroll messages."""
 
-    def __init__(self, collectors, terminator, services, topics,
+    def __init__(self, collectors, terminator, services, topics, duration=None,
                  publish_topic=None, nameserver="localhost",
                  publish_message_after_each_reception=False):
         """Init the posttroll trigger."""
+        self.duration = duration
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
@@ -420,10 +421,20 @@ class PostTrollTrigger(FileTrigger):
         FileTrigger.start(self)
         self.msgproc.start()
 
-    @staticmethod
-    def decode_message(message):
+    def decode_message(self, message):
         """Return the message data."""
-        return fix_start_end_time(message.data)
+
+        # Include file duration in message data
+        if self.duration:
+            message.data["duration"] = self.duration
+
+        # Fix start and end time
+        try:
+            mgs_data = fix_start_end_time(message.data)
+        except KeyError:
+            LOG.exception("Something went wrong!")
+        else:
+            return mgs_data
 
     def stop(self):
         """Stop the posttroll trigger."""

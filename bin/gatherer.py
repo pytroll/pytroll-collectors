@@ -195,10 +195,16 @@ def setup(decoder):
 
         else:
             LOGGER.debug("Using posttroll for %s", section)
+            try:
+                duration = CONFIG.getfloat(section, "duration")
+            except NoOptionError:
+                duration = None
+
             granule_trigger = trigger.PostTrollTrigger(
                 collectors, terminator,
                 CONFIG.get(section, 'service').split(','),
                 CONFIG.get(section, 'topics').split(','),
+                duration=duration,
                 publish_topic=publish_topic, nameserver=nameserver,
                 publish_message_after_each_reception=publish_message_after_each_reception)
         granule_triggers.append(granule_trigger)
