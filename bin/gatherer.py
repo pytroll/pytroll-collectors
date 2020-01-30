@@ -204,7 +204,7 @@ def setup(decoder):
                 collectors, terminator,
                 CONFIG.get(section, 'service').split(','),
                 CONFIG.get(section, 'topics').split(','),
-                duration,
+                duration=duration,
                 publish_topic=publish_topic, nameserver=nameserver,
                 publish_message_after_each_reception=publish_message_after_each_reception)
         granule_triggers.append(granule_trigger)
