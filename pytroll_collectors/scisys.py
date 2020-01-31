@@ -1,22 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright (c) 2012-2018 Pytroll Developers
-
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
-
+#   Janne Kotro <janne.kotro@fmi.fi>
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -409,14 +410,12 @@ class MessageReceiver(object):
         elif message.body.startswith(dispatch_prefix2):
             filename, _, url = message.body[len(dispatch_prefix2):].split(" ")
             ip_address, path = url.split(":")
-            #import pdb;pdb.set_trace()
             LOGGER.debug("ip_adress: %s", str(ip_address))
             LOGGER.debug("self._target_server: %s ", str(self._target_server))
             if ip_address == self._target_server:
                 LOGGER.debug("Found correct target server: %s", ip_address)
                 if self._ftp_prefix is not None:
                     path = os.path.join(self._ftp_prefix, path)
-                    #path = os.path.join(path, filename)
                     LOGGER.debug("ftp_prefix added: %s", path)
                 url = 'ftp://' + ip_address + path
                 LOGGER.debug("filename = <%s> url = <%s>", filename, url)
@@ -527,12 +526,10 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
                                    station, environment,
                                    "polar", "direct_readout"))
             LOGGER.debug("Subject: %s", str(subject))
-            #import pdb;pdb.set_trace()
             msg = Message(subject,
                           "file",
                           to_send).encode()
             LOGGER.debug("publishing %s", str(msg))
-            #import pdb;pdb.set_trace()
             pub.send(msg)
             if days:
                 msg_rec.clean_passes(days)
