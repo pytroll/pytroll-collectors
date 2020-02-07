@@ -1,0 +1,13 @@
+[ears-pps]
+pattern = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{orig_platform_name}+{segment}_C_EUMS_{start_time:%Y%m%d%H%M%S}_{orbit_number:5d}.nc
+critical_files = 
+wanted_files = :CTTH,:CT,:CMA
+all_files = :CTTH,:CT,:CMA
+topics = /test-stalker/4/dev
+publish_topic = /test-geo_gatherer/4/dev
+timeliness = 1200
+time_name = start_time
+# Service is the name of the publishing service. If given Listener only connect to this service
+# If not given Listener/Subscribe connects to all publishing services, this is the default
+# More than ne can be given as a comma separated
+services=<service-name>,<another-service-name>
