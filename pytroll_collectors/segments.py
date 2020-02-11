@@ -78,6 +78,7 @@ class SegmentGatherer(object):
 
         self.logger = logging.getLogger("segment_gatherer")
         self._loop = False
+        self._providing_server = config.get('providing_server')
 
         # Convert check time into int minutes variables
         for key in self._patterns:
@@ -98,7 +99,7 @@ class SegmentGatherer(object):
                 # Start-End time across midnight
                 interval["midnight"] = False
                 if interval["start"] > interval["end"]:
-                    interval["end"] += 24*60
+                    interval["end"] += 24 * 60
                     interval["midnight"] = True
                 self._patterns[key]["_start_time_pattern"] = interval
                 self.logger.info("Start Time pattern '%s' " +
@@ -357,8 +358,12 @@ class SegmentGatherer(object):
         addresses = self._config['posttroll'].get('addresses')
         publish_port = self._config['posttroll'].get('publish_port', 0)
         nameservers = self._config['posttroll'].get('nameservers', [])
-        self._listener = ListenerContainer(topics=topics, addresses=addresses)
-        self._publisher = publisher.NoisyPublisher("segment_gatherer",
+        services = self._config['posttroll'].get('services')
+        self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
+        # Name each segment_gatherer with the section name.
+        # This way the user can subscribe to a specific segment_gatherer service instead of all.
+        publish_service_name = "segment_gatherer_" + self._config['section']
+        self._publisher = publisher.NoisyPublisher(publish_service_name,
                                                    port=publish_port,
                                                    nameservers=nameservers)
         self._publisher.start()
@@ -401,6 +406,9 @@ class SegmentGatherer(object):
                 continue
 
             if msg.type == "file":
+                # If providing server is configured skip message if not from providing server
+                if self._providing_server and self._providing_server != msg.host:
+                    continue
                 self.logger.info("New message received: %s", str(msg))
                 self.process(msg)
 
@@ -557,7 +565,7 @@ class SegmentGatherer(object):
         # Convert check time into int variables
         raw_time = (60 * raw_start_time.hour) + raw_start_time.minute
         if check_time["midnight"] and raw_time < check_time["start"]:
-            raw_time += 24*60
+            raw_time += 24 * 60
 
         # Check start and end time
         if raw_time >= check_time["start"] and raw_time <= check_time["end"]:
@@ -591,7 +599,7 @@ def ini_to_dict(fname, section):
     posttroll = conf['posttroll']
     posttroll['topics'] = config.get(section, 'topics').split()
     try:
-        nameservers = config.get(section, 'nameserver')
+        nameservers = config.get(section, 'nameservers')
         nameservers = nameservers.split()
     except (NoOptionError, ValueError):
         nameservers = None
@@ -603,6 +611,13 @@ def ini_to_dict(fname, section):
     except (NoOptionError, ValueError):
         addresses = None
     posttroll['addresses'] = addresses
+
+    try:
+        services = config.get(section, 'services')
+        services = services.split()
+    except (NoOptionError, ValueError):
+        services = ""
+    posttroll['services'] = services
 
     try:
         publish_port = config.get(section, 'publish_port')
@@ -651,6 +666,14 @@ def ini_to_dict(fname, section):
         conf['keep_parsed_keys'] = kps.split()
     except NoOptionError:
         pass
+
+    try:
+        conf['providing_server'] = config.get(section, "providing_server")
+    except (NoOptionError, ValueError):
+        conf['providing_server'] = None
+
+    # Need to also add the section name to name the segment_gatherer service
+    posttroll['section'] = section
 
     return conf
 
