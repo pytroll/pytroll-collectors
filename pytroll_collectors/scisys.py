@@ -1,22 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright (c) 2012-2018 Pytroll Developers
-
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
-
+#   Janne Kotro <janne.kotro@fmi.fi>
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -148,7 +149,8 @@ class PassRecorder(dict):
 class MessageReceiver(object):
     """Interprets received messages between stop reception and file dispatch."""
 
-    def __init__(self, emitter, excluded_satellite_list=None):
+    def __init__(self, emitter, excluded_satellite_list=None,
+                 target_server=None, ftp_prefix=None):
         """Init the receiver."""
         self._received_passes = PassRecorder()
         self._distributed_files = {}
@@ -157,6 +159,8 @@ class MessageReceiver(object):
             self._excluded_platforms = excluded_satellite_list
         else:
             self._excluded_platforms = []
+        self._target_server = target_server
+        self._ftp_prefix = ftp_prefix
 
     def add_pass(self, message):
         """Format pass info and add it to the object."""
@@ -404,14 +408,23 @@ class MessageReceiver(object):
             if is_uri_on_server(url, strict=True):
                 return self.handle_distrib(url)
         elif message.body.startswith(dispatch_prefix2):
-            filename, arr, url = message.body[len(dispatch_prefix2):].split(" ")
-            url = 'ftp://' + url.replace(':', '')
-            del arr
-            LOGGER.debug("filename = <%s> url = <%s>", filename, url)
-            url = compose_dest_url(filename, url)
-            LOGGER.debug("url = %s", url)
-            if is_uri_on_server(url, strict=True):
+            filename, _, url = message.body[len(dispatch_prefix2):].split(" ")
+            ip_address, path = url.split(":")
+            LOGGER.debug("ip_adress: %s", str(ip_address))
+            LOGGER.debug("self._target_server: %s ", str(self._target_server))
+            if ip_address == self._target_server:
+                LOGGER.debug("Found correct target server: %s", ip_address)
+                if self._ftp_prefix is not None:
+                    path = os.path.join(self._ftp_prefix, path)
+                    LOGGER.debug("ftp_prefix added: %s", path)
+                url = 'ftp://' + ip_address + path
+                LOGGER.debug("filename = <%s> url = <%s>", filename, url)
+                url = compose_dest_url(filename, url)
+                LOGGER.debug("url = %s", url)
                 return self.handle_distrib(url)
+            else:
+                LOGGER.debug("File is not on targer server.")
+                return None
 
 
 def compose_dest_url(source, dest):
@@ -458,7 +471,7 @@ class GMCSubscriber(object):
                     else:
                         if not data:
                             break
-                        self.msg += data
+                        self.msg += data.decode('utf-8')
                         messages = self.msg.split("</message>")
                         if len(messages) > 1:
                             for mess in messages[:-1]:
@@ -479,10 +492,19 @@ class GMCSubscriber(object):
         self.loop = False
 
 
-def receive_from_zmq(host, port, station, environment, excluded_platforms, days=1):
+def receive_from_zmq(host, port, station, environment, excluded_platforms,
+                     target_server, ftp_prefix, topic_postfix, days=1):
     """Receive 2met! messages from zeromq."""
+    LOGGER.debug("target_server: %s", str(target_server))
+    LOGGER.debug("ftp_prefix: %s", str(ftp_prefix))
+    LOGGER.debug("topic_postfix: %s", str(topic_postfix))
+    LOGGER.debug("station %s", str(station))
+    LOGGER.debug(type(target_server))
+
+    # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
     sock = GMCSubscriber(host, port)
-    msg_rec = MessageReceiver(host, excluded_platforms)
+    msg_rec = MessageReceiver(host, excluded_platforms,
+                              target_server, ftp_prefix)
 
     with Publish("receiver", 0, ["HRPT 0", "PDS", "RDR", "EPS 0"]) as pub:
         for rawmsg in sock.recv():
@@ -491,12 +513,19 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms, days=
             LOGGER.debug("receive from 2met! %s", str(rawmsg))
             string = TwoMetMessage(rawmsg)
             to_send = msg_rec.receive(string)
+            LOGGER.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
-            subject = "/".join(("", to_send['format'],
-                                to_send['data_processing_level'],
-                                station, environment,
-                                "polar", "direct_readout"))
+            if topic_postfix is not None:
+                subject = "/".join(("", to_send['format'],
+                                   to_send['data_processing_level'],
+                                   topic_postfix))
+            else:
+                subject = "/".join(("", to_send['format'],
+                                   to_send['data_processing_level'],
+                                   station, environment,
+                                   "polar", "direct_readout"))
+            LOGGER.debug("Subject: %s", str(subject))
             msg = Message(subject,
                           "file",
                           to_send).encode()
