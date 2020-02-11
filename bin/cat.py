@@ -212,12 +212,18 @@ if __name__ == '__main__':
     cfg.read(opts.config)
     config = dict(cfg.items(opts.config_item))
 
-    if 'service' not in config:
-        config['service'] = ''
+    services = ''
+    if 'services' in config:
+        services = config['services'].split(',')
+
+    nameservers = []
+    if 'nameservers' in config:
+        nameservers = config['nameservers'].split(',')
 
     try:
-        with Publish("cat_" + opts.config_item) as pub:
-            with Subscribe(config['service'], config["topic"], True) as sub:
+        with Publish("cat_" + opts.config_item,
+                     nameservers=nameservers) as pub:
+            with Subscribe(services, config["topic"], True) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue

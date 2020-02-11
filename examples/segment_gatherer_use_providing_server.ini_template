@@ -1,0 +1,16 @@
+[ears-pps]
+pattern = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{orig_platform_name}+{segment}_C_EUMS_{start_time:%Y%m%d%H%M%S}_{orbit_number:5d}.nc
+critical_files = 
+wanted_files = :CTTH,:CT,:CMA
+all_files = :CTTH,:CT,:CMA
+topics = /test-stalker/4/dev
+publish_topic = /test-geo_gatherer/4/dev
+timeliness = 1200
+time_name = start_time
+# If the segment gatherer is used in an environment with more than one server with mulitcast
+# the providing_server can be used to ignore messages from other than the configured server.
+#
+# The providing_server must match exactly the msg server host
+#
+# Only one providing_server can be given.
+providing_server=<server-name>
