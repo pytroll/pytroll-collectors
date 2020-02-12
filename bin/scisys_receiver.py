@@ -77,6 +77,7 @@ def parse_args():
 
 def setup_logging(log_file=None):
     """Setup logging."""
+    global logger
     if log_file:
         handler = logging.handlers.TimedRotatingFileHandler(log_file,
                                                             "midnight",
@@ -108,7 +109,7 @@ def main():
                          opts.topic_postfix, 1)
     except KeyboardInterrupt:
         pass
-    except:
+    except Exception:
         logger.exception("Something wrong happened...")
     finally:
         print("Thank you for using pytroll/receiver."
