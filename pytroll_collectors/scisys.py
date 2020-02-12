@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012-2018 Pytroll Developers
+# Copyright (c) 2012-2020 Pytroll Developers
 #
 # Author(s):
 #
 #   Martin Raspaud <martin.raspaud@smhi.se>
 #   Janne Kotro <janne.kotro@fmi.fi>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,7 +48,7 @@ from posttroll.message import Message
 from posttroll.publisher import Publish
 from pytroll_collectors.helper_functions import is_uri_on_server
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
                                    "RCRIS-RNSCA_": "cris",
@@ -113,9 +114,9 @@ class TwoMetMessage(object):
             try:
                 self._xml_decode(mstring)
             except Exception:
-                LOGGER.exception("Spurious message! %s", str(mstring))
+                logger.exception("Spurious message! %s", str(mstring))
         else:
-            LOGGER.warning("Don't know how to decode message: %s",
+            logger.warning("Don't know how to decode message: %s",
                            str(mstring))
 
 
@@ -165,7 +166,7 @@ class MessageReceiver(object):
     def add_pass(self, message):
         """Format pass info and add it to the object."""
         info = dict((item.split(": ", 1) for item in message.split(", ", 3)))
-        LOGGER.info("Adding pass: %s", str(info))
+        logger.info("Adding pass: %s", str(info))
         pass_info = {}
         for key, val in info.items():
             pass_info[key.lower()] = val
@@ -180,7 +181,7 @@ class MessageReceiver(object):
             pass_info['orbit_number'] = int(pass_info['orbit number'])
             del pass_info['orbit number']
         else:
-            LOGGER.warning("No 'orbit number' in message!")
+            logger.warning("No 'orbit number' in message!")
 
         pname = pass_name(pass_info["start_time"], pass_info["satellite"])
         self._received_passes[pname] = pass_info
@@ -200,7 +201,7 @@ class MessageReceiver(object):
         """React to a file dispatch message."""
         url = urlsplit(url)
         dummy, filename = os.path.split(url.path)
-        LOGGER.debug("filename = %s", filename)
+        logger.debug("filename = %s", filename)
         # TODO: Should not make any assumptions on filename formats, should
         # load a description of it from a config file instead.
         if filename.endswith(".hmf"):
@@ -244,7 +245,7 @@ class MessageReceiver(object):
                     "Unrecognized satellite ID: " + pds["apid1"][:3])
 
             if not satellite or satellite in self._excluded_platforms:
-                LOGGER.debug("Platform name %s is excluded...", str(satellite))
+                logger.debug("Platform name %s is excluded...", str(satellite))
                 return None
 
             swath = self._received_passes.get(pname, {}).copy()
@@ -293,14 +294,14 @@ class MessageReceiver(object):
                     break
 
             if not file_ok:
-                LOGGER.warning("Seems to be a NPP/JPSS RDR "
+                logger.warning("Seems to be a NPP/JPSS RDR "
                                "file but name is not standard!")
-                LOGGER.warning("filename = %s", filename)
+                logger.warning("filename = %s", filename)
                 return None
 
             # satellite = "Suomi-NPP, NOAA-20, NOAA-21,..."
             if not satellite or satellite in self._excluded_platforms:
-                LOGGER.debug("Platform name %s is excluded...", str(satellite))
+                logger.debug("Platform name %s is excluded...", str(satellite))
                 return None
 
             mda["start_time"] = \
@@ -354,7 +355,7 @@ class MessageReceiver(object):
             falltime = datetime.strptime(filename[32:47], "%Y%m%d%H%M%SZ")
 
             pname = pass_name(risetime, satellite.upper())
-            LOGGER.debug("pname= % s", str(pname))
+            logger.debug("pname= % s", str(pname))
             swath = self._received_passes.get(pname, {}).copy()
             swath.pop('satellite', None)
             swath["start_time"] = risetime
@@ -384,7 +385,7 @@ class MessageReceiver(object):
                                          url.query,
                                          url.fragment))
         else:
-            LOGGER.debug("url.scheme not expected: %s", url.scheme)
+            logger.debug("url.scheme not expected: %s", url.scheme)
 
         swath["uid"] = os.path.split(url.path)[1]
         swath["uri"] = uri
@@ -410,20 +411,20 @@ class MessageReceiver(object):
         elif message.body.startswith(dispatch_prefix2):
             filename, _, url = message.body[len(dispatch_prefix2):].split(" ")
             ip_address, path = url.split(":")
-            LOGGER.debug("ip_adress: %s", str(ip_address))
-            LOGGER.debug("self._target_server: %s ", str(self._target_server))
+            logger.debug("ip_adress: %s", str(ip_address))
+            logger.debug("self._target_server: %s ", str(self._target_server))
             if ip_address == self._target_server:
-                LOGGER.debug("Found correct target server: %s", ip_address)
+                logger.debug("Found correct target server: %s", ip_address)
                 if self._ftp_prefix is not None:
                     path = os.path.join(self._ftp_prefix, path)
-                    LOGGER.debug("ftp_prefix added: %s", path)
+                    logger.debug("ftp_prefix added: %s", path)
                 url = 'ftp://' + ip_address + path
-                LOGGER.debug("filename = <%s> url = <%s>", filename, url)
+                logger.debug("filename = <%s> url = <%s>", filename, url)
                 url = compose_dest_url(filename, url)
-                LOGGER.debug("url = %s", url)
+                logger.debug("url = %s", url)
                 return self.handle_distrib(url)
             else:
-                LOGGER.debug("File is not on targer server.")
+                logger.debug("File is not on targer server.")
                 return None
 
 
@@ -457,7 +458,7 @@ class GMCSubscriber(object):
             try:
                 self._sock.connect((self._host, self._port))
             except socket.error:
-                LOGGER.error("Cannot connect to %s, retrying in 60 seconds.",
+                logger.error("Cannot connect to %s, retrying in 60 seconds.",
                              str((self._host, self._port)))
                 sleep(60)
                 continue
@@ -495,11 +496,11 @@ class GMCSubscriber(object):
 def receive_from_zmq(host, port, station, environment, excluded_platforms,
                      target_server, ftp_prefix, topic_postfix, days=1):
     """Receive 2met! messages from zeromq."""
-    LOGGER.debug("target_server: %s", str(target_server))
-    LOGGER.debug("ftp_prefix: %s", str(ftp_prefix))
-    LOGGER.debug("topic_postfix: %s", str(topic_postfix))
-    LOGGER.debug("station %s", str(station))
-    LOGGER.debug(type(target_server))
+    logger.debug("target_server: %s", str(target_server))
+    logger.debug("ftp_prefix: %s", str(ftp_prefix))
+    logger.debug("topic_postfix: %s", str(topic_postfix))
+    logger.debug("station %s", str(station))
+    logger.debug(type(target_server))
 
     # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
     sock = GMCSubscriber(host, port)
@@ -510,10 +511,10 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
         for rawmsg in sock.recv():
             # TODO:
             # - Watch for idle time in order to detect a hangout
-            LOGGER.debug("receive from 2met! %s", str(rawmsg))
+            logger.debug("receive from 2met! %s", str(rawmsg))
             string = TwoMetMessage(rawmsg)
             to_send = msg_rec.receive(string)
-            LOGGER.debug("to_send: %s", str(to_send))
+            logger.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
             if topic_postfix is not None:
@@ -525,11 +526,11 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
                                    to_send['data_processing_level'],
                                    station, environment,
                                    "polar", "direct_readout"))
-            LOGGER.debug("Subject: %s", str(subject))
+            logger.debug("Subject: %s", str(subject))
             msg = Message(subject,
                           "file",
                           to_send).encode()
-            LOGGER.debug("publishing %s", str(msg))
+            logger.debug("publishing %s", str(msg))
             pub.send(msg)
             if days:
                 msg_rec.clean_passes(days)
