@@ -494,7 +494,8 @@ class GMCSubscriber(object):
 
 
 def receive_from_zmq(host, port, station, environment, excluded_platforms,
-                     target_server, ftp_prefix, topic_postfix, days=1):
+                     target_server, ftp_prefix, topic_postfix,
+                     publish_port=0, nameservers=None, days=1):
     """Receive 2met! messages from zeromq."""
     logger.debug("target_server: %s", str(target_server))
     logger.debug("ftp_prefix: %s", str(ftp_prefix))
@@ -507,7 +508,9 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
     msg_rec = MessageReceiver(host, excluded_platforms,
                               target_server, ftp_prefix)
 
-    with Publish("receiver", 0, ["HRPT 0", "PDS", "RDR", "EPS 0"]) as pub:
+    with Publish("receiver", port=publish_port,
+                 aliases=["HRPT 0", "PDS", "RDR", "EPS 0"],
+                 nameservers=nameservers) as pub:
         for rawmsg in sock.recv():
             # TODO:
             # - Watch for idle time in order to detect a hangout
