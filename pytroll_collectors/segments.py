@@ -360,9 +360,11 @@ class SegmentGatherer(object):
         nameservers = self._config['posttroll'].get('nameservers', [])
         services = self._config['posttroll'].get('services')
         self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
-        # Name each segment_gatherer with the section name.
+        # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
-        publish_service_name = "segment_gatherer_" + self._config['section']
+        publish_service_name = "segment_gatherer"
+        for key in self._patterns:
+            publish_service_name += "_" + str(key)
         self._publisher = publisher.NoisyPublisher(publish_service_name,
                                                    port=publish_port,
                                                    nameservers=nameservers)
@@ -671,9 +673,6 @@ def ini_to_dict(fname, section):
         conf['providing_server'] = config.get(section, "providing_server")
     except (NoOptionError, ValueError):
         conf['providing_server'] = None
-
-    # Need to also add the section name to name the segment_gatherer service
-    posttroll['section'] = section
 
     return conf
 
