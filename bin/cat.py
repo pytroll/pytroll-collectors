@@ -1,30 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright (c) 2014, 2015 Martin Raspaud
-
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Cat segments together.
-
-./l2processor.py -c /path/to/master_config.ini -C noaa_hrpt
-"""
+"""Cat segments together."""
 
 import argparse
 import logging
@@ -42,7 +39,7 @@ from posttroll.publisher import Publish
 from posttroll.subscriber import Subscribe
 from posttroll.message import Message
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def arg_parse():
@@ -86,7 +83,7 @@ class bunzipped(object):
         filenames = []
         for filename in sorted(self._files):
             if filename.endswith(".bz2"):
-                LOG.debug("bunzipping %s...", filename)
+                logger.debug("bunzipping %s...", filename)
                 tmp_fd, tmp_filename = tempfile.mkstemp()
                 tmp_file = os.fdopen(tmp_fd, "wb")
                 try:
@@ -104,17 +101,17 @@ class bunzipped(object):
         """Exit the context."""
         for filename in self._to_del:
             try:
-                LOG.debug("deleting %s...", filename)
+                logger.debug("deleting %s...", filename)
                 os.remove(filename)
             except OSError as err:
-                LOG.debug("Can't remove %s: %s", filename, str(err))
+                logger.debug("Can't remove %s: %s", filename, str(err))
 
 
 def popen(cmd):
     """Run cmd in Popen."""
     p = Popen(cmd.split(), stderr=PIPE, stdout=PIPE)
-    out_reader = threading.Thread(target=reader, args=(p.stdout, LOG.info))
-    err_reader = threading.Thread(target=reader, args=(p.stderr, LOG.error))
+    out_reader = threading.Thread(target=reader, args=(p.stdout, logger.info))
+    err_reader = threading.Thread(target=reader, args=(p.stderr, logger.error))
     out_reader.start()
     err_reader.start()
     out_reader.join()
@@ -151,22 +148,25 @@ def process_message(msg, config):
     except NoOptionError:
         min_length = 0
     if data["end_time"] - data["start_time"] < timedelta(minutes=min_length):
-        LOG.info('Pass too short, skipping: %s to %s', str(data["start_time"]), str(data["end_time"]))
+        logger.info('Pass too short, skipping: %s to %s',
+                    str(data["start_time"]), str(data["end_time"]))
         return
 
     output_file = compose(pattern, data)
 
     with bunzipped(input_files) as files_to_read:
-        keyvals = {"input_files": " ".join(files_to_read), "output_file": output_file}
+        keyvals = {"input_files": " ".join(files_to_read),
+                   "output_file": output_file}
         cmd_pattern = config["command"]
         cmd = compose(cmd_pattern, keyvals)
-        LOG.info("Running %s", cmd)
+        logger.info("Running %s", cmd)
 
         if "stdout" in config:
             stdout_file = compose(config["stdout"], keyvals)
             with open(stdout_file, "w") as output:
                 p = Popen(cmd.split(), stderr=PIPE, stdout=output)
-                err_reader = threading.Thread(target=reader, args=(p.stderr, LOG.error))
+                err_reader = threading.Thread(target=reader,
+                                              args=(p.stderr, logger.error))
                 err_reader.start()
                 err_reader.join()
 
@@ -185,12 +185,12 @@ def process_message(msg, config):
     return msg2
 
 
-if __name__ == '__main__':
+def setup_logging(log_fname, verbose):
+    """Setup logging."""
+    global logger
 
-    opts = arg_parse()
-
-    if opts.log:
-        handler = logging.handlers.TimedRotatingFileHandler(opts.log,
+    if log_fname:
+        handler = logging.handlers.TimedRotatingFileHandler(log_fname,
                                                             "midnight",
                                                             backupCount=7)
     else:
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
                                            " %(name)s] %(message)s",
                                            '%Y-%m-%d %H:%M:%S'))
-    if opts.verbose:
+    if verbose:
         loglevel = logging.DEBUG
     else:
         loglevel = logging.INFO
@@ -206,7 +206,14 @@ if __name__ == '__main__':
     logging.getLogger('').setLevel(loglevel)
     logging.getLogger('').addHandler(handler)
     logging.getLogger("posttroll").setLevel(logging.INFO)
-    LOG = logging.getLogger("cat")
+    logger = logging.getLogger("cat")
+
+
+def main():
+    """Make cat run."""
+    opts = arg_parse()
+
+    setup_logging(opts.log, opts.verbose)
 
     cfg = RawConfigParser()
     cfg.read(opts.config)
@@ -233,11 +240,11 @@ if __name__ == '__main__':
         sub_addresses = config['subscriber_addresses'].split(',')
 
     try:
-        with Publish("cat_" + opts.config_item, port=publish_port
+        with Publish("cat_" + opts.config_item, port=publish_port,
                      nameservers=nameservers) as pub:
             with Subscribe(services, topics=config["topic"],
                            addr_listener=True, addresses=sub_addresses,
-                           nameserver=sub_addresses) as sub:
+                           nameserver=sub_nameserver) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
@@ -245,10 +252,14 @@ if __name__ == '__main__':
                         new_msg = str(process_message(msg, config))
                         if new_msg is None:
                             continue
-                        LOG.info("Sending %s", new_msg)
+                        logger.info("Sending %s", new_msg)
                         pub.send(new_msg)
     except KeyboardInterrupt:
         logging.shutdown()
     finally:
         print("Thank you for using pytroll/cat!"
               "See you soon on pytroll.org.")
+
+
+if __name__ == '__main__':
+    main()
