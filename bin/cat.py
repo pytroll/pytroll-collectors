@@ -220,10 +220,24 @@ if __name__ == '__main__':
     if 'nameservers' in config:
         nameservers = config['nameservers'].split(',')
 
+    publish_port = 0
+    if 'publish_port' in config:
+        publish_port = int(config['publish_port'])
+
+    sub_nameserver = 'localhost'
+    if 'subscriber_nameserver' in config:
+        sub_nameserver = config['subscriber_nameserver']
+
+    sub_addresses = None
+    if 'subscireber_addresses' in config:
+        sub_addresses = config['subscriber_addresses'].split(',')
+
     try:
-        with Publish("cat_" + opts.config_item,
+        with Publish("cat_" + opts.config_item, port=publish_port
                      nameservers=nameservers) as pub:
-            with Subscribe(services, config["topic"], True) as sub:
+            with Subscribe(services, topics=config["topic"],
+                           addr_listener=True, addresses=sub_addresses,
+                           nameserver=sub_addresses) as sub:
                 for msg in sub.recv(2):
                     if msg is None:
                         continue
