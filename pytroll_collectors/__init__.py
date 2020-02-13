@@ -21,3 +21,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """The place where everything starts :)."""
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
