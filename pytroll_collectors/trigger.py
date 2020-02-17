@@ -392,6 +392,8 @@ class AbstractMessageProcessor(Thread):
                     break
                 if msg is None:
                     continue
+                if msg.type not in ('file', 'collection', 'dataset'):
+                    continue
                 self.process(msg)
         finally:
             self.stop()
