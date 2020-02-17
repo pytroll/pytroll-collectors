@@ -37,9 +37,10 @@ messages = ['']
 class FakeMessage(object):
     """Fake messages."""
 
-    def __init__(self, data):
+    def __init__(self, data, type='file'):
         """Init the fake message."""
         self.data = data
+        self.type = type
 
 
 class TestPostTrollTrigger(unittest.TestCase):
