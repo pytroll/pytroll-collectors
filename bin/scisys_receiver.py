@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     """Parse commandline arguments."""
+    local_ips = get_local_ips()
+    local_ips.remove('127.0.0.1')
+
     parser = argparse.ArgumentParser()
     parser.add_argument("host", help="GMC host")
     parser.add_argument("port", help="Port to listen to", type=int)
@@ -75,7 +78,7 @@ def parse_args():
     parser.add_argument("-t", "--target_server", dest="target_server",
                         type=str,
                         nargs='*',
-                        default=get_local_ips(),
+                        default=local_ips,
                         help="IP of the target server."
                         "In case of multiple dispatches in GMC."
                         "Defaults to the local host.")
