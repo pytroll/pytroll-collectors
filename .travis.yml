@@ -4,7 +4,7 @@ python:
   - "3.7"
 
 install:
-  - pip install codecov pytest pytest-cov posttroll pyresample trollsift
+  - pip install codecov pytest pytest-cov
   - pip install -e .
 
 script:
