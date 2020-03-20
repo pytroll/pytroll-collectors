@@ -318,7 +318,6 @@ class SegmentGatherer(object):
             return SLOT_NOT_READY
 
         status_values = list(status.values())
-
         if all([val == SLOT_READY for val in status_values]):
             self.logger.info("Required files received "
                              "for slot %s.", time_slot)
@@ -473,13 +472,13 @@ class SegmentGatherer(object):
         # Check if this file has been received already
         self.add_file(time_slot, key, mda, msg.data)
 
-    def _floor_time(self, mda, key):
+    def _floor_time(self, mda, key=None):
         """Floor time to full minutes."""
         # This is the 'group_by_minutes' for all patterns
         group_by_minutes = self._group_by_minutes
 
         # Check if 'group_by_minutes' is given in the \key\ pattern
-        if 'group_by_minutes' in self._patterns[key]:
+        if key is not None and 'group_by_minutes' in self._patterns[key]:
             group_by_minutes = self._patterns[key]['group_by_minutes']
         elif self._group_by_minutes is None:
             return mda
@@ -692,6 +691,8 @@ def copy_metadata(mda, msg, keep_parsed_keys=None, local_keep_parsed_keys=None):
     """Copy metada from filename and message to a combined dictionary."""
     if keep_parsed_keys is None:
         keep_parsed_keys = []
+    if local_keep_parsed_keys is None:
+        local_keep_parsed_keys = []
     metadata = {}
     # Use values parsed from the filename as basis
     for key in mda:
