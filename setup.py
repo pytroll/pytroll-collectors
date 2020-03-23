@@ -69,5 +69,4 @@ setup(name="pytroll_collectors",
                         'pillow', 'pycoast', 'six'],
       tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],
       test_suite='pytroll_collectors.tests.suite',
-      extras_require=extras_require,
       )
