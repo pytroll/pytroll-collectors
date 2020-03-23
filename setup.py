@@ -30,10 +30,6 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 # Set PPP_CONFIG_DIR for tests
 os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors', 'tests', 'data')
 
-extras_require = {
-    'image_scaler': ['satpy>=v0.8.0'],
-    'global_mosaic': ['satpy>=v0.8.0'],
-}
 all_extras = []
 for extra_deps in extras_require.values():
     all_extras.extend(extra_deps)
@@ -63,8 +59,6 @@ setup(name="pytroll_collectors",
                'bin/cat.py',
                'bin/catter.py',
                'bin/scisys_receiver.py',
-               'bin/create_global_mosaic.py',
-               'bin/scale_images.py',
                'bin/zipcollector_runner.py'
                ],
       data_files=[],
