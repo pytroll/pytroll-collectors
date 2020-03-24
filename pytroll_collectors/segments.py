@@ -351,6 +351,12 @@ class SegmentGatherer(object):
         if SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return SLOT_READY_BUT_WAIT_FOR_MORE
 
+    def _generate_publish_service_name(self):
+        publish_service_name = "segment_gatherer"
+        for key in sorted(self._patterns):
+            publish_service_name += "_" + str(key)
+        return publish_service_name
+
     def _setup_messaging(self):
         """Set up messaging."""
         self._subject = self._config['posttroll']['publish_topic']
@@ -362,9 +368,7 @@ class SegmentGatherer(object):
         self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
-        publish_service_name = "segment_gatherer"
-        for key in self._patterns:
-            publish_service_name += "_" + str(key)
+        publish_service_name = self._generate_publish_service_name()
         self._publisher = publisher.NoisyPublisher(publish_service_name,
                                                    port=publish_port,
                                                    nameservers=nameservers)

@@ -448,6 +448,12 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
 
+    def test_publish_service_name(self):
+        """Test publish service name. Need to be equal each time"""
+        col = self.msg0deg_iodc
+        publish_service_name = col._generate_publish_service_name()
+        self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
+
 
 def suite():
     """Test suite for test_trollduction."""
