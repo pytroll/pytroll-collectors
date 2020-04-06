@@ -1,0 +1,36 @@
+patterns:
+  iodc:
+    pattern:
+      "H-000-{hrit_format:4s}__-{platform_shortname:4s}_IODC___-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    start_time_pattern:
+       start_time: "16:15"
+       end_time: "06:15"
+       delta_time: "01:00"
+    critical_files: :EPI,:PRO
+    wanted_files: VIS006:000001-000008,:PRO,:EPI
+    all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,VIS006:000005,VIS006:000006,VIS006:000007,VIS006:000008,:PRO,:EPI
+    is_critical_set: false
+    variable_tags: ['platform_shortname', 'hrit_format']
+  himawari:
+    pattern:
+      "IMG_{orig_platform_name:4s}{channel_name:3s}_{start_time:%Y%m%d%H%M}_{segment:0>3s}"
+    # Process images half hourly
+    start_time_pattern:
+       start_time: "00:00"
+       end_time: "23:59"
+       delta_time: "00:30"
+    critical_files: B14:001-010
+    wanted_files: B14:001-010
+    all_files: B14:001-010
+    variable_tags: ['orig_platform_name',]
+    is_critical_set: false
+    group_by_minutes: 10
+    keep_parsed_keys: start_time
+
+
+timeliness:
+  10
+time_name:
+  start_time
+time_tolerance:
+  30

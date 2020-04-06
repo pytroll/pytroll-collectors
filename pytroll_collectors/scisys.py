@@ -411,9 +411,9 @@ class MessageReceiver(object):
         elif message.body.startswith(dispatch_prefix2):
             filename, _, url = message.body[len(dispatch_prefix2):].split(" ")
             ip_address, path = url.split(":")
-            logger.debug("ip_adress: %s", str(ip_address))
-            logger.debug("self._target_server: %s ", str(self._target_server))
-            if ip_address == self._target_server:
+            logger.debug("Sent to IP: %s", str(ip_address))
+            logger.debug("Target server IPs: %s ", str(self._target_server))
+            if ip_address in self._target_server:
                 logger.debug("Found correct target server: %s", ip_address)
                 if self._ftp_prefix is not None:
                     path = os.path.join(self._ftp_prefix, path)

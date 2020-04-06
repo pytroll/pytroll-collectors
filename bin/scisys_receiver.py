@@ -41,12 +41,16 @@ import logging
 import logging.handlers
 import argparse
 from pytroll_collectors.scisys import receive_from_zmq
+from pytroll_collectors.helper_functions import get_local_ips
 
 logger = logging.getLogger(__name__)
 
 
 def parse_args():
     """Parse commandline arguments."""
+    local_ips = get_local_ips()
+    local_ips.remove('127.0.0.1')
+
     parser = argparse.ArgumentParser()
     parser.add_argument("host", help="GMC host")
     parser.add_argument("port", help="Port to listen to", type=int)
@@ -73,8 +77,11 @@ def parse_args():
                         help="FTP path prefix for message uri")
     parser.add_argument("-t", "--target_server", dest="target_server",
                         type=str,
-                        help="Name of the target server. "
-                        "In case of multiple dispatches in GMC.")
+                        nargs='*',
+                        default=local_ips,
+                        help="IP of the target server."
+                        "In case of multiple dispatches in GMC."
+                        "Defaults to the local host.")
     parser.add_argument("-T", "--topic_postfix",
                         dest="topic_postfix",
                         type=str,
@@ -85,7 +92,7 @@ def parse_args():
 
 
 def setup_logging(log_file=None):
-    """Setup logging."""
+    """Set up logging."""
     global logger
     if log_file:
         handler = logging.handlers.TimedRotatingFileHandler(log_file,
@@ -105,8 +112,9 @@ def setup_logging(log_file=None):
 
 
 def main():
-    """Run scisys receiver"""
+    """Run scisys receiver."""
     opts = parse_args()
+
     no_sats = opts.excluded_satellites
 
     setup_logging(log_file=opts.log)
