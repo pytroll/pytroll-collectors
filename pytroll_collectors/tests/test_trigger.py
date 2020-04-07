@@ -84,7 +84,7 @@ class TestAbstractMessageProcessor(unittest.TestCase):
     @patch('pytroll_collectors.trigger.AbstractMessageProcessor.process')
     @patch('pytroll_collectors.trigger.Thread')
     @patch('pytroll_collectors.trigger.NSSubscriber')
-    def test_run(self, NSSubscriber, Thread, process):
+    def test_all(self, NSSubscriber, Thread, process):
         """Test the run() method."""
         from pytroll_collectors.trigger import AbstractMessageProcessor
 
