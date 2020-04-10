@@ -74,6 +74,7 @@ class SegmentGatherer(object):
         # Floor the scene start time to the given full minutes
         self._group_by_minutes = config.get('group_by_minutes', None)
 
+        # This get the 'keep_parsed_keys' valid for all patterns
         self._keep_parsed_keys = config.get('keep_parsed_keys', [])
 
         self.logger = logging.getLogger("segment_gatherer")
@@ -317,7 +318,6 @@ class SegmentGatherer(object):
             return SLOT_NOT_READY
 
         status_values = list(status.values())
-
         if all([val == SLOT_READY for val in status_values]):
             self.logger.info("Required files received "
                              "for slot %s.", time_slot)
@@ -446,10 +446,13 @@ class SegmentGatherer(object):
 
         parser = self._parsers[key]
         mda = parser.parse(msg.data["uid"])
-        mda = self._floor_time(mda)
+        mda = self._floor_time(mda, key)
 
+        # Check if each pattern contains a seperate 'keep_parsed_keys'
+        local_keep_parsed_keys = self._patterns[key].get('keep_parsed_keys', [])
         metadata = copy_metadata(mda, msg,
-                                 keep_parsed_keys=self._keep_parsed_keys)
+                                 keep_parsed_keys=self._keep_parsed_keys,
+                                 local_keep_parsed_keys=local_keep_parsed_keys)
 
         # Check if time of the raw is in scheduled range
         if "_start_time_pattern" in self._patterns[key]:
@@ -473,13 +476,20 @@ class SegmentGatherer(object):
         # Check if this file has been received already
         self.add_file(time_slot, key, mda, msg.data)
 
-    def _floor_time(self, mda):
+    def _floor_time(self, mda, key=None):
         """Floor time to full minutes."""
-        if self._group_by_minutes is None:
+        # This is the 'group_by_minutes' for all patterns
+        group_by_minutes = self._group_by_minutes
+
+        # Check if 'group_by_minutes' is given in the \key\ pattern
+        if key is not None and 'group_by_minutes' in self._patterns[key]:
+            group_by_minutes = self._patterns[key]['group_by_minutes']
+        elif self._group_by_minutes is None:
             return mda
+
         start_time = mda[self.time_name]
         mins = start_time.minute
-        fl_mins = int(mins / self._group_by_minutes) * self._group_by_minutes
+        fl_mins = int(mins / group_by_minutes) * group_by_minutes
         start_time = dt.datetime(start_time.year, start_time.month,
                                  start_time.day, start_time.hour, fl_mins, 0)
         mda[self.time_name] = start_time
@@ -681,10 +691,12 @@ def ini_to_dict(fname, section):
     return conf
 
 
-def copy_metadata(mda, msg, keep_parsed_keys=None):
+def copy_metadata(mda, msg, keep_parsed_keys=None, local_keep_parsed_keys=None):
     """Copy metada from filename and message to a combined dictionary."""
     if keep_parsed_keys is None:
         keep_parsed_keys = []
+    if local_keep_parsed_keys is None:
+        local_keep_parsed_keys = []
     metadata = {}
     # Use values parsed from the filename as basis
     for key in mda:
@@ -694,7 +706,7 @@ def copy_metadata(mda, msg, keep_parsed_keys=None):
     # Update with data given in the message
     for key in msg.data:
         # If time name is given, do not overwrite it
-        if key not in DO_NOT_COPY_KEYS and key not in keep_parsed_keys:
+        if key not in DO_NOT_COPY_KEYS and key not in keep_parsed_keys and key not in local_keep_parsed_keys:
             metadata[key] = msg.data[key]
 
     return metadata

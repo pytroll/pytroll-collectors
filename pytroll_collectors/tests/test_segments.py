@@ -41,6 +41,7 @@ from pytroll_collectors.segments import (SLOT_NOT_READY,
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
 CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
+CONFIG_DOUBLE_DIFFERENT = read_yaml(os.path.join(THIS_DIR, "data/segments_double_different.yaml"))
 CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
                                        "data/segments_double_no_segments.yaml"))
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
@@ -81,6 +82,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
+        self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
@@ -425,6 +427,44 @@ class TestSegmentGatherer(unittest.TestCase):
         mda2 = self.himawari_ini._floor_time(mod_mda.copy())
         self.assertEqual(mda2['start_time'], mod_mda['start_time'])
 
+    def test_floor_time_different(self):
+        """Test that flooring the time to set minutes work."""
+        key = 'himawari'
+        parser = self.iodc_himawari._parsers[key]
+        mda = parser.parse("IMG_DK01IR4_201712081129_010")
+        self.assertEqual(mda['start_time'].minute, 29)
+
+        # Here the floor time (group_by_minutes)is read from the yaml config file
+        # specific for himawari. You dont want to group_by_minutes for IODC
+        mda2 = self.iodc_himawari._floor_time(mda.copy(), key)
+        self.assertEqual(mda2['start_time'].minute, 20)
+        # Add seconds
+        mod_mda = mda.copy()
+        start_time = mda['start_time']
+        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                            start_time.day, start_time.hour,
+                                            start_time.minute, 42)
+        # The seconds should also be zero'd ( group_by_minutes from config file)
+        mda2 = self.iodc_himawari._floor_time(mda.copy(), key)
+        self.assertEqual(mda2['start_time'].minute, 20)
+        self.assertEqual(mda2['start_time'].second, 0)
+
+        # Test that nothing is changed when groub_by_minutes has not
+        # been configured
+        self.iodc_himawari._group_by_minutes = None
+        mda2 = self.iodc_himawari._floor_time(mod_mda.copy())
+        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
+
+        key = 'iodc'
+        parser = self.iodc_himawari._parsers[key]
+        mda = parser.parse("H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281115-__")
+        self.assertEqual(mda['start_time'].minute, 15)
+
+        # Here the floor time (group_by_minutes)is read from the yaml config file
+        # but it is not given for IODC
+        mda2 = self.iodc_himawari._floor_time(mda.copy(), key)
+        self.assertEqual(mda2['start_time'].minute, 15)
+
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""
         from pytroll_collectors.segments import copy_metadata
@@ -444,6 +484,12 @@ class TestSegmentGatherer(unittest.TestCase):
 
         # Keep 'a' from parsed metadata
         res = copy_metadata(mda, msg, keep_parsed_keys=['a'])
+        self.assertEqual(res['a'], 1)
+        self.assertEqual(res['b'], 2)
+        self.assertEqual(res['c'], 3)
+
+        # Keep 'a' from parsed metadata configured for one of more patterns
+        res = copy_metadata(mda, msg, local_keep_parsed_keys=['a'])
         self.assertEqual(res['a'], 1)
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
