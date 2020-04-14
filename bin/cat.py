@@ -236,7 +236,7 @@ def main():
         sub_nameserver = config['subscriber_nameserver']
 
     sub_addresses = None
-    if 'subscireber_addresses' in config:
+    if 'subscriber_addresses' in config:
         sub_addresses = config['subscriber_addresses'].split(',')
 
     try:
