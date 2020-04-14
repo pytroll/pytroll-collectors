@@ -26,10 +26,7 @@ import time
 import unittest
 from datetime import datetime, timedelta
 
-try:
-    from unittest.mock import patch, Mock
-except ImportError:
-    from mock import patch, Mock
+from unittest.mock import patch, Mock, call
 
 messages = ['']
 
@@ -37,9 +34,10 @@ messages = ['']
 class FakeMessage(object):
     """Fake messages."""
 
-    def __init__(self, data):
+    def __init__(self, data, type='file'):
         """Init the fake message."""
         self.data = data
+        self.type = type
 
 
 class TestPostTrollTrigger(unittest.TestCase):
@@ -78,6 +76,43 @@ class TestPostTrollTrigger(unittest.TestCase):
 
         self.assertIn("end_time", msg_data)
         self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
+
+
+class TestAbstractMessageProcessor(unittest.TestCase):
+    """Test AbstractMessageProcessor."""
+
+    @patch('pytroll_collectors.trigger.AbstractMessageProcessor.process')
+    @patch('pytroll_collectors.trigger.Thread')
+    @patch('pytroll_collectors.trigger.NSSubscriber')
+    def test_all(self, NSSubscriber, Thread, process):
+        """Test the run() method."""
+        from pytroll_collectors.trigger import AbstractMessageProcessor
+
+        msg_file = Mock(type='file')
+        msg_collection = Mock(type='collection')
+        msg_dataset = Mock(type='dataset')
+        msg_foo = Mock(type='foo')
+        recv = Mock()
+        recv.return_value = [None, msg_file, msg_collection, msg_dataset,
+                             msg_foo]
+        sub = Mock()
+        sub.recv = recv
+        NSSubscriber.return_value.start.return_value = sub
+
+        proc = AbstractMessageProcessor('foo', 'bar', nameserver='baz')
+        NSSubscriber.assert_called_with('foo', 'bar', True,
+                                        nameserver='baz')
+        proc.start()
+        Thread.start.assert_called()
+        proc.run()
+        assert call(msg_file) in process.mock_calls
+        assert call(msg_collection) in process.mock_calls
+        assert call(msg_dataset) in process.mock_calls
+        assert call(msg_foo) not in process.mock_calls
+        assert call(None) not in process.mock_calls
+
+        proc.nssub.stop.assert_called()
+        assert proc.loop is False
 
 
 def suite():
