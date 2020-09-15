@@ -31,11 +31,7 @@ import unittest
 import pytest
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.segments import (SLOT_NOT_READY,
-                                         SLOT_NONCRITICAL_NOT_READY,
-                                         SLOT_READY,
-                                         SLOT_READY_BUT_WAIT_FOR_MORE,
-                                         SLOT_OBSOLETE_TIMEOUT)
+from pytroll_collectors.segments import Status
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -137,7 +133,7 @@ class TestSegmentGatherer(unittest.TestCase):
         slot = self.msg0deg.slots[slot_str]
         for key in mda:
             self.assertEqual(slot['metadata'][key], mda[key])
-        self.assertEqual(slot['timeout'], None)
+        assert slot['timeout'] is not None
         self.assertEqual(slot['msg']['is_critical_set'],
                          CONFIG_SINGLE['patterns']['msg']['is_critical_set'])
         self.assertTrue('critical_files' in slot['msg'])
@@ -231,21 +227,50 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg._create_slot(mda)
         now = dt.datetime.utcnow()
         slot = self.msg0deg.slots[slot_str]
-        slot.update_timeout(self.msg0deg._timeliness)
+        slot.update_timeout()
         diff = slot['timeout'] - now
         self.assertAlmostEqual(diff.total_seconds(), 10.0, places=3)
 
-    def test_slot_ready(self):
+    def test_slot_is_ready(self):
         """Test if a slot is ready."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
         self.msg0deg._create_slot(mda)
         slot = self.msg0deg.slots[slot_str]
-        func = self.msg0deg.slot_ready
-        self.assertTrue(slot['timeout'] is None)
-        res = func(slot)
-        self.assertEqual(res, SLOT_NOT_READY)
-        self.assertTrue(slot['timeout'] is not None)
+        func = slot.get_status
+
+        res = func()
+        self.assertEqual(res, Status.SLOT_NOT_READY)
+
+        slot['msg']['files_till_premature_publish'] = 8
+
+        slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__'])
+        res = func()
+        self.assertEqual(res, Status.SLOT_NOT_READY)
+
+        slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__'])
+        res = func()
+        self.assertEqual(res, Status.SLOT_NOT_READY)
+
+        slot['msg']['is_critical_set'] = False
+        slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-VIS006___-000002___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-VIS006___-000003___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-VIS006___-000004___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-VIS006___-000005___-201611281100-__'])
+        res = func()
+        self.assertEqual(res, Status.SLOT_NONCRITICAL_NOT_READY)
+
+        slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000006___-201611281100-__'])
+        res = func()
+        self.assertEqual(res, Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+
+        slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__',
+                                              'H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__'])
+        res = func()
+        self.assertEqual(res, Status.SLOT_READY)
 
     def test_get_collection_status(self):
         """Test getting the collection status."""
@@ -261,77 +286,77 @@ class TestSegmentGatherer(unittest.TestCase):
         func = slot.get_collection_status
 
         status = {}
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NOT_READY}
-        self.assertEqual(func(status, past), SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        status = {'foo': Status.SLOT_NOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NONCRITICAL_NOT_READY}
+        status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY}
 
         slot['foo'] = {'received_files': [0, 1]}
-        self.assertEqual(func(status, past), SLOT_READY)
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_NONCRITICAL_NOT_READY)
+                         Status.SLOT_NONCRITICAL_NOT_READY)
 
-        status = {'foo': SLOT_READY}
-        self.assertEqual(func(status, past), SLOT_READY)
-        self.assertEqual(func(status, future), SLOT_READY)
+        status = {'foo': Status.SLOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
+        self.assertEqual(func(status, future), Status.SLOT_READY)
 
-        status = {'foo': SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_READY_BUT_WAIT_FOR_MORE)
+                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
 
         # More than one fileset
 
-        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_NOT_READY}
-        self.assertEqual(func(status, past), SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_NOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past), SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_NONCRITICAL_NOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_READY}
-        self.assertEqual(func(status, past), SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NOT_READY, 'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), SLOT_NOT_READY)
+        status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
+        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
 
-        status = {'foo': SLOT_NONCRITICAL_NOT_READY,
-                  'bar': SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY,
+                  'bar': Status.SLOT_NONCRITICAL_NOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_NONCRITICAL_NOT_READY)
+                         Status.SLOT_NONCRITICAL_NOT_READY)
 
-        status = {'foo': SLOT_NONCRITICAL_NOT_READY, 'bar': SLOT_READY}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY, 'bar': Status.SLOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_NONCRITICAL_NOT_READY)
+                         Status.SLOT_NONCRITICAL_NOT_READY)
 
-        status = {'foo': SLOT_NONCRITICAL_NOT_READY,
-                  'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY,
+                  'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_NONCRITICAL_NOT_READY)
+                         Status.SLOT_NONCRITICAL_NOT_READY)
 
-        status = {'foo': SLOT_READY, 'bar': SLOT_READY}
-        self.assertEqual(func(status, past), SLOT_READY)
-        self.assertEqual(func(status, future), SLOT_READY)
+        status = {'foo': Status.SLOT_READY, 'bar': Status.SLOT_READY}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
+        self.assertEqual(func(status, future), Status.SLOT_READY)
 
-        status = {'foo': SLOT_READY, 'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_READY, 'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_READY_BUT_WAIT_FOR_MORE)
+                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
 
-        status = {'foo': SLOT_READY_BUT_WAIT_FOR_MORE,
-                  'bar': SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), SLOT_READY)
+        status = {'foo': Status.SLOT_READY_BUT_WAIT_FOR_MORE,
+                  'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
+        self.assertEqual(func(status, past), Status.SLOT_READY)
         self.assertEqual(func(status, future),
-                         SLOT_READY_BUT_WAIT_FOR_MORE)
+                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
 
     def test_process_message_without_uid(self):
         """Test adding a file."""
@@ -364,7 +389,7 @@ class TestSegmentGatherer(unittest.TestCase):
         with self._caplog.at_level(logging.DEBUG):
             col.process(msg)
             logs = [rec.message for rec in self._caplog.records]
-            assert "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__ not in " in logs[1]
+            assert "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__ not in " in logs[2]
 
     def test_process_message_twice(self):
         """Test processing a message."""
