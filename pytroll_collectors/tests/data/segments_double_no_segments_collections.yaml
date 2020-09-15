@@ -1,0 +1,33 @@
+patterns:
+  viirs:
+    message_keys:
+      start_time
+      platform_name
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: true
+  pps:
+    message_keys:
+      start_time
+      platform_name
+    critical_files: null
+    wanted_files: null
+    all_files: null
+    is_critical_set: false
+
+timeliness:
+  10
+time_name:
+  start_time
+time_tolerance:
+  30
+
+posttroll:
+  # List of incoming message topics
+  topics:
+    - /foo/viirs
+    - /foo/pps
+  # Topic for the published messages
+  publish_topic:
+    /segment-foo/bar

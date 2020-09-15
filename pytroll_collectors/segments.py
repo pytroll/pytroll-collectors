@@ -27,15 +27,17 @@ and send them in a bunch as a dataset.
 """
 
 import datetime as dt
-import logging
 import logging.handlers
-from six.moves.queue import Empty
+from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from six.moves.urllib.parse import urlparse
 
+import trollsift
 from posttroll import message, publisher
 from posttroll.listener import ListenerContainer
-from trollsift import Parser
+from six.moves.queue import Empty
+from six.moves.urllib.parse import urlparse
+
+logger = logging.getLogger("segment_gatherer")
 
 SLOT_NOT_READY = 0
 SLOT_NONCRITICAL_NOT_READY = 1
@@ -47,157 +49,151 @@ DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 REMOVE_TAGS = {'path', 'segment'}
 
 
-class SegmentGatherer(object):
-    """Gatherer for geostationary satellite segments and multifile polar satellite granules."""
+class Parser(metaclass=ABCMeta):
+    """Abstract class for parsing messages."""
 
-    _listener = None
-    _publisher = None
+    @abstractmethod
+    def globify(self, mda):
+        """Globify the message."""
+        pass
+
+    @abstractmethod
+    def parse(self, msg):
+        """Parse the message."""
+        pass
+
+
+class UIDParser(Parser):
+    """Wrapper around trollsifts parser."""
 
     def __init__(self, config):
-        """Initialize the segment gatherer."""
-        self._config = config
-        self._subject = None
-        self._patterns = config['patterns']
+        """Set up the UID parser."""
+        self._ts_parser = trollsift.Parser(config['pattern'])
+        self.variable_tags = config.get('variable_tags', [])
 
-        self._time_tolerance = config.get("time_tolerance", 30)
-        self._timeliness = dt.timedelta(seconds=config.get("timeliness", 1200))
+    def globify(self, mda):
+        """Globify for the metadata."""
+        return self._ts_parser.globify(mda)
 
-        self._num_files_premature_publish = \
-            config.get("num_files_premature_publish", -1)
+    def parse(self, msg):
+        """Parse the uid of the message."""
+        uid = msg.data['uid']
+        return self._ts_parser.parse(uid)
 
-        self.slots = OrderedDict()
+    @property
+    def fmt(self):
+        """Get the keys of the uid pattern."""
+        return self._ts_parser.fmt
 
-        self._parsers = {key: Parser(self._patterns[key]['pattern']) for
-                         key in self._patterns}
 
-        self.time_name = config.get('time_name', 'start_time')
-        # Floor the scene start time to the given full minutes
-        self._group_by_minutes = config.get('group_by_minutes', None)
+class MessageParser(Parser):
+    """Use message to get metadata."""
 
-        # This get the 'keep_parsed_keys' valid for all patterns
-        self._keep_parsed_keys = config.get('keep_parsed_keys', [])
+    def __init__(self, config):
+        """Set up the message parser."""
+        self._message_keys = config['message_keys']
+        self.variable_tags = config.get('variable_tags', [])
 
-        self.logger = logging.getLogger("segment_gatherer")
-        self._loop = False
-        self._providing_server = config.get('providing_server')
+    @property
+    def fmt(self):
+        """Get keys of the metadata."""
+        return self._message_keys.keys()
 
-        # Convert check time into int minutes variables
-        for key in self._patterns:
-            if "start_time_pattern" in self._patterns[key]:
-                time_conf = self._patterns[key]["start_time_pattern"]
-                start_time_str = time_conf.get("start_time", "00:00")
-                end_time_str = time_conf.get("end_time", "23:59")
-                delta_time_str = time_conf.get("delta_time", "00:01")
+    def globify(self):
+        """Globify the metadata."""
+        pass
 
-                start_h, start_m = start_time_str.split(':')
-                end_h, end_m = end_time_str.split(':')
-                delta_h, delta_m = delta_time_str.split(':')
-                interval = {}
-                interval["start"] = (60 * int(start_h)) + int(start_m)
-                interval["end"] = (60 * int(end_h)) + int(end_m)
-                interval["delta"] = (60 * int(delta_h)) + int(delta_m)
+    def parse(self):
+        """Parse the message."""
+        pass
 
-                # Start-End time across midnight
-                interval["midnight"] = False
-                if interval["start"] > interval["end"]:
-                    interval["end"] += 24 * 60
-                    interval["midnight"] = True
-                self._patterns[key]["_start_time_pattern"] = interval
-                self.logger.info("Start Time pattern '%s' " +
-                                 "filter start:%s end:%s delta:%s",
-                                 key, start_time_str, end_time_str,
-                                 delta_time_str)
 
-    def _clear_data(self, time_slot):
-        """Clear data."""
-        if time_slot in self.slots:
-            del self.slots[time_slot]
+class Slot:
+    """A time slot class."""
 
-    def _init_data(self, mda):
-        """Init wanted, all and critical files."""
-        # Init metadata struct
-        metadata = mda.copy()
+    def __init__(self, timestamp, metadata, patterns, timeliness):
+        """Set up the slot."""
+        self.timestamp = timestamp
+        self._info = dict()
+        self._timeliness = timeliness
 
-        time_slot = str(metadata[self.time_name])
-        self.logger.debug("Adding new slot: %s", time_slot)
-        self.slots[time_slot] = {}
-        self.slots[time_slot]['metadata'] = metadata.copy()
-        self.slots[time_slot]['timeout'] = None
-
+        self['metadata'] = metadata.copy()
+        self['timeout'] = None
         # Critical files that are required, otherwise production will fail.
         # If there are no critical files, empty set([]) is used.
-        patterns = self._config['patterns']
         if len(patterns) == 1:
-            self.slots[time_slot]['metadata']['dataset'] = []
+            self['metadata']['dataset'] = []
         else:
-            self.slots[time_slot]['metadata']['collection'] = {}
-        for key in patterns:
+            self['metadata']['collection'] = {}
+        for (key, pattern) in patterns.items():
             if len(patterns) > 1:
-                self.slots[time_slot]['metadata']['collection'][key] = \
+                self['metadata']['collection'][key] = \
                     {'dataset': [], 'sensor': []}
-            self.slots[time_slot][key] = {}
-            slot = self.slots[time_slot][key]
-            is_critical_set = patterns[key].get("is_critical_set", False)
-            slot['is_critical_set'] = is_critical_set
-            slot['critical_files'] = set([])
-            slot['wanted_files'] = set([])
-            slot['all_files'] = set([])
-            slot['received_files'] = set([])
-            slot['delayed_files'] = dict()
-            slot['missing_files'] = set([])
-            slot['files_till_premature_publish'] = \
-                self._num_files_premature_publish
+            self[key] = self.create_slot_pattern(pattern)
 
-            critical_segments = patterns[key].get("critical_files", None)
-            fname_set = self._compose_filenames(key, time_slot,
-                                                critical_segments)
-            if critical_segments:
-                slot['critical_files'].update(fname_set)
+    def __getitem__(self, item):
+        """Get the item."""
+        return self._info[item]
 
-            else:
-                if is_critical_set:
-                    # If critical segments are not defined, but the
-                    # file based on this pattern is required, add it
-                    # to critical files
-                    slot['critical_files'].update(fname_set)
+    def __setitem__(self, key, value):
+        """Set the item."""
+        return self._info.__setitem__(key, value)
 
-                # In any case add it to the wanted and all files
-                slot['wanted_files'].update(fname_set)
-                slot['all_files'].update(fname_set)
+    def create_slot_pattern(self, pattern):
+        """Create slot pattern."""
+        slot_pattern = dict()
+        is_critical_set = pattern.get("is_critical_set", False)
+        slot_pattern['is_critical_set'] = is_critical_set
+        slot_pattern['critical_files'] = set([])
+        slot_pattern['wanted_files'] = set([])
+        slot_pattern['all_files'] = set([])
+        slot_pattern['received_files'] = set([])
+        slot_pattern['delayed_files'] = dict()
+        slot_pattern['missing_files'] = set([])
+        critical_segments = pattern.get("critical_files", None)
+        fname_set = self.compose_filenames(pattern.parser, critical_segments)
+        if critical_segments:
+            slot_pattern['critical_files'].update(fname_set)
 
-            # These segments are wanted, but not critical to production
-            wanted_segments = patterns[key].get("wanted_files", None)
-            slot['wanted_files'].update(
-                self._compose_filenames(key, time_slot, wanted_segments))
+        else:
+            if is_critical_set:
+                # If critical segments are not defined, but the
+                # file based on this pattern is required, add it
+                # to critical files
+                slot_pattern['critical_files'].update(fname_set)
 
-            # Name of all the files
-            all_segments = patterns[key].get("all_files", None)
-            slot['all_files'].update(
-                self._compose_filenames(key, time_slot, all_segments))
+            # In any case add it to the wanted and all files
+            slot_pattern['wanted_files'].update(fname_set)
+            slot_pattern['all_files'].update(fname_set)
+        # These segments are wanted, but not critical to production
+        wanted_segments = pattern.get("wanted_files", None)
+        slot_pattern['wanted_files'].update(
+            self.compose_filenames(pattern.parser, wanted_segments))
+        # Name of all the files
+        all_segments = pattern.get("all_files", None)
+        slot_pattern['all_files'].update(
+            self.compose_filenames(pattern.parser, all_segments))
+        return slot_pattern
 
-    def _compose_filenames(self, key, time_slot, itm_str):
+    def compose_filenames(self, parser, itm_str):
         """Compose filename set()s based on a pattern and item string.
 
         itm_str is formated like ':PRO,:EPI' or 'VIS006:8,VIS008:1-8,...'
         """
-        # Empty set
-        result = set()
-
         # Handle missing itm_str
         if itm_str in (None, ''):
             itm_str = ':'
 
         # Get copy of metadata
-        meta = self.slots[time_slot]['metadata'].copy()
+        meta = self['metadata'].copy()
 
         # Replace variable tags (such as processing time) with
         # wildcards, as these can't be forecasted.
-        var_tags = self._config['patterns'][key].get('variable_tags', [])
+        var_tags = parser.variable_tags
         meta = _copy_without_ignore_items(meta,
                                           ignored_keys=var_tags)
 
-        parser = self._parsers[key]
-
+        result = set()
         for itm in itm_str.split(','):
             channel_name, segments = itm.split(':')
             if channel_name == '' and segments == '':
@@ -225,69 +221,266 @@ class SegmentGatherer(object):
 
         return result
 
-    def _publish(self, time_slot, missing_files_check=True):
+    def update_timeout(self, timeliness):
+        """Update the timeout."""
+        timeout = dt.datetime.utcnow() + timeliness
+        self['timeout'] = timeout
+        logger.info("Setting timeout to %s for slot %s.",
+                    str(timeout), self.timestamp)
+
+    def add_file(self, pattern, mda, msg_data):
+        """Add file to the correct filelist."""
+        uri = urlparse(msg_data['uri']).path
+        uid = msg_data['uid']
+        slot_pattern = self[pattern.name]
+        meta = self['metadata']
+
+        should_be_added = True
+        # Replace variable tags (such as processing time) with
+        # wildcards, as these can't be forecasted.
+        ignored_keys = pattern.get('variable_tags', [])
+        mda = _copy_without_ignore_items(mda,
+                                         ignored_keys=ignored_keys)
+
+        mask = pattern.parser.globify(mda)
+        if mask in slot_pattern['received_files']:
+            logger.debug("File already received")
+            should_be_added = False
+        if mask not in slot_pattern['all_files']:
+            logger.debug("%s not in %s", mask, slot_pattern['all_files'])
+            should_be_added = False
+
+        if not should_be_added:
+            return
+
+        timeout = self['timeout']
+
+        # Add uid and uri
+        if 'collection' in meta:
+            meta['collection'][pattern.name]['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = meta['collection'][pattern.name].get('sensor', [])
+        else:
+            meta['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = meta.get('sensor', [])
+
+        # Collect all sensors, not only the latest
+        if not isinstance(msg_data["sensor"], (tuple, list, set)):
+            msg_data["sensor"] = [msg_data["sensor"]]
+        if not isinstance(sensors, list):
+            sensors = [sensors]
+        for sensor in msg_data["sensor"]:
+            if sensor not in sensors:
+                sensors.append(sensor)
+        meta['sensor'] = sensors
+
+        # If critical files have been received but the slot is
+        # not complete, add the file to list of delayed files
+        if len(slot_pattern['critical_files']) > 0 and \
+           slot_pattern['critical_files'].issubset(slot_pattern['received_files']):
+            delay = dt.datetime.utcnow() - (timeout - pattern.timeliness)
+            if delay.total_seconds() > 0:
+                slot_pattern['delayed_files'][uid] = delay.total_seconds()
+
+        # Add to received files
+        slot_pattern['received_files'].add(mask)
+        logger.info("%s processed", uid)
+
+    def get_collection_status(self, status, timeout):
+        """Determine the overall status of the collection."""
+        if len(status) == 0:
+            return SLOT_NOT_READY
+
+        status_values = list(status.values())
+        if all([val == SLOT_READY for val in status_values]):
+            logger.info("Required files received "
+                        "for slot %s.", self.timestamp)
+            return SLOT_READY
+
+        if dt.datetime.utcnow() > timeout:
+            if (SLOT_NONCRITICAL_NOT_READY in status_values and
+                (SLOT_READY in status_values or
+                    SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
+                return SLOT_READY
+            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
+                  SLOT_NOT_READY not in status_values):
+                return SLOT_READY
+            elif all([val == SLOT_NONCRITICAL_NOT_READY for val in
+                      status_values]):
+                for key in status.keys():
+                    if len(self[key]['received_files']) > 0:
+                        return SLOT_READY
+                return SLOT_OBSOLETE_TIMEOUT
+            else:
+                logger.warning("Timeout occured and required files "
+                               "were not present, data discarded for "
+                               "slot %s.",
+                               self.timestamp)
+                return SLOT_OBSOLETE_TIMEOUT
+
+        if SLOT_NOT_READY in status_values:
+            return SLOT_NOT_READY
+        if SLOT_NONCRITICAL_NOT_READY in status_values:
+            return SLOT_NONCRITICAL_NOT_READY
+        if SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
+            return SLOT_READY_BUT_WAIT_FOR_MORE
+
+
+class Pattern:
+    """A pattern to watch for."""
+
+    def __init__(self, name, pattern_config, timeliness):
+        """Set up the pattern."""
+        self._config = pattern_config
+        try:
+            self.parser = UIDParser(pattern_config)
+        except KeyError:
+            self.parser = MessageParser(pattern_config)
+        self.name = name
+        self.timeliness = timeliness
+        if "start_time_pattern" in pattern_config:
+            logger.info("Create start time pattern %s", name)
+            self._create_start_time_pattern()
+
+    def _create_parser(self):
+        if 'pattern' in self._config:
+            return UIDParser(self._config)
+        else:
+            return MessageParser(self._config)
+
+    def __getitem__(self, item):
+        """Get the item."""
+        return self._config[item]
+
+    def __setitem__(self, key, value):
+        """Set the item."""
+        return self._config.__setitem__(key, value)
+
+    def get(self, *args, **kwargs):
+        """Get the item."""
+        return self._config.get(*args, **kwargs)
+
+    def __contains__(self, item):
+        """Check if contains item."""
+        return self._config.__contains__(item)
+
+    def _create_start_time_pattern(self):
+        """Convert check time into int minutes variables."""
+        time_conf = self["start_time_pattern"]
+        start_time_str = time_conf.get("start_time", "00:00")
+        end_time_str = time_conf.get("end_time", "23:59")
+        delta_time_str = time_conf.get("delta_time", "00:01")
+
+        start_h, start_m = start_time_str.split(':')
+        end_h, end_m = end_time_str.split(':')
+        delta_h, delta_m = delta_time_str.split(':')
+        interval = {"start": (60 * int(start_h)) + int(start_m),
+                    "end": (60 * int(end_h)) + int(end_m),
+                    "delta": (60 * int(delta_h)) + int(delta_m),
+                    "midnight": False}
+
+        # Start-End time across midnight
+        if interval["start"] > interval["end"]:
+            interval["end"] += 24 * 60
+            interval["midnight"] = True
+        self["_start_time_pattern"] = interval
+        logger.info("Filter start:%s end:%s delta:%s",
+                    start_time_str, end_time_str,
+                    delta_time_str)
+
+
+class SegmentGatherer(object):
+    """Gatherer for geostationary satellite segments and multifile polar satellite granules."""
+
+    _listener = None
+    _publisher = None
+
+    def __init__(self, config):
+        """Initialize the segment gatherer."""
+        self._config = config
+        self._subject = None
+        self._timeliness = dt.timedelta(seconds=config.get("timeliness", 1200))
+        self._patterns = {key: Pattern(key, config['patterns'][key], self._timeliness)
+                          for key in config['patterns']}
+
+        self._elements = list(self._patterns.keys())
+
+        self._time_tolerance = config.get("time_tolerance", 30)
+
+        self.slots = OrderedDict()
+
+        self.time_name = config.get('time_name', 'start_time')
+        # Floor the scene start time to the given full minutes
+        self._group_by_minutes = config.get('group_by_minutes', None)
+
+        # This get the 'keep_parsed_keys' valid for all patterns
+        self._keep_parsed_keys = config.get('keep_parsed_keys', [])
+
+        self._loop = False
+        self._providing_server = config.get('providing_server')
+
+    def _clear_slot(self, time_slot):
+        """Clear data."""
+        if time_slot in self.slots:
+            del self.slots[time_slot]
+
+    def _create_slot(self, metadata):
+        """Init wanted, all and critical files."""
+        timestamp = str(metadata[self.time_name])
+        logger.debug("Adding new slot: %s", timestamp)
+
+        slot = Slot(timestamp, metadata, self._patterns, self._timeliness)
+        self.slots[timestamp] = slot
+        return slot
+
+    def _reinitialize_gatherer(self, time_slot, missing_files_check=True):
         """Publish file dataset and reinitialize gatherer."""
-        data = self.slots[time_slot]
+        slot = self.slots[time_slot]
 
         # Diagnostic logging about delayed ...
         delayed_files = {}
-        for key in self._parsers:
-            delayed_files.update(data[key]['delayed_files'])
+        for key in self._elements:
+            delayed_files.update(slot[key]['delayed_files'])
         if len(delayed_files) > 0:
             file_str = ''
             for key in delayed_files:
                 file_str += "%s %f seconds, " % (key, delayed_files[key])
-            self.logger.warning("Files received late: %s",
-                                file_str.strip(', '))
+            logger.warning("Files received late: %s", file_str.strip(', '))
 
         # ... and missing files
         if missing_files_check:
             missing_files = set([])
-            for key in self._parsers:
-                missing_files = data[key]['all_files'].difference(
-                    data[key]['received_files'])
+            for key in self._elements:
+                missing_files = slot[key]['all_files'].difference(
+                    slot[key]['received_files'])
             if len(missing_files) > 0:
-                self.logger.warning("Missing files: %s",
-                                    ', '.join(missing_files))
+                logger.warning("Missing files: %s", ', '.join(missing_files))
 
         # Remove tags that are not necessary for datasets
         for tag in REMOVE_TAGS:
             try:
-                del data['metadata'][tag]
+                del slot['metadata'][tag]
             except KeyError:
                 pass
 
-        if len(self._parsers) == 1:
-            msg = message.Message(self._subject, "dataset", data['metadata'])
+        self._publish(slot['metadata'])
+
+    def _publish(self, metadata):
+        if len(self._elements) == 1:
+            msg = message.Message(self._subject, "dataset", metadata)
         else:
-            msg = message.Message(self._subject, "collection", data['metadata'])
-        self.logger.info("Sending: %s", str(msg))
+            msg = message.Message(self._subject, "collection", metadata)
+        logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
 
-        # self._clear_data(time_slot)
-
-    def set_logger(self, logger):
-        """Set logger."""
-        self.logger = logger
-
-    def update_timeout(self, time_slot):
-        """Update the timeout."""
-        timeout = dt.datetime.utcnow() + self._timeliness
-        self.slots[time_slot]['timeout'] = timeout
-        self.logger.info("Setting timeout to %s for slot %s.",
-                         str(timeout), time_slot)
-
-    def slot_ready(self, time_slot):
+    def slot_ready(self, slot):
         """Determine if slot is ready to be published."""
-        slot = self.slots[time_slot]
-
         if slot['timeout'] is None:
-            self.update_timeout(time_slot)
+            slot.update_timeout(self._timeliness)
             return SLOT_NOT_READY
 
         status = {}
         num_files = {}
-        for key in self._parsers:
+        for key in self._patterns:
             # Default
             status[key] = SLOT_NOT_READY
             if not slot[key]['is_critical_set']:
@@ -310,50 +503,11 @@ class SegmentGatherer(object):
                 status[key] = SLOT_READY
 
         # Determine overall status
-        return self.get_collection_status(status, slot['timeout'], time_slot)
-
-    def get_collection_status(self, status, timeout, time_slot):
-        """Determine the overall status of the collection."""
-        if len(status) == 0:
-            return SLOT_NOT_READY
-
-        status_values = list(status.values())
-        if all([val == SLOT_READY for val in status_values]):
-            self.logger.info("Required files received "
-                             "for slot %s.", time_slot)
-            return SLOT_READY
-
-        if dt.datetime.utcnow() > timeout:
-            if (SLOT_NONCRITICAL_NOT_READY in status_values and
-                (SLOT_READY in status_values or
-                    SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
-                return SLOT_READY
-            elif (SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
-                  SLOT_NOT_READY not in status_values):
-                return SLOT_READY
-            elif all([val == SLOT_NONCRITICAL_NOT_READY for val in
-                      status_values]):
-                for key in status.keys():
-                    if len(self.slots[time_slot][key]['received_files']) > 0:
-                        return SLOT_READY
-                return SLOT_OBSOLETE_TIMEOUT
-            else:
-                self.logger.warning("Timeout occured and required files "
-                                    "were not present, data discarded for "
-                                    "slot %s.",
-                                    time_slot)
-                return SLOT_OBSOLETE_TIMEOUT
-
-        if SLOT_NOT_READY in status_values:
-            return SLOT_NOT_READY
-        if SLOT_NONCRITICAL_NOT_READY in status_values:
-            return SLOT_NONCRITICAL_NOT_READY
-        if SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
-            return SLOT_READY_BUT_WAIT_FOR_MORE
+        return slot.get_collection_status(status, slot['timeout'])
 
     def _generate_publish_service_name(self):
         publish_service_name = "segment_gatherer"
-        for key in sorted(self._patterns):
+        for key in sorted(self._elements):
             publish_service_name += "_" + str(key)
         return publish_service_name
 
@@ -380,24 +534,7 @@ class SegmentGatherer(object):
 
         self._loop = True
         while self._loop:
-            # Check if there are slots ready for publication
-            slots = self.slots.copy()
-            for slot in slots:
-                slot = str(slot)
-                status = self.slot_ready(slot)
-                if status == SLOT_READY:
-                    # Collection ready, publish and remove
-                    self._publish(slot)
-                    self._clear_data(slot)
-                if status == SLOT_READY_BUT_WAIT_FOR_MORE:
-                    # Collection ready, publish and but wait for more
-                    self._publish(slot, missing_files_check=False)
-                elif status == SLOT_OBSOLETE_TIMEOUT:
-                    # Collection unfinished and obslote, discard
-                    self._clear_data(slot)
-                else:
-                    # Collection unfinished, wait for more data
-                    pass
+            self.triage_slots()
 
             # Check listener for new messages
             msg = None
@@ -415,12 +552,32 @@ class SegmentGatherer(object):
                 # If providing server is configured skip message if not from providing server
                 if self._providing_server and self._providing_server != msg.host:
                     continue
-                self.logger.info("New message received: %s", str(msg))
+                logger.info("New message received: %s", str(msg))
                 self.process(msg)
+
+    def triage_slots(self):
+        """Check if there are slots ready for publication."""
+        slots = self.slots.copy()
+        for slot_time, slot in slots.items():
+            slot_time = str(slot_time)
+            status = self.slot_ready(slot)
+            if status == SLOT_READY:
+                # Collection ready, publish and remove
+                self._reinitialize_gatherer(slot_time)
+                self._clear_slot(slot_time)
+            if status == SLOT_READY_BUT_WAIT_FOR_MORE:
+                # Collection ready, publish and but wait for more
+                self._reinitialize_gatherer(slot_time, missing_files_check=False)
+            elif status == SLOT_OBSOLETE_TIMEOUT:
+                # Collection unfinished and obsolete, discard
+                self._clear_slot(slot_time)
+            else:
+                # Collection unfinished, wait for more data
+                pass
 
     def stop(self):
         """Stop gatherer."""
-        self.logger.info("Stopping gatherer.")
+        logger.info("Stopping gatherer.")
         self._loop = False
         if self._listener is not None:
             if self._listener.thread is not None:
@@ -430,53 +587,57 @@ class SegmentGatherer(object):
 
     def process(self, msg):
         """Process message."""
-        mda = None
-
-        try:
-            uid = msg.data['uid']
-        except KeyError:
-            self.logger.debug("Ignoring: %s", str(msg))
-            return
-
         # Find the correct parser for this file
-        key = self.key_from_fname(uid)
-        if key is None:
-            self.logger.debug("Unknown file, skipping.")
+        try:
+            pattern, file_mda = self.item_from_message(msg)
+        except TypeError:
+            logger.debug("No parser matching message, skipping.")
             return
 
-        parser = self._parsers[key]
-        mda = parser.parse(msg.data["uid"])
-        mda = self._floor_time(mda, key)
+        mda = file_mda
+        mda = self._adjust_time_by_flooring(mda, pattern.name)
 
         # Check if each pattern contains a seperate 'keep_parsed_keys'
-        local_keep_parsed_keys = self._patterns[key].get('keep_parsed_keys', [])
+        local_keep_parsed_keys = pattern.get('keep_parsed_keys', [])
         metadata = copy_metadata(mda, msg,
                                  keep_parsed_keys=self._keep_parsed_keys,
                                  local_keep_parsed_keys=local_keep_parsed_keys)
 
         # Check if time of the raw is in scheduled range
-        if "_start_time_pattern" in self._patterns[key]:
-            schedule_ok = self.check_schedule_time(
-                self._patterns[key]["_start_time_pattern"],
+        if "_start_time_pattern" in pattern:
+            schedule_ok = self.check_if_time_is_in_interval(
+                pattern["_start_time_pattern"],
                 metadata[self.time_name])
             if not schedule_ok:
-                self.logger.info("Hour pattern '%s' skip: %s" +
-                                 " for start_time: %s:%s",
-                                 key, msg.data["uid"],
-                                 metadata[self.time_name].hour,
-                                 metadata[self.time_name].minute)
+                logger.info("Hour pattern '%s' skip: %s" +
+                            " for start_time: %s:%s",
+                            pattern.name, msg.data["uid"],
+                            metadata[self.time_name].hour,
+                            metadata[self.time_name].minute)
                 return
 
-        time_slot = self._find_time_slot(metadata[self.time_name])
+        slot_time = self._find_time_slot(metadata[self.time_name])
 
         # Init metadata etc if this is the first file
-        if time_slot not in self.slots:
-            self._init_data(metadata)
+        if slot_time not in self.slots:
+            slot = self._create_slot(metadata)
+        else:
+            slot = self.slots[slot_time]
 
-        # Check if this file has been received already
-        self.add_file(time_slot, key, mda, msg.data)
+        slot.add_file(pattern, mda, msg.data)
 
-    def _floor_time(self, mda, key=None):
+    def item_from_message(self, msg):
+        """Get the keys from a filename."""
+        for pattern in self._patterns.values():
+            try:
+                file_mda = pattern.parser.parse(msg)
+                return pattern, file_mda
+            except ValueError:
+                pass
+            except KeyError as err:
+                logger.debug("No key " + str(err) + " in message.")
+
+    def _adjust_time_by_flooring(self, mda, key=None):
         """Floor time to full minutes."""
         # This is the 'group_by_minutes' for all patterns
         group_by_minutes = self._group_by_minutes
@@ -496,70 +657,6 @@ class SegmentGatherer(object):
 
         return mda
 
-    def add_file(self, time_slot, key, mda, msg_data):
-        """Add file to the correct filelist."""
-        uri = urlparse(msg_data['uri']).path
-        uid = msg_data['uid']
-        slot = self.slots[time_slot][key]
-        meta = self.slots[time_slot]['metadata']
-
-        # Replace variable tags (such as processing time) with
-        # wildcards, as these can't be forecasted.
-        ignored_keys = \
-            self._config['patterns'][key].get('variable_tags', [])
-        mda = _copy_without_ignore_items(mda,
-                                         ignored_keys=ignored_keys)
-
-        mask = self._parsers[key].globify(mda)
-        if mask in slot['received_files']:
-            self.logger.debug("File already received")
-            return
-        if mask not in slot['all_files']:
-            self.logger.debug("%s not in %s", mask, slot['all_files'])
-            return
-
-        # self.update_timeout(time_slot)
-        timeout = self.slots[time_slot]['timeout']
-
-        # Add uid and uri
-        if len(self._patterns) == 1:
-            meta['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta.get('sensor', [])
-        else:
-            meta['collection'][key]['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta['collection'][key].get('sensor', [])
-
-        # Collect all sensors, not only the latest
-        if not isinstance(msg_data["sensor"], (tuple, list, set)):
-            msg_data["sensor"] = [msg_data["sensor"]]
-        if not isinstance(sensors, list):
-            sensors = [sensors]
-        for sensor in msg_data["sensor"]:
-            if sensor not in sensors:
-                sensors.append(sensor)
-        meta['sensor'] = sensors
-
-        # If critical files have been received but the slot is
-        # not complete, add the file to list of delayed files
-        if len(slot['critical_files']) > 0 and \
-           slot['critical_files'].issubset(slot['received_files']):
-            delay = dt.datetime.utcnow() - (timeout - self._timeliness)
-            if delay.total_seconds() > 0:
-                slot['delayed_files'][uid] = delay.total_seconds()
-
-        # Add to received files
-        slot['received_files'].add(mask)
-        self.logger.info("%s processed", uid)
-
-    def key_from_fname(self, uid):
-        """Get the keys from a filename."""
-        for key in self._parsers:
-            try:
-                _ = self._parsers[key].parse(uid)
-                return key
-            except ValueError:
-                pass
-
     def _find_time_slot(self, time_obj):
         """Find time slot and return the slot as a string.
 
@@ -569,12 +666,12 @@ class SegmentGatherer(object):
             time_slot = self.slots[slot]['metadata'][self.time_name]
             time_diff = time_obj - time_slot
             if abs(time_diff.total_seconds()) < self._time_tolerance:
-                self.logger.debug("Found existing time slot, using that")
+                logger.debug("Found existing time slot, using that")
                 return str(time_slot)
 
         return str(time_obj)
 
-    def check_schedule_time(self, check_time, raw_start_time):
+    def check_if_time_is_in_interval(self, check_time, raw_start_time):
         """Check if raw time is inside configured interval."""
         time_ok = False
 
