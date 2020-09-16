@@ -109,8 +109,16 @@ class MessageParser(Parser):
         """Globify the metadata."""
         pass
 
-    def parse(self):
+    def parse(self, msg):
         """Parse the message."""
+        pass
+
+
+class Message:
+    """A message object."""
+
+    def __init__(self, message, pattern):
+        """Set up the message."""
         pass
 
 
@@ -238,19 +246,18 @@ class Slot:
         logger.info("Setting timeout to %s for slot %s.",
                     str(timeout), self.timestamp)
 
-    def add_file(self, pattern, mda, msg_data):
+    def add_file(self, pattern, file_metadata, msg_data):
         """Add file to the correct filelist."""
         slot_pattern = self[pattern.name]
-        meta = self['metadata']
 
         should_be_added = True
         # Replace variable tags (such as processing time) with
         # wildcards, as these can't be forecasted.
         ignored_keys = pattern.get('variable_tags', [])
-        mda = _copy_without_ignore_items(mda,
-                                         ignored_keys=ignored_keys)
+        file_metadata = _copy_without_ignore_items(file_metadata,
+                                                   ignored_keys=ignored_keys)
 
-        mask = pattern.parser.globify(mda)
+        mask = pattern.parser.globify(file_metadata)
         if mask in slot_pattern['received_files']:
             logger.debug("File already received")
             should_be_added = False
@@ -261,17 +268,16 @@ class Slot:
         if not should_be_added:
             return
 
-        timeout = self['timeout']
-
         # Add uid and uri
+        slot_metadata = self['metadata']
         uri = urlparse(msg_data['uri']).path
         uid = msg_data['uid']
-        if 'collection' in meta:
-            meta['collection'][pattern.name]['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta['collection'][pattern.name].get('sensor', [])
+        if 'collection' in slot_metadata:
+            slot_metadata['collection'][pattern.name]['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = slot_metadata['collection'][pattern.name].get('sensor', [])
         else:
-            meta['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = meta.get('sensor', [])
+            slot_metadata['dataset'].append({'uri': uri, 'uid': uid})
+            sensors = slot_metadata.get('sensor', [])
 
         # Collect all sensors, not only the latest
         if not isinstance(msg_data["sensor"], (tuple, list, set)):
@@ -281,10 +287,11 @@ class Slot:
         for sensor in msg_data["sensor"]:
             if sensor not in sensors:
                 sensors.append(sensor)
-        meta['sensor'] = sensors
+        slot_metadata['sensor'] = sensors
 
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
+        timeout = self['timeout']
         if len(slot_pattern['critical_files']) > 0 and \
            slot_pattern['critical_files'].issubset(slot_pattern['received_files']):
             delay = dt.datetime.utcnow() - (timeout - self._timeliness)
@@ -481,8 +488,8 @@ class SegmentGatherer(object):
             delayed_files.update(slot[key]['delayed_files'])
         if len(delayed_files) > 0:
             file_str = ''
-            for key in delayed_files:
-                file_str += "%s %f seconds, " % (key, delayed_files[key])
+            for key, value in delayed_files.items():
+                file_str += "%s %f seconds, " % (key, value)
             logger.warning("Files received late: %s", file_str.strip(', '))
 
         # ... and missing files
@@ -595,17 +602,16 @@ class SegmentGatherer(object):
         """Process message."""
         # Find the correct parser for this file
         try:
-            pattern, file_mda = self.item_from_message(msg)
+            pattern, extracted_metadata = self.item_from_message(msg)
         except TypeError:
             logger.debug("No parser matching message, skipping.")
             return
 
-        mda = file_mda
-        mda = self._adjust_time_by_flooring(mda, pattern.name)
+        extracted_metadata = self._adjust_time_by_flooring(extracted_metadata, pattern.name)
 
         # Check if each pattern contains a seperate 'keep_parsed_keys'
         local_keep_parsed_keys = pattern.get('keep_parsed_keys', [])
-        metadata = copy_metadata(mda, msg,
+        metadata = copy_metadata(extracted_metadata, msg,
                                  keep_parsed_keys=self._keep_parsed_keys,
                                  local_keep_parsed_keys=local_keep_parsed_keys)
 
@@ -630,7 +636,7 @@ class SegmentGatherer(object):
         else:
             slot = self.slots[slot_time]
 
-        slot.add_file(pattern, mda, msg.data)
+        slot.add_file(pattern, extracted_metadata, msg.data)
 
     def item_from_message(self, msg):
         """Get the keys from a filename."""
@@ -638,6 +644,17 @@ class SegmentGatherer(object):
             try:
                 file_mda = pattern.parser.parse(msg)
                 return pattern, file_mda
+            except ValueError:
+                pass
+            except KeyError as err:
+                logger.debug("No key " + str(err) + " in message.")
+
+    def message_from_posttroll(self, msg):
+        """Create a message object from a posttroll message instance."""
+        for pattern in self._patterns.values():
+            try:
+                pattern.parser.parse(msg)
+                return Message(msg, pattern)
             except ValueError:
                 pass
             except KeyError as err:
@@ -651,7 +668,7 @@ class SegmentGatherer(object):
         # Check if 'group_by_minutes' is given in the \key\ pattern
         if key is not None and 'group_by_minutes' in self._patterns[key]:
             group_by_minutes = self._patterns[key]['group_by_minutes']
-        elif self._group_by_minutes is None:
+        if group_by_minutes is None:
             return mda
 
         start_time = mda[self.time_name]
@@ -677,19 +694,19 @@ class SegmentGatherer(object):
 
         return str(time_obj)
 
-    def check_if_time_is_in_interval(self, check_time, raw_start_time):
+    def check_if_time_is_in_interval(self, time_range, raw_start_time):
         """Check if raw time is inside configured interval."""
         time_ok = False
 
         # Convert check time into int variables
         raw_time = (60 * raw_start_time.hour) + raw_start_time.minute
-        if check_time["midnight"] and raw_time < check_time["start"]:
+        if time_range["midnight"] and raw_time < time_range["start"]:
             raw_time += 24 * 60
 
         # Check start and end time
-        if raw_time >= check_time["start"] and raw_time <= check_time["end"]:
+        if time_range["start"] <= raw_time <= time_range["end"]:
             # Raw time in range, check interval
-            if ((raw_time - check_time["start"]) % check_time["delta"]) == 0:
+            if ((raw_time - time_range["start"]) % time_range["delta"]) == 0:
                 time_ok = True
 
         return time_ok

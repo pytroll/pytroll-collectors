@@ -31,8 +31,7 @@ import unittest
 import pytest
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.segments import Status
-from pytroll_collectors.segments import SegmentGatherer, ini_to_dict
+from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
@@ -722,6 +721,23 @@ pps_message_data = {'orig_platform_name': 'noaa20',
 #
 #         viirs_msg = FakeMessage(viirs_message_data)
 #         pps_msg = FakeMessage(pps_message_data)
+
+
+class TestMessage(unittest.TestCase):
+    """Test the message object."""
+
+    def test_create_message(self):
+        """Test message creation."""
+        fake_message = FakeMessage(pps_message_data)
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        message = Message(fake_message, self.collection_gatherer._patterns['pps'])
+        assert message
+
+    def test_message_from_posttroll(self):
+        """Test creating a message from a posttroll message."""
+        fake_message = FakeMessage(pps_message_data)
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        assert isinstance(self.collection_gatherer.message_from_posttroll(fake_message), Message)
 
 
 def suite():
