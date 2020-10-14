@@ -27,11 +27,12 @@ import logging
 import os
 import os.path
 import unittest
+from unittest.mock import patch
 
 import pytest
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message
+from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message, DO_NOT_COPY_KEYS
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
@@ -52,9 +53,11 @@ CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
 class FakeMessage:
     """Fake message."""
 
-    def __init__(self, data):
+    def __init__(self, data, type='file', subject='/foo/viirs'):
         """Set up fake message."""
         self.data = data.copy()
+        self.type = type
+        self.subject = subject
 
 
 class TestSegmentGatherer(unittest.TestCase):
@@ -97,15 +100,12 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
-        self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
-        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
         """Test init."""
-        self.assertTrue(self.msg0deg._config == CONFIG_SINGLE)
         self.assertTrue(self.msg0deg._subject is None)
         self.assertEqual(list(self.msg0deg._patterns.keys()), ['msg'])
         self.assertEqual(len(self.msg0deg.slots.keys()), 0)
@@ -125,13 +125,16 @@ class TestSegmentGatherer(unittest.TestCase):
     def test_init_data(self):
         """Test initializing the data."""
         mda = self.mda_msg0deg.copy()
-        self.msg0deg._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
 
         slot_str = str(mda["start_time"])
         self.assertEqual(list(self.msg0deg.slots.keys())[0], slot_str)
         slot = self.msg0deg.slots[slot_str]
         for key in mda:
-            self.assertEqual(slot['metadata'][key], mda[key])
+            if key not in DO_NOT_COPY_KEYS:
+                self.assertEqual(slot.output_metadata[key], mda[key])
         assert slot['timeout'] is not None
         self.assertEqual(slot['msg']['is_critical_set'],
                          CONFIG_SINGLE['patterns']['msg']['is_critical_set'])
@@ -147,15 +150,15 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(slot['msg']['all_files']), 10)
 
         # Tests using two filesets
-        self.msg0deg_iodc._create_slot(mda)
+        self.msg0deg_iodc._create_slot(message)
         slot = self.msg0deg_iodc.slots[slot_str]
-        self.assertTrue('collection' in slot['metadata'])
+        self.assertTrue('collection' in slot.output_metadata)
         for key in self.msg0deg_iodc._patterns:
-            self.assertTrue('dataset' in slot['metadata']['collection'][key])
-            self.assertTrue('sensor' in slot['metadata']['collection'][key])
+            self.assertTrue('dataset' in slot.output_metadata['collection'][key])
+            self.assertTrue('sensor' in slot.output_metadata['collection'][key])
 
         # Test using .ini config
-        self.msg_ini._create_slot(mda)
+        self.msg_ini._create_slot(message)
         slot = self.msg_ini.slots[slot_str]
         self.assertEqual(len(slot['msg']['critical_files']), 2)
         self.assertEqual(len(slot['msg']['wanted_files']), 38)
@@ -164,13 +167,15 @@ class TestSegmentGatherer(unittest.TestCase):
     def test_compose_filenames(self):
         """Test composing the filenames."""
         mda = self.mda_msg0deg.copy()
-        self.msg0deg._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
         slot_str = str(mda["start_time"])
         slot = self.msg0deg.slots[slot_str]
         parser = self.msg0deg._patterns['msg'].parser
 
         fname_set = slot.compose_filenames(parser,
-                                           self.msg0deg._config['patterns']['msg']['critical_files'])
+                                           self.msg0deg._patterns['msg']['critical_files'])
         self.assertTrue(fname_set, set)
         self.assertEqual(len(fname_set), 2)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
@@ -181,49 +186,55 @@ class TestSegmentGatherer(unittest.TestCase):
         # result is same as with explicit segment names
         fname_set_range = slot.compose_filenames(
             parser,
-            self.msg0deg._config['patterns']['msg']['wanted_files'])
+            self.msg0deg._patterns['msg']['wanted_files'])
         fname_set_explicit = slot.compose_filenames(
             parser,
-            self.msg0deg._config['patterns']['msg']['all_files'])
+            self.msg0deg._patterns['msg']['all_files'])
         self.assertEqual(len(fname_set_range), len(fname_set_explicit))
         self.assertEqual(len(fname_set_range.difference(fname_set_explicit)), 0)
 
         # Tests using filesets with no segments
         mda = self.mda_hrpt.copy()
-        self.hrpt_pps._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.hrpt_pps._patterns['hrpt'])
+        self.hrpt_pps._create_slot(message)
         slot_str = str(mda["start_time"])
         slot = self.hrpt_pps.slots[slot_str]
         parser = self.hrpt_pps._patterns['hrpt'].parser
 
         fname_set = slot.compose_filenames(
             parser,
-            self.hrpt_pps._config['patterns']['hrpt']['critical_files'])
+            self.hrpt_pps._patterns['hrpt']['critical_files'])
         self.assertEqual(len(fname_set), 1)
         self.assertTrue("hrpt_*_20180319_0955_28538.l1b" in fname_set)
         parser = self.hrpt_pps._patterns['pps'].parser
         fname_set = slot.compose_filenames(
             parser,
-            self.hrpt_pps._config['patterns']['pps']['critical_files'])
+            self.hrpt_pps._patterns['pps']['critical_files'])
         self.assertEqual(len(fname_set), 1)
         self.assertTrue(
             "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in fname_set)
 
         # Tests using filesets with no segments, INI config
         mda = self.mda_goes16.copy()
-        self.goes_ini._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.goes_ini._patterns['goes16'])
+        self.goes_ini._create_slot(message)
         slot_str = str(mda["start_time"])
         slot = self.goes_ini.slots[slot_str]
         parser = self.goes_ini._patterns['goes16'].parser
         fname_set = slot.compose_filenames(
             parser,
-            self.goes_ini._config['patterns']['goes16']['critical_files'])
+            self.goes_ini._patterns['goes16']['critical_files'])
         self.assertEqual(len(fname_set), 0)
 
     def test_update_timeout(self):
         """Test updating the timeout."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
-        self.msg0deg._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
         now = dt.datetime.utcnow()
         slot = self.msg0deg.slots[slot_str]
         slot.update_timeout()
@@ -234,7 +245,9 @@ class TestSegmentGatherer(unittest.TestCase):
         """Test if a slot is ready."""
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
-        self.msg0deg._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
         slot = self.msg0deg.slots[slot_str]
         func = slot.get_status
 
@@ -280,7 +293,9 @@ class TestSegmentGatherer(unittest.TestCase):
         future = now + dt.timedelta(minutes=1)
         past = now - dt.timedelta(minutes=1)
 
-        self.msg0deg._create_slot(mda)
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
         slot = self.msg0deg.slots[slot_str]
         func = slot.get_collection_status
 
@@ -364,7 +379,6 @@ class TestSegmentGatherer(unittest.TestCase):
         del mda['uid']
         msg = FakeMessage(mda)
         col = self.msg0deg
-        col._create_slot(msg.data)
         with self._caplog.at_level(logging.DEBUG):
             col.process(msg)
             logs = [rec.message for rec in self._caplog.records]
@@ -395,7 +409,8 @@ class TestSegmentGatherer(unittest.TestCase):
         mda = self.mda_msg0deg.copy()
         msg = FakeMessage(mda)
         col = self.msg0deg
-        col._create_slot(msg.data)
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
         col.process(msg)
         with self._caplog.at_level(logging.DEBUG):
             col.process(msg)
@@ -408,7 +423,6 @@ class TestSegmentGatherer(unittest.TestCase):
         mda['uid'] = "blablabla"
         msg = FakeMessage(mda)
         col = self.msg0deg
-        col._create_slot(msg.data)
         with self._caplog.at_level(logging.DEBUG):
             col.process(msg)
             logs = [rec.message for rec in self._caplog.records]
@@ -418,15 +432,15 @@ class TestSegmentGatherer(unittest.TestCase):
         """Test adding a file."""
         msg = FakeMessage(self.mda_msg0deg)
         col = self.msg0deg
-        col._create_slot(msg.data)
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
         time_slot = list(col.slots.keys())[0]
         key = list(CONFIG_SINGLE['patterns'].keys())[0]
-        mda = col._patterns[key].parser.parse(msg)
         slot = col.slots[time_slot]
-        res = slot.add_file(col._patterns[key], mda, msg.data)
+        res = slot.add_file(message)
         self.assertTrue(res is None)
         self.assertEqual(len(col.slots[time_slot][key]['received_files']), 1)
-        meta = col.slots[time_slot]['metadata']
+        meta = col.slots[time_slot].output_metadata
         self.assertEqual(len(meta['dataset']), 1)
         self.assertTrue('uri' in meta['dataset'][0])
         self.assertTrue('uid' in meta['dataset'][0])
@@ -435,17 +449,19 @@ class TestSegmentGatherer(unittest.TestCase):
         """Test adding two files."""
         msg_data = {'msg': self.mda_msg0deg.copy(), 'iodc': self.mda_iodc.copy()}
         col = self.msg0deg_iodc
-        col._create_slot(msg_data['msg'])
+        fake_message = FakeMessage(self.mda_msg0deg.copy())
+        message = Message(fake_message, col._patterns['msg'])
+        col._create_slot(message)
         time_slot = str(msg_data['msg']['start_time'])
         i = 0
         for key in CONFIG_DOUBLE['patterns']:
-            mda = col._patterns[key].parser.parse(FakeMessage(msg_data[key]))
+            message = Message(FakeMessage(msg_data[key]), col._patterns[key])
             slot = col.slots[time_slot]
-            res = slot.add_file(col._patterns[key], mda, msg_data[key])
+            res = slot.add_file(message)
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
                              1)
-            meta = col.slots[time_slot]['metadata']
+            meta = col.slots[time_slot].output_metadata
             self.assertEqual(len(meta['collection'][key]['dataset']), 1)
             self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
             self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
@@ -456,17 +472,19 @@ class TestSegmentGatherer(unittest.TestCase):
         msg_data = {'hrpt': self.mda_hrpt.copy(),
                     'pps': self.mda_pps.copy()}
         col = self.hrpt_pps
-        col._create_slot(msg_data['hrpt'])
+        fake_message = FakeMessage(self.mda_hrpt.copy())
+        message = Message(fake_message, col._patterns['hrpt'])
+        col._create_slot(message)
         time_slot = str(msg_data['hrpt']['start_time'])
         i = 0
         for key in CONFIG_NO_SEG['patterns']:
-            mda = col._patterns[key].parser.parse(FakeMessage(msg_data[key]))
+            message = Message(FakeMessage(msg_data[key]), col._patterns[key])
             slot = col.slots[time_slot]
-            res = slot.add_file(col._patterns[key], mda, msg_data[key])
+            res = slot.add_file(message)
             self.assertTrue(res is None)
             self.assertEqual(len(col.slots[time_slot][key]['received_files']),
                              1)
-            meta = col.slots[time_slot]['metadata']
+            meta = col.slots[time_slot].output_metadata
             self.assertEqual(len(meta['collection'][key]['dataset']), 1)
             i += 1
 
@@ -504,80 +522,9 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(4, 30)))
         self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(11, 0)))
 
-    def test_floor_time(self):
-        """Test that flooring the time to set minutes work."""
-        message = FakeMessage({'uid': "IMG_DK01IR4_201712081129_010"})
-        parser = self.himawari_ini._patterns['himawari-8'].parser
-        mda = parser.parse(message)
-        self.assertEqual(mda['start_time'].minute, 29)
-        mda2 = self.himawari_ini._adjust_time_by_flooring(mda.copy())
-        self.assertEqual(mda2['start_time'].minute, 20)
-        self.himawari_ini._group_by_minutes = 15
-        mda2 = self.himawari_ini._adjust_time_by_flooring(mda.copy())
-        self.assertEqual(mda2['start_time'].minute, 15)
-        self.himawari_ini._group_by_minutes = 2
-        mda2 = self.himawari_ini._adjust_time_by_flooring(mda.copy())
-        self.assertEqual(mda2['start_time'].minute, 28)
-        # Add seconds
-        mod_mda = mda.copy()
-        start_time = mda['start_time']
-        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
-                                            start_time.day, start_time.hour,
-                                            start_time.minute, 42)
-        # The seconds should also be zero'd
-        mda2 = self.himawari_ini._adjust_time_by_flooring(mda.copy())
-        self.assertEqual(mda2['start_time'].minute, 28)
-        self.assertEqual(mda2['start_time'].second, 0)
-
-        # Test that nothing is changed when groub_by_minutes has not
-        # been configured
-        self.himawari_ini._group_by_minutes = None
-        mda2 = self.himawari_ini._adjust_time_by_flooring(mod_mda.copy())
-        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
-
-    def test_floor_time_different(self):
-        """Test that flooring the time to set minutes work."""
-        key = 'himawari'
-        message = FakeMessage({'uid': "IMG_DK01IR4_201712081129_010"})
-        parser = self.iodc_himawari._patterns[key].parser
-        mda = parser.parse(message)
-        self.assertEqual(mda['start_time'].minute, 29)
-
-        # Here the floor time (group_by_minutes)is read from the yaml config file
-        # specific for himawari. You dont want to group_by_minutes for IODC
-        mda2 = self.iodc_himawari._adjust_time_by_flooring(mda.copy(), key)
-        self.assertEqual(mda2['start_time'].minute, 20)
-        # Add seconds
-        mod_mda = mda.copy()
-        start_time = mda['start_time']
-        mod_mda['start_time'] = dt.datetime(start_time.year, start_time.month,
-                                            start_time.day, start_time.hour,
-                                            start_time.minute, 42)
-        # The seconds should also be zero'd ( group_by_minutes from config file)
-        mda2 = self.iodc_himawari._adjust_time_by_flooring(mda.copy(), key)
-        self.assertEqual(mda2['start_time'].minute, 20)
-        self.assertEqual(mda2['start_time'].second, 0)
-
-        # Test that nothing is changed when groub_by_minutes has not
-        # been configured
-        self.iodc_himawari._group_by_minutes = None
-        mda2 = self.iodc_himawari._adjust_time_by_flooring(mod_mda.copy())
-        self.assertEqual(mda2['start_time'], mod_mda['start_time'])
-
-        key = 'iodc'
-        parser = self.iodc_himawari._patterns[key].parser
-        message = FakeMessage({'uid': "H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281115-__"})
-        mda = parser.parse(message)
-        self.assertEqual(mda['start_time'].minute, 15)
-
-        # Here the floor time (group_by_minutes)is read from the yaml config file
-        # but it is not given for IODC
-        mda2 = self.iodc_himawari._adjust_time_by_flooring(mda.copy(), key)
-        self.assertEqual(mda2['start_time'].minute, 15)
-
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""
-        from pytroll_collectors.segments import copy_metadata
+        from pytroll_collectors.segments import filter_metadata
         try:
             from unittest import mock
         except ImportError:
@@ -587,19 +534,19 @@ class TestSegmentGatherer(unittest.TestCase):
         msg = mock.MagicMock()
         msg.data = {'a': 2, 'c': 3}
 
-        res = copy_metadata(mda, msg)
+        res = filter_metadata(mda, msg.data)
         self.assertEqual(res['a'], 2)
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
 
         # Keep 'a' from parsed metadata
-        res = copy_metadata(mda, msg, keep_parsed_keys=['a'])
+        res = filter_metadata(mda, msg.data, keep_parsed_keys=['a'])
         self.assertEqual(res['a'], 1)
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
 
         # Keep 'a' from parsed metadata configured for one of more patterns
-        res = copy_metadata(mda, msg, local_keep_parsed_keys=['a'])
+        res = filter_metadata(mda, msg.data, local_keep_parsed_keys=['a'])
         self.assertEqual(res['a'], 1)
         self.assertEqual(res['b'], 2)
         self.assertEqual(res['c'], 3)
@@ -614,7 +561,166 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
 
 
-pps_message = ('pytroll://segment/collection/CF/2/CloudProducts/ dataset safusr.u@lxserv1043.smhi.se '
+viirs_message = (
+    'pytroll://foo/viirs/segment/SDR/1B/polar/direct_readout dataset safusr.u@lxserv1043.smhi.se '
+    '2020-10-13T05:33:06.568191 v1.01 application/json {"start_time": "2020-10-13T05:17:21.200000", "end_time": '
+    '"2020-10-13T05:18:43", "orbit_number": 15037, "platform_name": "NOAA-20", "sensor": "viirs", "format": '
+    '"SDR", "type": "HDF5", "data_processing_level": "1B", "variant": "DR", "orig_orbit_number": 15036, "dataset": '
+    '[{"uri": "ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GMODO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249968858_cspp_dev.h5", '  # noqa
+    '"uid": "GMODO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249968858_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GMTCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249869932_cspp_dev.h5", '  # noqa
+    '"uid": "GMTCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249869932_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306592492_cspp_dev.h5", '  # noqa
+    '"uid": "SVM01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306592492_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306625314_cspp_dev.h5", '  # noqa
+    '"uid": "SVM02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306625314_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306658107_cspp_dev.h5", '  # noqa
+    '"uid": "SVM03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306658107_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306695328_cspp_dev.h5", '  # noqa
+    '"uid": "SVM04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306695328_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306731912_cspp_dev.h5", '  # noqa
+    '"uid": "SVM05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306731912_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM06_j01_d20201013_t0517210_e0518437_b15037_c20201013052306769387_cspp_dev.h5", '  # noqa
+    '"uid": "SVM06_j01_d20201013_t0517210_e0518437_b15037_c20201013052306769387_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM07_j01_d20201013_t0517210_e0518437_b15037_c20201013052307952528_cspp_dev.h5", '  # noqa
+    '"uid": "SVM07_j01_d20201013_t0517210_e0518437_b15037_c20201013052307952528_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM08_j01_d20201013_t0517210_e0518437_b15037_c20201013052306840611_cspp_dev.h5", '  # noqa
+    '"uid": "SVM08_j01_d20201013_t0517210_e0518437_b15037_c20201013052306840611_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM09_j01_d20201013_t0517210_e0518437_b15037_c20201013052306876165_cspp_dev.h5", '  # noqa
+    '"uid": "SVM09_j01_d20201013_t0517210_e0518437_b15037_c20201013052306876165_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM10_j01_d20201013_t0517210_e0518437_b15037_c20201013052306912966_cspp_dev.h5", '  # noqa
+    '"uid": "SVM10_j01_d20201013_t0517210_e0518437_b15037_c20201013052306912966_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM11_j01_d20201013_t0517210_e0518437_b15037_c20201013052306946712_cspp_dev.h5", '  # noqa
+    '"uid": "SVM11_j01_d20201013_t0517210_e0518437_b15037_c20201013052306946712_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM12_j01_d20201013_t0517210_e0518437_b15037_c20201013052306979943_cspp_dev.h5", '  # noqa
+    '"uid": "SVM12_j01_d20201013_t0517210_e0518437_b15037_c20201013052306979943_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM13_j01_d20201013_t0517210_e0518437_b15037_c20201013052307008426_cspp_dev.h5", '  # noqa
+    '"uid": "SVM13_j01_d20201013_t0517210_e0518437_b15037_c20201013052307008426_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM14_j01_d20201013_t0517210_e0518437_b15037_c20201013052307049977_cspp_dev.h5", '  # noqa
+    '"uid": "SVM14_j01_d20201013_t0517210_e0518437_b15037_c20201013052307049977_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM15_j01_d20201013_t0517210_e0518437_b15037_c20201013052307083732_cspp_dev.h5", '  # noqa
+    '"uid": "SVM15_j01_d20201013_t0517210_e0518437_b15037_c20201013052307083732_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM16_j01_d20201013_t0517210_e0518437_b15037_c20201013052307116885_cspp_dev.h5", '  # noqa
+    '"uid": "SVM16_j01_d20201013_t0517210_e0518437_b15037_c20201013052307116885_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GIMGO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249453008_cspp_dev.h5", '  # noqa
+    '"uid": "GIMGO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249453008_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GITCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249043730_cspp_dev.h5", '  # noqa
+    '"uid": "GITCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249043730_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306211501_cspp_dev.h5", '  # noqa
+    '"uid": "SVI01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306211501_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306288882_cspp_dev.h5", '  # noqa
+    '"uid": "SVI02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306288882_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306364990_cspp_dev.h5", '  # noqa
+    '"uid": "SVI03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306364990_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306440875_cspp_dev.h5", '  # noqa
+    '"uid": "SVI04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306440875_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306516433_cspp_dev.h5", '  # noqa
+    '"uid": "SVI05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306516433_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GDNBO_j01_d20201013_t0517210_e0518437_b15037_c20201013052248852780_cspp_dev.h5", '  # noqa
+    '"uid": "GDNBO_j01_d20201013_t0517210_e0518437_b15037_c20201013052248852780_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVDNB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306011816_cspp_dev.h5", '  # noqa
+    '"uid": "SVDNB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306011816_cspp_dev.h5"}, {"uri": '
+    '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/IVCDB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306046518_cspu_pop.h5", '  # noqa
+    '"uid": "IVCDB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306046518_cspu_pop.h5"}]}')
+
+
+viirs_message_data = {'start_time': dt.datetime(2020, 10, 13, 5, 17, 21),
+                      'end_time': dt.datetime(2020, 10, 13, 5, 18, 43),
+                      'orbit_number': 15037,
+                      'platform_name': 'NOAA-20',
+                      'sensor': 'viirs',
+                      'format': 'SDR',
+                      'type': 'HDF5',
+                      'data_processing_level': '1B',
+                      'variant': 'DR',
+                      'orig_orbit_number': 15036,
+                      'dataset': [{
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GMODO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249968858_cspp_dev.h5',  # noqa
+                                      'uid': 'GMODO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249968858_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GMTCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249869932_cspp_dev.h5',  # noqa
+                                      'uid': 'GMTCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249869932_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306592492_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306592492_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306625314_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306625314_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306658107_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306658107_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306695328_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306695328_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306731912_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306731912_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM06_j01_d20201013_t0517210_e0518437_b15037_c20201013052306769387_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM06_j01_d20201013_t0517210_e0518437_b15037_c20201013052306769387_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM07_j01_d20201013_t0517210_e0518437_b15037_c20201013052307952528_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM07_j01_d20201013_t0517210_e0518437_b15037_c20201013052307952528_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM08_j01_d20201013_t0517210_e0518437_b15037_c20201013052306840611_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM08_j01_d20201013_t0517210_e0518437_b15037_c20201013052306840611_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM09_j01_d20201013_t0517210_e0518437_b15037_c20201013052306876165_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM09_j01_d20201013_t0517210_e0518437_b15037_c20201013052306876165_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM10_j01_d20201013_t0517210_e0518437_b15037_c20201013052306912966_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM10_j01_d20201013_t0517210_e0518437_b15037_c20201013052306912966_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM11_j01_d20201013_t0517210_e0518437_b15037_c20201013052306946712_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM11_j01_d20201013_t0517210_e0518437_b15037_c20201013052306946712_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM12_j01_d20201013_t0517210_e0518437_b15037_c20201013052306979943_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM12_j01_d20201013_t0517210_e0518437_b15037_c20201013052306979943_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM13_j01_d20201013_t0517210_e0518437_b15037_c20201013052307008426_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM13_j01_d20201013_t0517210_e0518437_b15037_c20201013052307008426_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM14_j01_d20201013_t0517210_e0518437_b15037_c20201013052307049977_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM14_j01_d20201013_t0517210_e0518437_b15037_c20201013052307049977_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM15_j01_d20201013_t0517210_e0518437_b15037_c20201013052307083732_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM15_j01_d20201013_t0517210_e0518437_b15037_c20201013052307083732_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVM16_j01_d20201013_t0517210_e0518437_b15037_c20201013052307116885_cspp_dev.h5',  # noqa
+                                      'uid': 'SVM16_j01_d20201013_t0517210_e0518437_b15037_c20201013052307116885_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GIMGO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249453008_cspp_dev.h5',  # noqa
+                                      'uid': 'GIMGO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249453008_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GITCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249043730_cspp_dev.h5',  # noqa
+                                      'uid': 'GITCO_j01_d20201013_t0517210_e0518437_b15037_c20201013052249043730_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306211501_cspp_dev.h5',  # noqa
+                                      'uid': 'SVI01_j01_d20201013_t0517210_e0518437_b15037_c20201013052306211501_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306288882_cspp_dev.h5',  # noqa
+                                      'uid': 'SVI02_j01_d20201013_t0517210_e0518437_b15037_c20201013052306288882_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306364990_cspp_dev.h5',  # noqa
+                                      'uid': 'SVI03_j01_d20201013_t0517210_e0518437_b15037_c20201013052306364990_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306440875_cspp_dev.h5',  # noqa
+                                      'uid': 'SVI04_j01_d20201013_t0517210_e0518437_b15037_c20201013052306440875_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVI05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306516433_cspp_dev.h5',  # noqa
+                                      'uid': 'SVI05_j01_d20201013_t0517210_e0518437_b15037_c20201013052306516433_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/GDNBO_j01_d20201013_t0517210_e0518437_b15037_c20201013052248852780_cspp_dev.h5',  # noqa
+                                      'uid': 'GDNBO_j01_d20201013_t0517210_e0518437_b15037_c20201013052248852780_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/SVDNB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306011816_cspp_dev.h5',  # noqa
+                                      'uid': 'SVDNB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306011816_cspp_dev.h5'},  # noqa
+                                  {
+                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20201013_0517_15037/IVCDB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306046518_cspu_pop.h5',  # noqa
+                                      'uid': 'IVCDB_j01_d20201013_t0517210_e0518437_b15037_c20201013052306046518_cspu_pop.h5'}]}  # noqa
+
+
+pps_message = ('pytroll://foo/pps/segment/collection/CF/2/CloudProducts/ dataset safusr.u@lxserv1043.smhi.se '
                '2020-09-11T12:36:48.777429 v1.01 application/json {"orig_platform_name": "noaa20", "orbit_number": '
                '14587, "start_time": "2020-09-11T12:05:08.400000", "stfrac": 4, "end_time": '
                '"2020-09-11T12:06:31.200000", "etfrac": 2, "module": "ppsMakePhysiography", "pps_version": "v2018", '
@@ -628,57 +734,6 @@ pps_message = ('pytroll://segment/collection/CF/2/CloudProducts/ dataset safusr.
                '"uid": "S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}, {"uri": '
                '"/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc", '
                '"uid": "S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}], "sensor": ["viirs"]}')
-
-viirs_message = ('pytroll://SDR/1B/ collection safusr.u@lxserv1043.smhi.se 2020-09-11T12:21:19.537705 v1.01 '
-                 'application/json {"start_time": "2020-09-11T11:53:46", "end_time": "2020-09-11T12:05:07", '
-                 '"orbit_number": 14587, "platform_name": "NOAA-20", "sensor": "viirs", "format": "SDR", "type": '
-                 '"HDF5", "data_processing_level": "1B", "variant": "DR", "orig_orbit_number": 14586, '
-                 '"collection_area_id": "euron1", "collection": [{"dataset": [{"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/GMODO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136775176_cspp_dev.h5", '  # noqa
-                 '"uid": "GMODO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136775176_cspp_dev.h5"}, {"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/GMTCO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136677723_cspp_dev.h5",'  # noqa
-                 ' "uid": "GMTCO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136677723_cspp_dev.h5"}, {"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM01_j01_d20200911_t1153460_e1155087_b14587_c20200911120205330501_cspp_dev.h5",'  # noqa
-                 ' "uid": "SVM01_j01_d20200911_t1153460_e1155087_b14587_c20200911120205330501_cspp_dev.h5"}, {"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM02_j01_d20200911_t1153460_e1155087_b14587_c20200911120205362388_cspp_dev.h5",'  # noqa
-                 ' "uid": "SVM02_j01_d20200911_t1153460_e1155087_b14587_c20200911120205362388_cspp_dev.h5"}, {"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM03_j01_d20200911_t1153460_e1155087_b14587_c20200911120205394206_cspp_dev.h5",'  # noqa
-                 ' "uid": "SVM03_j01_d20200911_t1153460_e1155087_b14587_c20200911120205394206_cspp_dev.h5"},{"uri": '
-                 '"ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/IVCDB_j01_d20200911_t1203427_e1205072_b14587_c20200911121903489556_cspu_pop.h5",'  # noqa
-                 ' "uid": "IVCDB_j01_d20200911_t1203427_e1205072_b14587_c20200911121903489556_cspu_pop.h5"}], '
-                 '"start_time": "2020-09-11T12:03:42", "end_time": "2020-09-11T12:05:07"}]}')
-
-viirs_message_data = {'start_time': dt.datetime(2020, 9, 11, 11, 53, 46),
-                      'end_time': dt.datetime(2020, 9, 11, 12, 5, 7),
-                      'orbit_number': 14587,
-                      'platform_name': 'NOAA-20',
-                      'sensor': 'viirs',
-                      'format': 'SDR',
-                      'type': 'HDF5',
-                      'data_processing_level': '1B',
-                      'variant': 'DR',
-                      'orig_orbit_number': 14586,
-                      'collection_area_id': 'euron1',
-                      'collection': [{'dataset': [{
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/GMODO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136775176_cspp_dev.h5',  # noqa
-                                                      'uid': 'GMODO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136775176_cspp_dev.h5'},  # noqa
-                                                  {
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/GMTCO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136677723_cspp_dev.h5',  # noqa
-                                                      'uid': 'GMTCO_j01_d20200911_t1153460_e1155087_b14587_c20200911120136677723_cspp_dev.h5'},  # noqa
-                                                  {
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM01_j01_d20200911_t1153460_e1155087_b14587_c20200911120205330501_cspp_dev.h5',  # noqa
-                                                      'uid': 'SVM01_j01_d20200911_t1153460_e1155087_b14587_c20200911120205330501_cspp_dev.h5'},  # noqa
-                                                  {
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM02_j01_d20200911_t1153460_e1155087_b14587_c20200911120205362388_cspp_dev.h5',  # noqa
-                                                      'uid': 'SVM02_j01_d20200911_t1153460_e1155087_b14587_c20200911120205362388_cspp_dev.h5'},  # noqa
-                                                  {
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/SVM03_j01_d20200911_t1153460_e1155087_b14587_c20200911120205394206_cspp_dev.h5',  # noqa
-                                                      'uid': 'SVM03_j01_d20200911_t1153460_e1155087_b14587_c20200911120205394206_cspp_dev.h5'},  # noqa
-                                                  {
-                                                      'uri': 'ssh://lxserv1043.smhi.se/san1/polar_in/direct_readout/npp/lvl1/noaa20_20200911_1149_14587/IVCDB_j01_d20200911_t1203427_e1205072_b14587_c20200911121903489556_cspu_pop.h5',  # noqa
-                                                      'uid': 'IVCDB_j01_d20200911_t1203427_e1205072_b14587_c20200911121903489556_cspu_pop.h5'}],  # noqa
-                                      'start_time': dt.datetime(2020, 9, 11, 12, 3, 42),
-                                      'end_time': dt.datetime(2020, 9, 11, 12, 5, 7)}]}
 
 pps_message_data = {'orig_platform_name': 'noaa20',
                     'orbit_number': 14587,
@@ -708,19 +763,113 @@ pps_message_data = {'orig_platform_name': 'noaa20',
                                     'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}],
                     'sensor': ['viirs']}
 
-# class TestSegmentGathererCollections(unittest.TestCase):
-#
-#     def setUp(self):
-#         self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
-#
-#     def test_message_keys_read_from_config(self):
-#         pass
-#
-#     def test_bla(self):
-#         from posttroll.message import Message
-#
-#         viirs_msg = FakeMessage(viirs_message_data)
-#         pps_msg = FakeMessage(pps_message_data)
+pps_message = ('pytroll://foo/pps/segment/collection/CF/2/CloudProducts/ dataset safusr.u@lxserv1043.smhi.se '
+               '2020-09-11T12:36:48.777429 v1.01 application/json {"orig_platform_name": "noaa20", "orbit_number": '
+               '14587, "start_time": "2020-10-13T05:17:21.200000", "stfrac": 4, "end_time": '
+               '"2020-09-11T05:18:43.700000", "etfrac": 2, "module": "ppsMakePhysiography", "pps_version": "v2018", '
+               '"platform_name": "NOAA-20", "orbit": 14587, "file_was_already_processed": false, '
+               '"data_processing_level": "2", "format": "CF", "status": "OK", "dataset": [{"uri": '
+               '"/san1/polar_out/direct_readout/lvl2/S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc", '
+               '"uid": "S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}, {"uri": '
+               '"/san1/polar_out/direct_readout/lvl2/S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc", '
+               '"uid": "S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}, {"uri": '
+               '"/san1/polar_out/direct_readout/lvl2/S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc", '
+               '"uid": "S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}, {"uri": '
+               '"/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc", '
+               '"uid": "S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc"}], "sensor": ["viirs"]}')
+
+
+new_pps_message_data = \
+                   {'orig_platform_name': 'noaa20',
+                    'orbit_number': 15037,
+                    'start_time': dt.datetime(2020, 10, 13, 5, 17, 21, 0),
+                    'stfrac': 4,
+                    'end_time': dt.datetime(2020, 10, 13, 5, 18, 43, 700000),
+                    'etfrac': 2,
+                    'module': 'ppsMakePhysiography',
+                    'pps_version': 'v2018',
+                    'platform_name': 'NOAA-20',
+                    'orbit': 15037,
+                    'file_was_already_processed': False,
+                    'data_processing_level': '2',
+                    'format': 'CF',
+                    'status': 'OK',
+                    'dataset': [{
+                                    'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                                    'uid': 'S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                                {
+                                    'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                                    'uid': 'S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                                {
+                                    'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                                    'uid': 'S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                                {
+                                    'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                                    'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}],
+                    'sensor': ['viirs']}
+
+
+class TestSegmentGathererCollections(unittest.TestCase):
+    """Test collections gathering."""
+
+    def setUp(self):
+        """Set up the test case."""
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+
+    def test_dataset_files_get_added_to_output_list(self):
+        """Test dataset files get added to the output metadata."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+
+        self.collection_gatherer.process(viirs_msg)
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        assert slot.output_metadata['collection']['viirs']['dataset'] == viirs_msg.data['dataset']
+
+    def test_collection_files_get_added_raises_not_implemented(self):
+        """Test gathering a collection raises a not implemented error."""
+        pps_msg = FakeMessage(pps_message_data, type='collection')
+        with pytest.raises(NotImplementedError):
+            self.collection_gatherer.process(pps_msg)
+
+    def test_mismatching_files_generate_multiple_slots(self):
+        """Test mismatching files generate multiple slots."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = FakeMessage(pps_message_data, type='dataset')
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        assert len(self.collection_gatherer.slots) == 2
+
+    def test_matching_files_generate_one_slot(self):
+        """Test matching files generate one slot only."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = Message_p(rawstr=pps_message)
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        assert len(self.collection_gatherer.slots) == 1
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        assert slot.output_metadata['collection']['pps']['dataset'] == pps_msg.data['dataset']
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        """Inject fixtures."""
+        self._caplog = caplog
+
+    def test_add_message_twice(self):
+        """Test adding a message twice."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        self.collection_gatherer.process(viirs_msg)
+        with self._caplog.at_level(logging.DEBUG):
+            self.collection_gatherer.process(viirs_msg)
+
+            logs = [rec.message for rec in self._caplog.records]
+            assert 'File already received' in logs
 
 
 class TestMessage(unittest.TestCase):
@@ -738,6 +887,147 @@ class TestMessage(unittest.TestCase):
         fake_message = FakeMessage(pps_message_data)
         self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
         assert isinstance(self.collection_gatherer.message_from_posttroll(fake_message), Message)
+
+    def test_message_type_dataset(self):
+        """Test creating a message from a posttroll message gives the right type."""
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        fake_message = FakeMessage(pps_message_data, 'dataset')
+        assert self.collection_gatherer.message_from_posttroll(fake_message).type == 'dataset'
+
+    def test_message_type_collection(self):
+        """Test creating a message from a posttroll message gives the right type."""
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        fake_message = FakeMessage(viirs_message_data, 'collection')
+        assert self.collection_gatherer.message_from_posttroll(fake_message).type == 'collection'
+
+    def test_id_time(self):
+        """Test id time."""
+        fake_message = FakeMessage(pps_message_data)
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        message = self.collection_gatherer.message_from_posttroll(fake_message)
+        assert message.id_time == dt.datetime(2020, 9, 11, 12, 5, 8, 400000)
+
+    def test_get_unique_id_from_file_message(self):
+        """Test getting a unique id from a message."""
+        mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__",
+                       "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0),
+                       "nominal_time": dt.datetime(2016, 11, 28, 11, 0, 0),
+                       "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__",  # noqa
+                       "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"],
+                       "hrit_format": "MSG3"}
+        gatherer = SegmentGatherer(CONFIG_SINGLE)
+        fake_message = FakeMessage(mda_msg0deg)
+        message = gatherer.message_from_posttroll(fake_message)
+        assert message.uid() == mda_msg0deg['uid']
+
+    def test_get_unique_id_from_dataset_message(self):
+        """Test getting unique id from a dataset message."""
+        fake_message = FakeMessage(viirs_message_data)
+        self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
+        message = self.collection_gatherer.message_from_posttroll(fake_message)
+        assert message.uid().startswith('NOAA-20_2020-10-13 05:17:21')
+
+
+class TestFlooring(unittest.TestCase):
+    """Test flooring."""
+
+    def setUp(self):
+        """Set up the test case."""
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+
+        self.himawari_msg = FakeMessage({'uid': "IMG_DK01IR4_201712081129_010"})
+        self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
+
+    def test_floor_time_10_minutes(self):
+        """Test flooring 10 minutes."""
+        self.himawari_ini_message._adjust_time_by_flooring()
+        self.assertEqual(20, self.himawari_ini_message.metadata['start_time'].minute)
+
+    def test_floor_time_15_minutes(self):
+        """Test flooring 15 minutes."""
+        with patch.dict(CONFIG_INI_HIMAWARI, {'group_by_minutes': 15}):
+            self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+            self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
+
+            self.himawari_ini_message._adjust_time_by_flooring()
+            self.assertEqual(15, self.himawari_ini_message.metadata['start_time'].minute)
+
+    def test_floor_time_2_minutes(self):
+        """Test flooring 2 minutes."""
+        with patch.dict(CONFIG_INI_HIMAWARI, {'group_by_minutes': 2}):
+            self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+            self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
+
+            self.himawari_ini_message._adjust_time_by_flooring()
+            self.assertEqual(28, self.himawari_ini_message.metadata['start_time'].minute)
+
+    def test_floor_time_2_minutes_with_seconds(self):
+        """Test flooring 2 minutes with zeroing of seconds."""
+        with patch.dict(CONFIG_INI_HIMAWARI, {'group_by_minutes': 2}):
+            self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+            self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
+
+            start_time = self.himawari_ini_message.metadata['start_time']
+            self.himawari_ini_message.metadata['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                                                           start_time.day, start_time.hour,
+                                                                           start_time.minute, 42)
+            self.himawari_ini_message._adjust_time_by_flooring()
+            self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 28)
+            self.assertEqual(self.himawari_ini_message.metadata['start_time'].second, 0)
+
+    def test_floor_time_without_group_by_minutes_does_not_change_time(self):
+        """Test that flooring the time without group_by_minutes defined keeps the time intact."""
+        with patch.dict(CONFIG_INI_HIMAWARI, {'group_by_minutes': None}):
+            self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+            self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
+            self.himawari_ini_message._adjust_time_by_flooring()
+            self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 29)
+
+
+class TestFlooringMultiplePatterns(unittest.TestCase):
+    """Test flooring."""
+
+    def setUp(self):
+        """Set up the test case."""
+        self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
+
+        self.himawari_msg = FakeMessage({'uid': "IMG_DK01IR4_201712081129_010"})
+        self.himawari_message = self.iodc_himawari.message_from_posttroll(self.himawari_msg)
+        self.iodc_msg = FakeMessage({'uid': "H-000-MSG2__-MSG2_IODC___-_________-EPI______-201611281115-__"})
+        self.iodc_message = self.iodc_himawari.message_from_posttroll(self.iodc_msg)
+
+    def test_parsing_minutes(self):
+        """Test parsing the minutes."""
+        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
+
+    def test_floor_10_minutes(self):
+        """Test flooring by 10 minutes."""
+        self.himawari_message._adjust_time_by_flooring()
+        self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
+
+    def test_floor_10_minutes_with_seconds_zeroed(self):
+        """Test flooring by 10 minutes will zero seconds."""
+        start_time = self.himawari_message.metadata['start_time']
+        self.himawari_message.metadata['start_time'] = dt.datetime(start_time.year, start_time.month,
+                                                                   start_time.day, start_time.hour,
+                                                                   start_time.minute, 42)
+        self.himawari_message._adjust_time_by_flooring()
+        self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
+        self.assertEqual(self.himawari_message.metadata['start_time'].second, 0)
+
+    def test_floor_time_without_group_by_minutes_does_not_change_time(self):
+        """Test that flooring the time without global group_by_minutes still works."""
+        with patch.dict(CONFIG_DOUBLE_DIFFERENT['patterns']['himawari'], {'group_by_minutes': None}):
+            self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
+            self.himawari_message = self.iodc_himawari.message_from_posttroll(self.himawari_msg)
+            self.himawari_message._adjust_time_by_flooring()
+            self.assertEqual(29, self.himawari_message.metadata['start_time'].minute)
+
+    def test_floor_grouping_does_not_affect_other_pattern(self):
+        """Test that `group_by_minutes` for one pattern doesn't leak to the other patterns."""
+        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
+        self.iodc_message._adjust_time_by_flooring()
+        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
 
 
 def suite():

@@ -1,16 +1,18 @@
 patterns:
   viirs:
     message_keys:
-      start_time
-      platform_name
+      - platform_name
+      - start_time
+    topic: /foo/viirs
     critical_files: null
     wanted_files: null
     all_files: null
     is_critical_set: true
   pps:
     message_keys:
-      start_time
-      platform_name
+      - platform_name
+      - start_time
+    topic: /foo/pps
     critical_files: null
     wanted_files: null
     all_files: null
@@ -21,7 +23,7 @@ timeliness:
 time_name:
   start_time
 time_tolerance:
-  30
+  3
 
 posttroll:
   # List of incoming message topics

@@ -33,7 +33,7 @@ from collections import OrderedDict
 from enum import Enum
 
 import trollsift
-from posttroll import message, publisher
+from posttroll import message as pmessage, publisher
 from posttroll.listener import ListenerContainer
 from six.moves.queue import Empty
 from six.moves.urllib.parse import urlparse
@@ -68,58 +68,125 @@ class Parser(metaclass=ABCMeta):
         """Parse the message."""
         pass
 
+    @abstractmethod
+    def matches(self, msg):
+        """Check if the message matches."""
+        pass
+
 
 class UIDParser(Parser):
     """Wrapper around trollsifts parser."""
 
-    def __init__(self, config):
+    def __init__(self, config, pattern_name):
         """Set up the UID parser."""
         self._ts_parser = trollsift.Parser(config['pattern'])
         self.variable_tags = config.get('variable_tags', [])
+        self._pattern_name = pattern_name
 
     def globify(self, mda):
         """Globify for the metadata."""
         return self._ts_parser.globify(mda)
 
-    def parse(self, msg):
+    def parse(self, metadata):
         """Parse the uid of the message."""
-        uid = msg.data['uid']
+        uid = metadata['uid']
         return self._ts_parser.parse(uid)
+
+    def matches(self, msg):
+        """Check that the message matches."""
+        uid = msg.data['uid']
+        return self._ts_parser.validate(uid)
 
     @property
     def fmt(self):
         """Get the keys of the uid pattern."""
         return self._ts_parser.fmt
 
+    def uid(self, metadata):
+        """Get the uid of the message."""
+        return metadata['uid']
+
 
 class MessageParser(Parser):
     """Use message to get metadata."""
 
-    def __init__(self, config):
+    def __init__(self, config, pattern_name):
         """Set up the message parser."""
         self._message_keys = config['message_keys']
+        self._topic = config['topic']
         self.variable_tags = config.get('variable_tags', [])
+        self._pattern_name = pattern_name
 
     @property
     def fmt(self):
         """Get keys of the metadata."""
-        return self._message_keys.keys()
+        return self._message_keys
 
-    def globify(self):
+    def globify(self, mda):
         """Globify the metadata."""
-        pass
+        return (self._pattern_name,) + tuple(mda[key] for key in self._message_keys)
 
-    def parse(self, msg):
+    def parse(self, metadata):
         """Parse the message."""
-        pass
+        return metadata
+
+    def matches(self, msg):
+        """Check that the message matches."""
+        for key in self._message_keys:
+            if key not in msg.data:
+                return False
+        if msg.subject.startswith(self._topic):
+            return True
+        return False
+
+    def uid(self, metadata):
+        """Get a unique id for the message."""
+        return '_'.join(str(metadata[key]) for key in self._message_keys)
 
 
 class Message:
     """A message object."""
 
-    def __init__(self, message, pattern):
+    def __init__(self, posttroll_message, pattern):
         """Set up the message."""
-        pass
+        self.pattern = pattern
+        self.message_data = posttroll_message.data.copy()
+        self.type = posttroll_message.type
+        self._posttroll_message = posttroll_message
+        self.metadata = pattern.parser.parse(self.message_data)
+        self._time_name = self.pattern.time_name
+        self._adjust_time_by_flooring()
+
+    @property
+    def id_time(self):
+        """Return the identifying time of the message."""
+        return self.metadata[self._time_name]
+
+    def uid(self):
+        """Get a unique id for the message."""
+        return self.pattern.parser.uid(self.message_data)
+
+    def _adjust_time_by_flooring(self):
+        """Floor time to full minutes."""
+        group_by_minutes = self.pattern.group_by_minutes
+        if group_by_minutes is None:
+            return self.metadata
+
+        start_time = self.metadata[self.pattern.time_name]
+        minutes = start_time.minute
+        floor_minutes = int(minutes / group_by_minutes) * group_by_minutes
+        start_time = dt.datetime(start_time.year, start_time.month,
+                                 start_time.day, start_time.hour, floor_minutes, 0)
+        self.metadata[self.pattern.time_name] = start_time
+
+        return self.metadata
+
+    @property
+    def filtered_metadata(self):
+        """Merge the metadata."""
+        return filter_metadata(self.metadata, self.message_data,
+                               keep_parsed_keys=self.pattern._global_keep_parsed_keys,
+                               local_keep_parsed_keys=self.pattern._local_keep_parsed_keys)
 
 
 class Slot:
@@ -132,17 +199,17 @@ class Slot:
         self._timeliness = timeliness
         self._num_files_premature_publish = num_files_premature_publish
         self._pattern_keys = patterns.keys()
-        self['metadata'] = metadata.copy()
+        self.output_metadata = metadata.copy()
         self['timeout'] = None
         # Critical files that are required, otherwise production will fail.
         # If there are no critical files, empty set([]) is used.
         if len(patterns) == 1:
-            self['metadata']['dataset'] = []
+            self.output_metadata['dataset'] = []
         else:
-            self['metadata']['collection'] = {}
+            self.output_metadata['collection'] = {}
         for (key, pattern) in patterns.items():
             if len(patterns) > 1:
-                self['metadata']['collection'][key] = \
+                self.output_metadata['collection'][key] = \
                     {'dataset': [], 'sensor': []}
             self[key] = self.create_slot_pattern(pattern)
 
@@ -203,7 +270,7 @@ class Slot:
             itm_str = ':'
 
         # Get copy of metadata
-        meta = self['metadata'].copy()
+        meta = self.output_metadata.copy()
 
         # Replace variable tags (such as processing time) with
         # wildcards, as these can't be forecasted.
@@ -246,49 +313,19 @@ class Slot:
         logger.info("Setting timeout to %s for slot %s.",
                     str(timeout), self.timestamp)
 
-    def add_file(self, pattern, file_metadata, msg_data):
+    def add_file(self, message):
         """Add file to the correct filelist."""
-        slot_pattern = self[pattern.name]
-
-        should_be_added = True
-        # Replace variable tags (such as processing time) with
-        # wildcards, as these can't be forecasted.
-        ignored_keys = pattern.get('variable_tags', [])
-        file_metadata = _copy_without_ignore_items(file_metadata,
-                                                   ignored_keys=ignored_keys)
-
-        mask = pattern.parser.globify(file_metadata)
-        if mask in slot_pattern['received_files']:
-            logger.debug("File already received")
-            should_be_added = False
-        if mask not in slot_pattern['all_files']:
-            logger.debug("%s not in %s", mask, slot_pattern['all_files'])
-            should_be_added = False
+        mask, should_be_added = self.is_relevant(message)
 
         if not should_be_added:
             return
 
-        # Add uid and uri
-        slot_metadata = self['metadata']
-        uri = urlparse(msg_data['uri']).path
-        uid = msg_data['uid']
-        if 'collection' in slot_metadata:
-            slot_metadata['collection'][pattern.name]['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = slot_metadata['collection'][pattern.name].get('sensor', [])
-        else:
-            slot_metadata['dataset'].append({'uri': uri, 'uid': uid})
-            sensors = slot_metadata.get('sensor', [])
+        self._add_message_to_metadata(message)
+        uid = message.uid()
 
-        # Collect all sensors, not only the latest
-        if not isinstance(msg_data["sensor"], (tuple, list, set)):
-            msg_data["sensor"] = [msg_data["sensor"]]
-        if not isinstance(sensors, list):
-            sensors = [sensors]
-        for sensor in msg_data["sensor"]:
-            if sensor not in sensors:
-                sensors.append(sensor)
-        slot_metadata['sensor'] = sensors
+        pattern = message.pattern
 
+        slot_pattern = self[pattern.name]
         # If critical files have been received but the slot is
         # not complete, add the file to list of delayed files
         timeout = self['timeout']
@@ -301,6 +338,59 @@ class Slot:
         # Add to received files
         slot_pattern['received_files'].add(mask)
         logger.info("%s processed", uid)
+
+    def _add_message_to_metadata(self, message):
+        pattern = message.pattern
+        msg_data = message.message_data
+        # Add uid and uri
+        slot_metadata = self.output_metadata
+        if 'collection' in slot_metadata:
+            metadata = slot_metadata['collection'][pattern.name]
+        else:
+            metadata = slot_metadata
+
+        # add uri, uid and sensor
+
+        self._add_file_info_to_metadata(metadata, message)
+
+        # Collect all sensors, not only the latest
+        sensors = metadata.get('sensor', [])
+        if not isinstance(msg_data["sensor"], (tuple, list, set)):
+            msg_data["sensor"] = [msg_data["sensor"]]
+        if not isinstance(sensors, list):
+            sensors = [sensors]
+        for sensor in msg_data["sensor"]:
+            if sensor not in sensors:
+                sensors.append(sensor)
+        slot_metadata['sensor'] = sensors
+
+    def _add_file_info_to_metadata(self, metadata, message):
+        msg_data = message.message_data
+        if message.type == 'file':
+            uri = urlparse(msg_data['uri']).path
+            uid = msg_data['uid']
+            metadata['dataset'].append({'uri': uri, 'uid': uid})
+        elif message.type == 'dataset':
+            metadata['dataset'].extend(message.message_data['dataset'])
+        else:
+            raise NotImplementedError('Cannot handle message of type: ' + str(message.type))
+
+    def is_relevant(self, message):
+        """Check if the message is relevant to this slot."""
+        slot_pattern = self[message.pattern.name]
+        should_be_added = True
+        # Replace variable tags (such as processing time) with
+        # wildcards, as these can't be forecasted.
+        ignored_keys = message.pattern.get('variable_tags', [])
+        metadata = _copy_without_ignore_items(message.metadata, ignored_keys=ignored_keys)
+        mask = message.pattern.parser.globify(metadata)
+        if mask in slot_pattern['received_files']:
+            logger.debug("File already received")
+            should_be_added = False
+        if mask not in slot_pattern['all_files']:
+            logger.debug("%s not in %s", mask, slot_pattern['all_files'])
+            should_be_added = False
+        return mask, should_be_added
 
     def get_status(self):
         """Determine if slot is complete."""
@@ -372,24 +462,28 @@ class Slot:
 class Pattern:
     """A pattern to watch for."""
 
-    def __init__(self, name, pattern_config, timeliness):
+    def __init__(self, name, pattern_config, defaults):
         """Set up the pattern."""
         self._config = pattern_config
         try:
-            self.parser = UIDParser(pattern_config)
+            self.parser = UIDParser(pattern_config, name)
         except KeyError:
-            self.parser = MessageParser(pattern_config)
+            self.parser = MessageParser(pattern_config, name)
         self.name = name
-        self.timeliness = timeliness
+        self.timeliness = defaults.get('timeliness', 1200)
         if "start_time_pattern" in pattern_config:
             logger.info("Create start time pattern %s", name)
             self._create_start_time_pattern()
 
-    def _create_parser(self):
-        if 'pattern' in self._config:
-            return UIDParser(self._config)
-        else:
-            return MessageParser(self._config)
+        self._global_keep_parsed_keys = defaults.get('keep_parsed_keys', [])
+        self._local_keep_parsed_keys = pattern_config.get('keep_parsed_keys', [])
+        self._group_by_minutes = self._config.get('group_by_minutes', defaults.get('group_by_minutes'))
+        self.time_name = self._config.get('time_name', defaults.get('time_name', 'start_time'))
+
+    @property
+    def group_by_minutes(self):
+        """Group by minutes."""
+        return self._group_by_minutes
 
     def __getitem__(self, item):
         """Get the item."""
@@ -440,43 +534,39 @@ class SegmentGatherer(object):
 
     def __init__(self, config):
         """Initialize the segment gatherer."""
-        self._config = config
+        self._config = config.copy()
+        self._pattern_configs = self._config.pop('patterns')
         self._subject = None
         self._timeliness = dt.timedelta(seconds=config.get("timeliness", 1200))
-        self._patterns = {key: Pattern(key, config['patterns'][key], self._timeliness)
-                          for key in config['patterns']}
+
+        # This get the 'keep_parsed_keys' valid for all patterns
+        self._keep_parsed_keys = self._config.get('keep_parsed_keys', [])
+
+        self._patterns = self._create_patterns()
 
         self._elements = list(self._patterns.keys())
 
-        self._time_tolerance = config.get("time_tolerance", 30)
+        self._time_tolerance = self._config.get("time_tolerance", 30)
 
-        self._num_files_premature_publish = config.get("num_files_premature_publish", -1)
+        self._num_files_premature_publish = self._config.get("num_files_premature_publish", -1)
 
         self.slots = OrderedDict()
 
-        self.time_name = config.get('time_name', 'start_time')
+        self.time_name = self._config.get('time_name', 'start_time')
         # Floor the scene start time to the given full minutes
-        self._group_by_minutes = config.get('group_by_minutes', None)
-
-        # This get the 'keep_parsed_keys' valid for all patterns
-        self._keep_parsed_keys = config.get('keep_parsed_keys', [])
+        self._group_by_minutes = self._config.get('group_by_minutes', None)
 
         self._loop = False
-        self._providing_server = config.get('providing_server')
+        self._providing_server = self._config.get('providing_server')
+
+    def _create_patterns(self):
+        return {key: Pattern(key, pattern_config, self._config)
+                for key, pattern_config in self._pattern_configs.items()}
 
     def _clear_slot(self, time_slot):
         """Clear data."""
         if time_slot in self.slots:
             del self.slots[time_slot]
-
-    def _create_slot(self, metadata):
-        """Init wanted, all and critical files."""
-        timestamp = str(metadata[self.time_name])
-        logger.debug("Adding new slot: %s", timestamp)
-
-        slot = Slot(timestamp, metadata, self._patterns, self._timeliness, self._num_files_premature_publish)
-        self.slots[timestamp] = slot
-        return slot
 
     def _reinitialize_gatherer(self, time_slot, missing_files_check=True):
         """Publish file dataset and reinitialize gatherer."""
@@ -504,17 +594,17 @@ class SegmentGatherer(object):
         # Remove tags that are not necessary for datasets
         for tag in REMOVE_TAGS:
             try:
-                del slot['metadata'][tag]
+                del slot.output_metadata[tag]
             except KeyError:
                 pass
 
-        self._publish(slot['metadata'])
+        self._publish(slot.output_metadata)
 
     def _publish(self, metadata):
         if len(self._elements) == 1:
-            msg = message.Message(self._subject, "dataset", metadata)
+            msg = pmessage.Message(self._subject, "dataset", metadata)
         else:
-            msg = message.Message(self._subject, "collection", metadata)
+            msg = pmessage.Message(self._subject, "collection", metadata)
         logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
 
@@ -602,48 +692,41 @@ class SegmentGatherer(object):
         """Process message."""
         # Find the correct parser for this file
         try:
-            pattern, extracted_metadata = self.item_from_message(msg)
+            message = self.message_from_posttroll(msg)
+            pattern = message.pattern
         except TypeError:
             logger.debug("No parser matching message, skipping.")
             return
-
-        extracted_metadata = self._adjust_time_by_flooring(extracted_metadata, pattern.name)
-
-        # Check if each pattern contains a seperate 'keep_parsed_keys'
-        local_keep_parsed_keys = pattern.get('keep_parsed_keys', [])
-        metadata = copy_metadata(extracted_metadata, msg,
-                                 keep_parsed_keys=self._keep_parsed_keys,
-                                 local_keep_parsed_keys=local_keep_parsed_keys)
 
         # Check if time of the raw is in scheduled range
         if "_start_time_pattern" in pattern:
             schedule_ok = self.check_if_time_is_in_interval(
                 pattern["_start_time_pattern"],
-                metadata[self.time_name])
+                message.id_time)
             if not schedule_ok:
                 logger.info("Hour pattern '%s' skip: %s" +
-                            " for start_time: %s:%s",
-                            pattern.name, msg.data["uid"],
-                            metadata[self.time_name].hour,
-                            metadata[self.time_name].minute)
+                            " for start_time: %s",
+                            pattern.name, message.uid(),
+                            message.id_time.strftime("%H:%M"))
                 return
 
-        slot_time = self._find_time_slot(metadata[self.time_name])
+        slot_time = self._find_time_slot(message.id_time)
 
         # Init metadata etc if this is the first file
         if slot_time not in self.slots:
-            slot = self._create_slot(metadata)
+            slot = self._create_slot(message)
         else:
             slot = self.slots[slot_time]
 
-        slot.add_file(pattern, extracted_metadata, msg.data)
+        slot.add_file(message)
 
     def item_from_message(self, msg):
         """Get the keys from a filename."""
         for pattern in self._patterns.values():
             try:
-                file_mda = pattern.parser.parse(msg)
-                return pattern, file_mda
+                if pattern.parser.matches(msg):
+                    file_mda = pattern.parser.parse(msg.data)
+                    return pattern, file_mda
             except ValueError:
                 pass
             except KeyError as err:
@@ -653,32 +736,11 @@ class SegmentGatherer(object):
         """Create a message object from a posttroll message instance."""
         for pattern in self._patterns.values():
             try:
-                pattern.parser.parse(msg)
-                return Message(msg, pattern)
-            except ValueError:
-                pass
+                if pattern.parser.matches(msg):
+                    return Message(msg, pattern)
             except KeyError as err:
                 logger.debug("No key " + str(err) + " in message.")
-
-    def _adjust_time_by_flooring(self, mda, key=None):
-        """Floor time to full minutes."""
-        # This is the 'group_by_minutes' for all patterns
-        group_by_minutes = self._group_by_minutes
-
-        # Check if 'group_by_minutes' is given in the \key\ pattern
-        if key is not None and 'group_by_minutes' in self._patterns[key]:
-            group_by_minutes = self._patterns[key]['group_by_minutes']
-        if group_by_minutes is None:
-            return mda
-
-        start_time = mda[self.time_name]
-        mins = start_time.minute
-        fl_mins = int(mins / group_by_minutes) * group_by_minutes
-        start_time = dt.datetime(start_time.year, start_time.month,
-                                 start_time.day, start_time.hour, fl_mins, 0)
-        mda[self.time_name] = start_time
-
-        return mda
+        raise TypeError
 
     def _find_time_slot(self, time_obj):
         """Find time slot and return the slot as a string.
@@ -686,13 +748,23 @@ class SegmentGatherer(object):
         If no slots are close enough, return *str(time_obj)*
         """
         for slot in self.slots:
-            time_slot = self.slots[slot]['metadata'][self.time_name]
+            time_slot = self.slots[slot].output_metadata[self.time_name]
             time_diff = time_obj - time_slot
             if abs(time_diff.total_seconds()) < self._time_tolerance:
                 logger.debug("Found existing time slot, using that")
                 return str(time_slot)
 
         return str(time_obj)
+
+    def _create_slot(self, message):
+        """Init wanted, all and critical files."""
+        timestamp = str(message.id_time)
+        logger.debug("Adding new slot: %s", timestamp)
+
+        slot = Slot(timestamp, message.filtered_metadata, self._patterns, self._timeliness,
+                    self._num_files_premature_publish)
+        self.slots[timestamp] = slot
+        return slot
 
     def check_if_time_is_in_interval(self, time_range, raw_start_time):
         """Check if raw time is inside configured interval."""
@@ -811,7 +883,7 @@ def ini_to_dict(fname, section):
     return conf
 
 
-def copy_metadata(mda, msg, keep_parsed_keys=None, local_keep_parsed_keys=None):
+def filter_metadata(mda, msg_data, keep_parsed_keys=None, local_keep_parsed_keys=None):
     """Copy metada from filename and message to a combined dictionary."""
     if keep_parsed_keys is None:
         keep_parsed_keys = []
@@ -824,9 +896,9 @@ def copy_metadata(mda, msg, keep_parsed_keys=None, local_keep_parsed_keys=None):
             metadata[key] = mda[key]
 
     # Update with data given in the message
-    for key in msg.data:
+    for key in msg_data:
         # If time name is given, do not overwrite it
         if key not in DO_NOT_COPY_KEYS and key not in keep_parsed_keys and key not in local_keep_parsed_keys:
-            metadata[key] = msg.data[key]
+            metadata[key] = msg_data[key]
 
     return metadata
