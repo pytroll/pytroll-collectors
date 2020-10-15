@@ -207,6 +207,7 @@ class Slot:
             self.output_metadata['dataset'] = []
         else:
             self.output_metadata['collection'] = {}
+            self.output_metadata.pop('dataset', None)
         for (key, pattern) in patterns.items():
             if len(patterns) > 1:
                 self.output_metadata['collection'][key] = \
@@ -547,6 +548,7 @@ class SegmentGatherer(object):
         self._elements = list(self._patterns.keys())
 
         self._time_tolerance = self._config.get("time_tolerance", 30)
+        self._bundle_datasets = self._config.get("bundle_datasets", False)
 
         self._num_files_premature_publish = self._config.get("num_files_premature_publish", -1)
 
@@ -598,10 +600,18 @@ class SegmentGatherer(object):
             except KeyError:
                 pass
 
-        self._publish(slot.output_metadata)
+        output_metadata = slot.output_metadata.copy()
+
+        if self._bundle_datasets and "dataset" not in output_metadata:
+            output_metadata["dataset"] = []
+            for collection in output_metadata["collection"].values():
+                output_metadata["dataset"].extend(collection['dataset'])
+            del output_metadata["collection"]
+
+        self._publish(output_metadata)
 
     def _publish(self, metadata):
-        if len(self._elements) == 1:
+        if "dataset" in metadata:
             msg = pmessage.Message(self._subject, "dataset", metadata)
         else:
             msg = pmessage.Message(self._subject, "collection", metadata)
@@ -640,7 +650,6 @@ class SegmentGatherer(object):
             self.triage_slots()
 
             # Check listener for new messages
-            msg = None
             try:
                 msg = self._listener.output_queue.get(True, 1)
             except AttributeError:
@@ -651,7 +660,7 @@ class SegmentGatherer(object):
             except Empty:
                 continue
 
-            if msg.type == "file":
+            if msg.type in ["file", "dataset"]:
                 # If providing server is configured skip message if not from providing server
                 if self._providing_server and self._providing_server != msg.host:
                     continue
@@ -719,18 +728,6 @@ class SegmentGatherer(object):
             slot = self.slots[slot_time]
 
         slot.add_file(message)
-
-    def item_from_message(self, msg):
-        """Get the keys from a filename."""
-        for pattern in self._patterns.values():
-            try:
-                if pattern.parser.matches(msg):
-                    file_mda = pattern.parser.parse(msg.data)
-                    return pattern, file_mda
-            except ValueError:
-                pass
-            except KeyError as err:
-                logger.debug("No key " + str(err) + " in message.")
 
     def message_from_posttroll(self, msg):
         """Create a message object from a posttroll message instance."""

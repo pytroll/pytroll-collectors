@@ -27,7 +27,7 @@ import logging
 import os
 import os.path
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -525,13 +525,9 @@ class TestSegmentGatherer(unittest.TestCase):
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""
         from pytroll_collectors.segments import filter_metadata
-        try:
-            from unittest import mock
-        except ImportError:
-            import mock
 
         mda = {'a': 1, 'b': 2}
-        msg = mock.MagicMock()
+        msg = MagicMock()
         msg.data = {'a': 2, 'c': 3}
 
         res = filter_metadata(mda, msg.data)
@@ -824,6 +820,7 @@ class TestSegmentGathererCollections(unittest.TestCase):
         self.collection_gatherer.process(viirs_msg)
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
         assert slot.output_metadata['collection']['viirs']['dataset'] == viirs_msg.data['dataset']
+        assert "dataset" not in slot.output_metadata
 
     def test_collection_files_get_added_raises_not_implemented(self):
         """Test gathering a collection raises a not implemented error."""
@@ -870,6 +867,61 @@ class TestSegmentGathererCollections(unittest.TestCase):
 
             logs = [rec.message for rec in self._caplog.records]
             assert 'File already received' in logs
+
+    def test_slot_is_ready(self):
+        """Test when a slot is ready."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = Message_p(rawstr=pps_message)
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        assert slot.get_status() == Status.SLOT_READY
+
+    def test_collection_is_published(self):
+        """Test a collection is published."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = Message_p(rawstr=pps_message)
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        self.collection_gatherer._publisher = MagicMock()
+        self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
+        self.collection_gatherer.triage_slots()
+        assert self.collection_gatherer._publisher.send.call_count == 1
+        args, kwargs = self.collection_gatherer._publisher.send.call_args_list[0]
+        message = Message_p(rawstr=args[0])
+        assert message.data['collection'] == slot.output_metadata['collection']
+        assert message.type == "collection"
+
+    def test_bundled_dataset_is_published(self):
+        """Test one bundled dataset is published."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = Message_p(rawstr=pps_message)
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        self.collection_gatherer._bundle_datasets = True
+        self.collection_gatherer._publisher = MagicMock()
+        self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
+        self.collection_gatherer.triage_slots()
+        assert self.collection_gatherer._publisher.send.call_count == 1
+        args, kwargs = self.collection_gatherer._publisher.send.call_args_list[0]
+        message = Message_p(rawstr=args[0])
+        assert "dataset" in message.data
+        dataset = []
+        for files in slot.output_metadata['collection'].values():
+            dataset.extend(files['dataset'])
+        assert message.data['dataset'] == dataset
+        assert message.type == "dataset"
 
 
 class TestMessage(unittest.TestCase):

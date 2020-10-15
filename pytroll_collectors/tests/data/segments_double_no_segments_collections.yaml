@@ -24,6 +24,7 @@ time_name:
   start_time
 time_tolerance:
   3
+bundle_datasets: false
 
 posttroll:
   # List of incoming message topics
