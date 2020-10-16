@@ -749,7 +749,7 @@ class SegmentGatherer(object):
             time_diff = time_obj - time_slot
             if abs(time_diff.total_seconds()) < self._time_tolerance:
                 logger.debug("Found existing time slot, using that")
-                return str(time_slot)
+                return slot
 
         return str(time_obj)
 

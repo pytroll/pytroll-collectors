@@ -43,6 +43,7 @@ CONFIG_NO_SEG = read_yaml(os.path.join(THIS_DIR,
                                        "data/segments_double_no_segments.yaml"))
 CONFIG_COLLECTIONS = read_yaml(os.path.join(THIS_DIR,
                                             "data/segments_double_no_segments_collections.yaml"))
+CONFIG_PPS = read_yaml(os.path.join(THIS_DIR, "data/segments_pps.yaml"))
 CONFIG_INI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
 CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
@@ -839,19 +840,6 @@ class TestSegmentGathererCollections(unittest.TestCase):
 
         assert len(self.collection_gatherer.slots) == 2
 
-    def test_matching_files_generate_one_slot(self):
-        """Test matching files generate one slot only."""
-        from posttroll.message import Message as Message_p
-        viirs_msg = Message_p(rawstr=viirs_message)
-        pps_msg = Message_p(rawstr=pps_message)
-
-        self.collection_gatherer.process(viirs_msg)
-        self.collection_gatherer.process(pps_msg)
-
-        assert len(self.collection_gatherer.slots) == 1
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
-        assert slot.output_metadata['collection']['pps']['dataset'] == pps_msg.data['dataset']
-
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
         """Inject fixtures."""
@@ -951,6 +939,40 @@ class TestSegmentGathererCollections(unittest.TestCase):
             dataset.extend(files['dataset'])
         assert message.data['dataset'] == dataset
         assert message.type == "dataset"
+
+
+pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
+                '2020-10-16T08:01:59.035595 v1.01 application/json {"module": "ppsCmask", "pps_version": "v2018", '
+                '"platform_name": "NOAA-20", "orbit": 15081, "sensor": "viirs", "start_time": '
+                '"2020-10-16T07:48:15.300000", "end_time": "2020-10-16T07:49:39.800000", "file_was_already_processed": '
+                'false, "uri": '
+                '"ssh://lxserv1043.smhi.se/san1/polar_out/direct_readout/lvl2/S_NWC_CMA_noaa20_15081_20201016T0748153Z_20201016T0749398Z.nc"'  # noqa
+                ', "uid": "S_NWC_CMA_noaa20_15081_20201016T0748153Z_20201016T0749398Z.nc", "data_processing_level": '
+                '"2", "format": "CF", "station": "norrkoping", "posttroll_topic": "PPSv2018", "variant": "DR"}')
+pps_message2 = ('pytroll://segment/CF/2/CTTH/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
+                '2020-10-16T08:02:30.173279 v1.01 application/json {"module": "ppsCtth", "pps_version": "v2018", '
+                '"platform_name": "NOAA-20", "orbit": 15081, "sensor": "viirs", "start_time": '
+                '"2020-10-16T07:48:15.300000", "end_time": "2020-10-16T07:49:39.800000", "file_was_already_processed": '
+                'false, "uri": '
+                '"ssh://lxserv1043.smhi.se/san1/polar_out/direct_readout/lvl2/S_NWC_CTTH_noaa20_15081_20201016T0748153Z_20201016T0749398Z.nc"'  # noqa
+                ', "uid": "S_NWC_CTTH_noaa20_15081_20201016T0748153Z_20201016T0749398Z.nc", "data_processing_level": '
+                '"2", "format": "CF", "station": "norrkoping", "posttroll_topic": "PPSv2018", "variant": "DR"}')
+
+
+class TestStartTimes(unittest.TestCase):
+    """Test incomplete start times."""
+
+    def test_incomplete_start_times(self):
+        """Test incomplete start times."""
+        from posttroll.message import Message as Message_p
+        collection_gatherer = SegmentGatherer(CONFIG_PPS)
+        pps_msg1 = Message_p(rawstr=pps_message1)
+        pps_msg2 = Message_p(rawstr=pps_message2)
+        collection_gatherer.process(pps_msg1)
+        collection_gatherer.process(pps_msg2)
+
+        assert len(collection_gatherer.slots) == 1
+        assert len(list(collection_gatherer.slots.values())[0].output_metadata['dataset']) == 2
 
 
 class TestMessage(unittest.TestCase):
