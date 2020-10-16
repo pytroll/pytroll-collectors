@@ -591,7 +591,7 @@ class SegmentGatherer(object):
                 missing_files = slot[key]['all_files'].difference(
                     slot[key]['received_files'])
             if len(missing_files) > 0:
-                logger.warning("Missing files: %s", ', '.join(missing_files))
+                logger.warning("Missing files: %s", ', '.join((str(missing) for missing in missing_files)))
 
         # Remove tags that are not necessary for datasets
         for tag in REMOVE_TAGS:
@@ -631,7 +631,7 @@ class SegmentGatherer(object):
         addresses = self._config['posttroll'].get('addresses')
         publish_port = self._config['posttroll'].get('publish_port', 0)
         nameservers = self._config['posttroll'].get('nameservers', [])
-        services = self._config['posttroll'].get('services')
+        services = self._config['posttroll'].get('services', "")
         self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.

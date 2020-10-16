@@ -899,6 +899,35 @@ class TestSegmentGathererCollections(unittest.TestCase):
         assert message.data['collection'] == slot.output_metadata['collection']
         assert message.type == "collection"
 
+    def test_slot_is_ready_when_timeout_expired(self):
+        """Test when a slot is ready because of expired timeout."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+
+        self.collection_gatherer._timeliness = dt.timedelta(seconds=0)
+        self.collection_gatherer.process(viirs_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        assert slot.get_status() == Status.SLOT_READY
+
+    def test_collection_is_published_when_timeout_expired(self):
+        """Test a collection is published because of expired timeout."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+
+        self.collection_gatherer._timeliness = dt.timedelta(seconds=0)
+        self.collection_gatherer.process(viirs_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        self.collection_gatherer._publisher = MagicMock()
+        self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
+        self.collection_gatherer.triage_slots()
+        assert self.collection_gatherer._publisher.send.call_count == 1
+        args, kwargs = self.collection_gatherer._publisher.send.call_args_list[0]
+        message = Message_p(rawstr=args[0])
+        assert message.data['collection'] == slot.output_metadata['collection']
+        assert message.type == "collection"
+
     def test_bundled_dataset_is_published(self):
         """Test one bundled dataset is published."""
         from posttroll.message import Message as Message_p
