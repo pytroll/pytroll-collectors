@@ -54,10 +54,10 @@ CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
 class FakeMessage:
     """Fake message."""
 
-    def __init__(self, data, type='file', subject='/foo/viirs'):
+    def __init__(self, data, message_type='file', subject='/foo/viirs'):
         """Set up fake message."""
         self.data = data.copy()
-        self.type = type
+        self.type = message_type
         self.subject = subject
 
 
@@ -825,7 +825,7 @@ class TestSegmentGathererCollections(unittest.TestCase):
 
     def test_collection_files_get_added_raises_not_implemented(self):
         """Test gathering a collection raises a not implemented error."""
-        pps_msg = FakeMessage(pps_message_data, type='collection')
+        pps_msg = FakeMessage(pps_message_data, message_type='collection')
         with pytest.raises(NotImplementedError):
             self.collection_gatherer.process(pps_msg)
 
@@ -833,7 +833,7 @@ class TestSegmentGathererCollections(unittest.TestCase):
         """Test mismatching files generate multiple slots."""
         from posttroll.message import Message as Message_p
         viirs_msg = Message_p(rawstr=viirs_message)
-        pps_msg = FakeMessage(pps_message_data, type='dataset')
+        pps_msg = FakeMessage(pps_message_data, message_type='dataset')
 
         self.collection_gatherer.process(viirs_msg)
         self.collection_gatherer.process(pps_msg)

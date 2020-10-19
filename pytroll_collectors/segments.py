@@ -61,17 +61,14 @@ class Parser(metaclass=ABCMeta):
     @abstractmethod
     def globify(self, mda):
         """Globify the message."""
-        pass
 
     @abstractmethod
     def parse(self, msg):
         """Parse the message."""
-        pass
 
     @abstractmethod
     def matches(self, msg):
         """Check if the message matches."""
-        pass
 
 
 class UIDParser(Parser):
@@ -436,21 +433,21 @@ class Slot:
                 (Status.SLOT_READY in status_values or
                     Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
                 return Status.SLOT_READY
-            elif (Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
-                  Status.SLOT_NOT_READY not in status_values):
+            if (Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
+                    Status.SLOT_NOT_READY not in status_values):
                 return Status.SLOT_READY
-            elif all([val == Status.SLOT_NONCRITICAL_NOT_READY for val in
-                      status_values]):
+            if all([val == Status.SLOT_NONCRITICAL_NOT_READY for val in
+                    status_values]):
                 for key in status.keys():
                     if len(self[key]['received_files']) > 0:
                         return Status.SLOT_READY
                 return Status.SLOT_OBSOLETE_TIMEOUT
-            else:
-                logger.warning("Timeout occured and required files "
-                               "were not present, data discarded for "
-                               "slot %s.",
-                               self.timestamp)
-                return Status.SLOT_OBSOLETE_TIMEOUT
+
+            logger.warning("Timeout occured and required files "
+                           "were not present, data discarded for "
+                           "slot %s.",
+                           self.timestamp)
+            return Status.SLOT_OBSOLETE_TIMEOUT
 
         if Status.SLOT_NOT_READY in status_values:
             return Status.SLOT_NOT_READY
