@@ -1,3 +1,15 @@
+## Version 0.10.0 (2020/11/11)
+
+
+### Pull Requests Merged
+
+#### Features added
+
+* [PR 64](https://github.com/pytroll/pytroll-collectors/pull/64) - Add the possibility to handle collections and datasets in input messages.
+
+In this release 1 pull request was closed.
+
+
 ## Version 0.9.0 (2020/04/15)
 
 
