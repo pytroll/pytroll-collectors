@@ -1,0 +1,21 @@
+patterns:
+  pps:
+    pattern: S_NWC_{segment}_{orig_platform_name}_{orbit_number:05d}_{start_time:%Y%m%dT%H%M%S}{stfrac:1d}Z_{end_time:%Y%m%dT%H%M%S}{etfrac:1d}Z.nc
+    critical_files: :CMA,:CT,:CTTH,:CPP,:PC
+    wanted_files: :CMA,:CT,:CTTH,:CPP,:PC
+    all_files: :CMA,:CT,:CTTH,:CPP,:PC
+
+timeliness:
+  10
+time_name:
+  start_time
+time_tolerance:
+  3
+
+posttroll:
+  # List of incoming message topics
+  topics:
+    - /segment/CF/2
+  # Topic for the published messages
+  publish_topic:
+    /segment-foo/bar

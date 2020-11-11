@@ -82,10 +82,9 @@ def main():
         logging.getLogger('').addHandler(handler)
 
     logging.getLogger("posttroll").setLevel(logging.INFO)
-    logger = logging.getLogger("segment_gatherer")
 
     gatherer = SegmentGatherer(config)
-    gatherer.set_logger(logger)
+
     try:
         gatherer.run()
     finally:

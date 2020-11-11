@@ -1,0 +1,16 @@
+patterns:
+  msg:
+    pattern:
+      "H-000-{hrit_format:4s}__-{platform_shortname:4s}________-{channel_name:_<9s}-{segment:_<9s}-{start_time:%Y%m%d%H%M}-__"
+    critical_files: :EPI,:PRO
+    wanted_files: VIS006:000001-000003,:PRO,:EPI
+    all_files: VIS006:000001,VIS006:000002,VIS006:000003,VIS006:000004,:PRO,:EPI
+    is_critical_set: true
+    variable_tags: []
+
+timeliness:
+  10
+time_name:
+  start_time
+time_tolerance:
+  30
