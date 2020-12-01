@@ -87,8 +87,7 @@ class RegionCollector(object):
             if end_time.time() < start_time.time():
                 end_date += timedelta(days=1)
             end_time = datetime.combine(end_date, end_time.time())
-            LOG.debug('Adjusted end time from %s to %s.',
-                      old_end_time, end_time)
+            LOG.debug("Adjusted end time from %s to %s.", old_end_time, end_time)
 
         granule_metadata['end_time'] = end_time
 
@@ -119,16 +118,14 @@ class RegionCollector(object):
                                        self.granule_duration +
                                        self.timeliness)
                     except ValueError:
-                        LOG.error("Calculation of new timeout failed, "
-                                  "keeping previous timeout.")
-                        LOG.error("Planned: %s", self.planned_granule_times)
-                        LOG.error("Received: %s", self.granule_times)
+                        LOG.warning("Calculation of new timeout failed, keeping previous timeout.")
+                        LOG.debug("Planned granule times: %s", self.planned_granule_times)
+                        LOG.debug("Received granule times: %s", self.granule_times)
                         return
 
                     if new_timeout < self.timeout:
                         self.timeout = new_timeout
-                        LOG.info("Adjusted timeout: %s",
-                                 self.timeout.isoformat())
+                        LOG.info("Adjusted timeout to %s", self.timeout.isoformat())
 
                     return
 
@@ -136,11 +133,10 @@ class RegionCollector(object):
 
         if self.granule_duration is None:
             self.granule_duration = end_time - start_time
-            LOG.debug("Estimated granule duration to %s",
-                      str(self.granule_duration))
+            LOG.debug("Estimated granule duration is %s", str(self.granule_duration))
 
-        LOG.info("Platform name %s and sensor %s: Start and end times = %s %s", str(platform),
-                 str(granule_metadata["sensor"]),
+        LOG.info("Platform name %s and sensor %s: Start and end times = %s %s",
+                 str(platform), str(granule_metadata["sensor"]),
                  start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         self.sensor = granule_metadata["sensor"]
@@ -227,14 +223,13 @@ class RegionCollector(object):
                                self.granule_duration +
                                self.timeliness)
             except ValueError:
-                LOG.error("Calculation of new timeout failed, "
-                          "keeping previous timeout.")
-                LOG.error("Planned: %s", self.planned_granule_times)
-                LOG.error("Received: %s", self.granule_times)
+                LOG.warning("Calculation of new timeout failed, keeping previous timeout.")
+                LOG.debug("Planned granule times: %s", self.planned_granule_times)
+                LOG.debug("Received granule times: %s", self.granule_times)
                 return False
             if new_timeout < self.timeout:
                 self.timeout = new_timeout
-                LOG.info("Adjusted timeout: %s", self.timeout.isoformat())
+                LOG.info("Adjusted timeout to %s", self.timeout.isoformat())
 
         return False
 

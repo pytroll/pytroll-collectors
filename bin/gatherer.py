@@ -82,12 +82,11 @@ def terminator(metadata, publish_topic=None):
     mda = metadata[0].copy()
 
     if publish_topic is not None:
-        LOGGER.info("Composing topic.")
+        LOGGER.debug("Composing topic.")
         subject = compose(publish_topic, mda)
     else:
-        LOGGER.info("Using default topic.")
-        subject = "/".join(("", mda["format"], mda["data_processing_level"],
-                            ''))
+        subject = "/".join(("", mda["format"], mda["data_processing_level"], ''))
+        LOGGER.debug("Using default topic: %s", subject)
 
     mda['start_time'] = sorted_mda[0]['start_time']
     mda['end_time'] = sorted_mda[-1]['end_time']
@@ -284,12 +283,10 @@ def main():
                     raise RuntimeError
     except KeyboardInterrupt:
         LOGGER.info("Shutting down...")
-    except RuntimeError:
-        LOGGER.critical('Something went wrong!')
-    except OSError:
-        LOGGER.critical('Something went wrong!')
+    except (RuntimeError, OSError) as err:
+        LOGGER.critical('Something went wrong: %s', str(err))
     finally:
-        LOGGER.warning('Ending publication the gathering of granules...')
+        LOGGER.warning('Ending publication of gathered granules...')
         for granule_trigger in granule_triggers:
             granule_trigger.stop()
         PUB.stop()

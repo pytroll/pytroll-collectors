@@ -470,7 +470,7 @@ class Pattern:
         self.name = name
         self.timeliness = defaults.get('timeliness', 1200)
         if "start_time_pattern" in pattern_config:
-            logger.info("Create start time pattern %s", name)
+            logger.debug("Create start time pattern %s", name)
             self._create_start_time_pattern()
 
         self._global_keep_parsed_keys = defaults.get('keep_parsed_keys', [])
@@ -519,9 +519,9 @@ class Pattern:
             interval["end"] += 24 * 60
             interval["midnight"] = True
         self["_start_time_pattern"] = interval
-        logger.info("Filter start:%s end:%s delta:%s",
-                    start_time_str, end_time_str,
-                    delta_time_str)
+        logger.debug("Filter start: %s end: %s delta: %s",
+                     start_time_str, end_time_str,
+                     delta_time_str)
 
 
 class SegmentGatherer(object):
@@ -710,10 +710,10 @@ class SegmentGatherer(object):
                 pattern["_start_time_pattern"],
                 message.id_time)
             if not schedule_ok:
-                logger.info("Hour pattern '%s' skip: %s" +
-                            " for start_time: %s",
-                            pattern.name, message.uid(),
-                            message.id_time.strftime("%H:%M"))
+                logger.debug("Hour pattern '%s' skip: %s" +
+                             " for start_time: %s",
+                             pattern.name, message.uid(),
+                             message.id_time.strftime("%H:%M"))
                 return
 
         slot_time = self._find_time_slot(message.id_time)
@@ -733,7 +733,7 @@ class SegmentGatherer(object):
                 if pattern.parser.matches(msg):
                     return Message(msg, pattern)
             except KeyError as err:
-                logger.debug("No key " + str(err) + " in message.")
+                logger.debug("No key %s in message.", str(err))
         raise TypeError
 
     def _find_time_slot(self, time_obj):
@@ -753,7 +753,7 @@ class SegmentGatherer(object):
     def _create_slot(self, message):
         """Init wanted, all and critical files."""
         timestamp = str(message.id_time)
-        logger.debug("Adding new slot: %s", timestamp)
+        logger.info("Adding new slot: %s", timestamp)
 
         slot = Slot(timestamp, message.filtered_metadata, self._patterns, self._timeliness,
                     self._num_files_premature_publish)

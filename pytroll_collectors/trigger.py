@@ -127,7 +127,7 @@ class FileTrigger(Trigger, Thread):
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
-                    LOG.warning("Timeout detected, terminating collector")
+                    LOG.debug("Timeout detected, terminating collector")
                     LOG.debug("Area: %s, timeout: %s",
                               next_timeout[0].region,
                               str(next_timeout[1]))
@@ -287,7 +287,7 @@ try:
             self.input_dirs = []
             for pattern in patterns:
                 self.input_dirs.append(os.path.dirname(pattern))
-                LOG.debug("watching " + str(os.path.dirname(pattern)))
+                LOG.debug("watching %s", str(os.path.dirname(pattern)))
             self.patterns = patterns
 
             self.new_file = Event()
@@ -306,7 +306,7 @@ try:
             try:
                 for pattern in self.patterns:
                     if fnmatch(pathname, pattern):
-                        LOG.debug("New file detected : " + pathname)
+                        LOG.debug("New file detected: %s", pathname)
                         self.process(pathname)
                         LOG.debug("Done processing file")
                         return
@@ -369,7 +369,7 @@ class AbstractMessageProcessor(Thread):
     def __init__(self, services, topics, nameserver="localhost"):
         """Init the message processor."""
         Thread.__init__(self)
-        LOG.debug("Nameserver: {}".format(nameserver))
+        LOG.debug("Nameserver: %s", str(nameserver))
         self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
         self.sub = None
         self.loop = True
