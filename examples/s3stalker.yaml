@@ -1,0 +1,8 @@
+s3_kwargs:
+  anon: false
+  client_kwargs:
+    endpoint_url: https://some.place.com
+timedelta:
+  hours: 1
+subject:
+  /unzipped/files/from/s3/
