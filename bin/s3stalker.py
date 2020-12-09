@@ -21,14 +21,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """S3 stalker."""
 
-from pytroll_collectors import s3stalker
-from datetime import datetime, timedelta
-from dateutil import tz
-import logging
-import logging.config
 import argparse
-from pytroll_collectors.helper_functions import read_yaml
+import logging.config
+from datetime import datetime, timedelta
+
 import yaml
+from dateutil import tz
+from pytroll_collectors import s3stalker
+from pytroll_collectors.helper_functions import read_yaml
 
 LOGGER = logging.getLogger(__name__)
 

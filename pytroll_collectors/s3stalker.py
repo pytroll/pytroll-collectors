@@ -24,8 +24,8 @@
 import datetime
 import json
 
-import s3fs
 import fsspec.implementations.zip
+import s3fs
 from dateutil import tz
 from posttroll.message import Message
 
