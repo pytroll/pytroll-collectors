@@ -36,7 +36,7 @@ def get_last_files(path, *args, **kwargs):
     """Get the last files from path (s3 bucket and directory)."""
     fs = s3fs.S3FileSystem(*args, **kwargs)
     files = fs.ls(path, detail=True)
-    files = list(filter((lambda x: x['LastModified'] > last_fetch), files))
+    files = [filter((lambda x: x['LastModified'] > last_fetch), files)]
     newest_files = sorted(files, key=(lambda x: x['LastModified']), reverse=True)
     if newest_files:
         set_last_fetch(newest_files[0]['LastModified'])
