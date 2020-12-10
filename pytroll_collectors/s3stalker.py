@@ -67,9 +67,10 @@ def _create_message_metadata(fs, file):
     if protocol == 'abstract' and 'zip' in loaded_fs['cls']:
         protocol = 'zip'
     uri = protocol + '://' + file['name']
+    uid = uri
     if 'target_protocol' in loaded_fs:
-        uri += '::' + loaded_fs['target_protocol'] + '://' + loaded_fs['args'][0]
-    return {'fs': loaded_fs, 'uri': uri, 'uid': file['name']}
+        uid += '::' + loaded_fs['target_protocol'] + '://' + loaded_fs['args'][0]
+    return {'fs': loaded_fs, 'uri': uri, 'uid': uid}
 
 
 def filelist_to_messages(fs, files, subject):
