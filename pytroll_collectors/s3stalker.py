@@ -66,10 +66,10 @@ def _create_message_metadata(fs, file):
     protocol = loaded_fs["protocol"]
     if protocol == 'abstract' and 'zip' in loaded_fs['cls']:
         protocol = 'zip'
-    uri = protocol + '://' + file['name']
+    uri = protocol + ':///' + file['name']
     uid = uri
     if 'target_protocol' in loaded_fs:
-        uid += '::' + loaded_fs['target_protocol'] + '://' + loaded_fs['args'][0]
+        uid += '::' + loaded_fs['target_protocol'] + ':///' + loaded_fs['args'][0]
     return {'filesystem': loaded_fs, 'uri': uri, 'uid': uid}
 
 

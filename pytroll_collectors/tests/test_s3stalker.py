@@ -961,7 +961,7 @@ class TestMessageComposer(unittest.TestCase):
         from pytroll_collectors import s3stalker
         message = s3stalker.create_message(fs_json, ls_output[0], subject)
         assert 'uri' in message.data
-        assert message.data['uri'] == 's3://' + ls_output[0]['name']
+        assert message.data['uri'] == 's3:///' + ls_output[0]['name']
 
     def test_message_is_created_with_uid(self):
         """Test message has a uid."""
@@ -975,7 +975,7 @@ class TestMessageComposer(unittest.TestCase):
         message = s3stalker.create_message(fs_json, ls_output, subject)
         assert 'dataset' in message.data
         assert len(message.data['dataset']) > 0
-        filenames = ["s3://" + item['name'] for item in ls_output]
+        filenames = ["s3:///" + item['name'] for item in ls_output]
         for item in message.data['dataset']:
             assert item['uri'] in filenames
 
@@ -1071,7 +1071,7 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         zip_fs.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, anon=True)
         message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
-        exp_file_list = ['zip://' + file['name'] for file in zip_content.values()]
+        exp_file_list = ['zip:///' + file['name'] for file in zip_content.values()]
         file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
@@ -1088,7 +1088,7 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         fs, files = s3stalker.get_last_files(path, anon=True)
         message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
         zip_file = ls_output[1]['name']
-        exp_file_list = ['zip://' + file['name'] + '::s3://' + zip_file for file in zip_content.values()]
+        exp_file_list = ['zip:///' + file['name'] + '::s3:///' + zip_file for file in zip_content.values()]
         file_list = [file['uid'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
