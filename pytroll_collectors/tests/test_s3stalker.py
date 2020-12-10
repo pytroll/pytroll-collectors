@@ -952,8 +952,9 @@ class TestMessageComposer(unittest.TestCase):
         """Test the message has a uri."""
         from pytroll_collectors import s3stalker
         message = s3stalker.create_message(fs_json, ls_output[0], subject)
-        assert 'fs' in message.data
-        assert message.data['fs'] == {"cls": "s3fs.core.S3FileSystem", "protocol": "s3", "args": [], "anon": True}
+        assert 'filesystem' in message.data
+        assert message.data['filesystem'] == {"cls": "s3fs.core.S3FileSystem",
+                                              "protocol": "s3", "args": [], "anon": True}
 
     def test_message_is_created_with_uri(self):
         """Test message has a uri."""
