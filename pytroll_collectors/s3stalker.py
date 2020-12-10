@@ -83,7 +83,7 @@ def filelist_unzip_to_messages(fs, files, subject):
     messages = []
     for file in files:
         if file['name'].endswith('.zip'):
-            zipfs = fsspec.implementations.zip.ZipFileSystem(file['name'],
+            zipfs = fsspec.implementations.zip.ZipFileSystem(fo=file['name'],
                                                              target_protocol=fs.protocol[0],
                                                              target_options=fs.storage_options)
             file_list = list(zipfs.find('/', detail=True).values())
