@@ -54,13 +54,14 @@ setup(name="pytroll_collectors",
                'bin/cat.py',
                'bin/catter.py',
                'bin/scisys_receiver.py',
-               'bin/zipcollector_runner.py'
+               'bin/zipcollector_runner.py',
+               'bin/s3stalker.py'
                ],
       data_files=[],
       zip_safe=False,
       install_requires=['pykdtree', 'pyinotify', 'posttroll>=1.3.0',
                         'trollsift', 'netifaces', 'watchdog',
                         'pytroll-schedule', 'pyresample',
-                        'pillow', 'pycoast', 'six'],
-      tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six'],
+                        'pillow', 'pycoast', 'six', 's3fs', 'python-dateutil'],
+      tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six', 's3fs', 'dateutil', 'posttroll'],
       )
