@@ -73,6 +73,7 @@ if __name__ == '__main__':
 
     time_back = config['timedelta']
     subject = config['subject']
+    pattern = config['file_pattern']
 
     from posttroll.publisher import Publish
     try:
@@ -80,7 +81,7 @@ if __name__ == '__main__':
             with sleeper(2.5):
                 s3stalker.set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
                 s3_kwargs = config['s3_kwargs']
-                fs, files = s3stalker.get_last_files(bucket, **s3_kwargs)
+                fs, files = s3stalker.get_last_files(bucket, pattern=pattern, **s3_kwargs)
                 messages = s3stalker.filelist_unzip_to_messages(fs, files, subject)
 
             for message in messages:
