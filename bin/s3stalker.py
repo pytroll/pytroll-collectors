@@ -23,14 +23,27 @@
 
 import argparse
 import logging.config
+import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 import yaml
 from dateutil import tz
+
 from pytroll_collectors import s3stalker
 from pytroll_collectors.helper_functions import read_yaml
 
 LOGGER = logging.getLogger(__name__)
+
+
+@contextmanager
+def sleeper(duration):
+    """Make sure the block takes at least *duration* seconds."""
+    start_time = datetime.utcnow()
+    yield
+    end_time = datetime.utcnow()
+    waiting_time = duration - (end_time - start_time).total_seconds()
+    time.sleep(max(waiting_time, 0))
 
 
 def arg_parse():
@@ -64,11 +77,11 @@ if __name__ == '__main__':
     from posttroll.publisher import Publish
     try:
         with Publish("s3_stalker") as pub:
-
-            s3stalker.set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
-            s3_kwargs = config['s3_kwargs']
-            fs, files = s3stalker.get_last_files(bucket, **s3_kwargs)
-            messages = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+            with sleeper(2.5):
+                s3stalker.set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+                s3_kwargs = config['s3_kwargs']
+                fs, files = s3stalker.get_last_files(bucket, **s3_kwargs)
+                messages = s3stalker.filelist_unzip_to_messages(fs, files, subject)
 
             for message in messages:
                 LOGGER.info("Publishing %s", str(message))
