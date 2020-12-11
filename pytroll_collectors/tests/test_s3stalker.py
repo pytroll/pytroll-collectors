@@ -129,6 +129,7 @@ ls_output = [{
 fs_json = '{"cls": "s3fs.core.S3FileSystem", "protocol": "s3", "args": [], "anon": true}'
 
 zip_json =  '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "args": ["sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip"], "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
+zip_json_fo =  '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "fo": "sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip", "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
 
 zip_content = {
     'S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.SEN3/Oa01_reflectance.nc': {  # noqa
@@ -978,6 +979,22 @@ class TestMessageComposer(unittest.TestCase):
         filenames = ["s3:///" + item['name'] for item in ls_output]
         for item in message.data['dataset']:
             assert item['uri'] in filenames
+
+    def test_message_from_zip_is_created_with_uri(self):
+        """Test message has a uri."""
+        from pytroll_collectors import s3stalker
+        zip_output = list(zip_content.values())
+        message = s3stalker.create_message(zip_json, zip_output[0], subject)
+        assert 'uri' in message.data
+        assert message.data['uri'] == 'zip:///' + zip_output[0]['name']
+
+    def test_message_from_zip_with_fo_is_created_with_uri(self):
+        """Test message has a uri."""
+        from pytroll_collectors import s3stalker
+        zip_output = list(zip_content.values())
+        message = s3stalker.create_message(zip_json_fo, zip_output[0], subject)
+        assert 'uri' in message.data
+        assert message.data['uri'] == 'zip:///' + zip_output[0]['name']
 
 
 class TestFileListToMessages(unittest.TestCase):
