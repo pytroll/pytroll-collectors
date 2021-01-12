@@ -22,8 +22,9 @@
 
 """Gather segments.
 
-Gather GEO stationary segments, or polar satellite granules for one timestep,
-and send them in a bunch as a dataset.
+Gather posttroll messages corresponding to individual files, such as polar
+satellite granules or geostationary image segments.  When all are present,
+send a single posttroll message containing all the segments in a bunch.
 """
 
 import datetime as dt
