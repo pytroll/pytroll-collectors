@@ -76,4 +76,3 @@ intersphinx_mapping = {
     "pytroll-schedule": ("https://pytroll-schedule.readthedocs.io/en/latest", None),
     "trollflow2": ("https://trollflow2.readthedocs.io/en/latest", None),
 }
- 
