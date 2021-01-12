@@ -16,9 +16,10 @@
 
 
 # -- Project information -----------------------------------------------------
+from datetime import datetime
 
 project = 'pytroll-collectors'
-copyright = '2020, Panu Lahtinen, Martin Raspaud, Trygve Aspenes, Adam Dybbroe'
+copyright = f"2014-{datetime.now():%Y}, Pytroll developers"
 author = 'Panu Lahtinen, Martin Raspaud, Trygve Aspenes, Adam Dybbroe'
 
 # The full version, including alpha/beta/rc tags

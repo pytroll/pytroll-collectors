@@ -18,7 +18,7 @@ For example, a chain for processing MetOp AVHRR data from direct
 reception, in which external software deposits files on the file system,
 may look somewhat like this:
 
-* The chain starts :ref:`trollstalker` to monitor files.
+* The chain starts with :ref:`trollstalker` to monitor files.
   :ref:`trollstalker` uses inotify and sends a `posttroll`_ message
   when a file appears.
 * This message is received by :ref:`segment-gatherer`.  Depending on the
@@ -44,7 +44,7 @@ what satellite data are processed, whether thore are from direct readout,
 EUMETCAST, or another source, what system is used for direct readout,
 and other factors.
 
-There are example configurations in the ``example/`` directory.
+There are example configurations in the ``examples/`` directory.
 
 .. _posttroll: https://posttroll.readthedocs.io/en/latest/
 .. _AAPP: https://nwp-saf.eumetsat.int/site/software/aapp/
@@ -104,8 +104,9 @@ When a file appears, send a message using posttroll, which must be running.
 The config determines what file patterns are monitored and what posttroll
 messages will be sent, among other things.
 Listeners to this message may be, for example,
-``segment_gatherer`` or ``pytroll-aapp-runner``.
+:ref:`segment-gatherer` or `aapp-runner`_.
 
+.. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 
 trollstalker2
 ^^^^^^^^^^^^^
