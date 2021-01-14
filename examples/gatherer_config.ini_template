@@ -21,7 +21,6 @@ platform_name = Suomi-NPP
 sensor = viirs
 timeliness = 30
 duration = 85.4
-# NOTE: be sure to have EARSSuomi-NPP.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -34,7 +33,6 @@ duration = 60
 platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
-# NOTE: be sure to have EARSNOAA-18.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -47,7 +45,6 @@ duration = 60
 platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
-# NOTE: be sure to have EARSNOAA-19.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -59,7 +56,6 @@ platform_name = Metop-B
 sensor = avhrr/3
 timeliness = 15
 level = 0
-# NOTE: be sure to have EARSMetop-B.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -71,7 +67,6 @@ platform_name = Metop-A
 sensor = avhrr/3
 timeliness = 15
 level = 0
-# NOTE: be sure to have EARSMetop-A.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = /EARS/Metop-B
 
@@ -82,7 +77,6 @@ type = binary
 platform_name = Metop-B
 sensor = avhrr/3
 timeliness = 100
-# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
 variant = GDS
 orbit_type = polar
 publish_topic = /GDS/Metop-B
@@ -94,7 +88,6 @@ type = PDS
 platform_name = Metop-A
 sensor = avhrr/3
 timeliness = 100
-# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
 variant = GDS
 publish_topic = /GDS/Metop-A
 
@@ -107,7 +100,6 @@ platform_name = EOS-Terra
 sensor = modis
 timeliness = 180
 duration = 300
-# NOTE: be sure to have EARSEOS-Terra.cfg in PPP_CONFIG_DIR
 variant = EARS
 
 [EARS_aqua]
@@ -119,5 +111,4 @@ platform_name = EOS-Aqua
 sensor = modis
 timeliness = 180
 duration = 300
-# NOTE: be sure to have EARSEOS-Aqua.cfg in PPP_CONFIG_DIR
 variant = EARS
