@@ -78,6 +78,51 @@ Determines what granules with different start times belong together.
 A use case may be a reception system in which a single overpass results
 in multiple files, that should be grouped together for further processing.
 
+Configuration for gatherer is in ini files.  It needs exactly one ``[default]``
+section with exactly one entry ``[regions]``, which contains one or more areas
+for which granules are gathered.  Then it needs one or more additional sections
+corresponding to what should be gathered.  Each of those additional sections
+have the following mandatory fields:
+
+pattern
+    Defines the file pattern.  This is needed to create the full list of
+    expected files to know what to wait for.
+
+topics
+    Defines what posttroll topics to listen to for messages related to files
+    having arrived.
+
+publish_topic
+    Defines what posttroll topic shall be used to publish the news of all the
+    files that have been gathered.
+
+timeliness
+    Defines how long to wait before not expecting any more files?
+
+And the following optional fields:
+
+sensor
+    Defines the sensor.  This is used for ...
+
+platform_name
+    Defines the platform name.  This is used for ...
+
+format
+    Defines the file format.  This is used for ...
+
+variant
+    Defines variant through which data come in.  Used how?
+
+level
+    Data level.  Used how?
+
+duration
+    Different from timeliness?
+
+orbit_type
+    What type of orbit?  Used how?
+
+
 scisys_receiver
 ^^^^^^^^^^^^^^^
 
@@ -89,6 +134,10 @@ segment_gatherer
 ^^^^^^^^^^^^^^^^
 
 .. automodule:: pytroll_collectors.segments
+
+Configuration for ``segment_gatherer`` can be either in ini or yaml
+files.  There are several examples in the ``examples/`` directory in
+the pytroll-collectors source tree.
 
 .. _trollstalker:
 

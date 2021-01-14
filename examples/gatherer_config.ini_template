@@ -1,7 +1,9 @@
 [default]
+; gather data within those areas
 regions = euron1 afghanistan afhorn
 
 [local_viirs]
+; gatherer needs to create the full list of expected files to know what to wait for
 pattern = /san1/pps/import/PPS_data/source/npp_????????_????_?????/SV{channel:3s}_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_cspp_dev.h5
 format = SDR
 type = HDF5
