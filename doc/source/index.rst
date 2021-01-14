@@ -21,14 +21,10 @@ may look somewhat like this:
 * The chain starts with :ref:`trollstalker` to monitor files.
   :ref:`trollstalker` uses inotify and sends a `posttroll`_ message
   when a file appears.
-* This message is received by :ref:`segment-gatherer`.  Depending on the
+* This message is received by :ref:`gatherer`.  Depending on the
   reception system, a single MetOp AVHRR overpass may produce multiple files.
-  :ref:`segment-gatherer` determines what files belong together and sends a
-  posttroll message containing all those filenames.
-* The message with one or more filenames is received by :ref:`gatherer`.
-  The role of :ref:`gatherer` is to determine what files cover the area of
-  interest.  It will product a posttroll message containing those files (or,
-  if none do, it will produce no message and processing will stop).
+  :ref:`gatherer` determines what files belong together in a region and sends
+  a posttroll message containing all those filenames.
 * AVHRR data need preprocessing with the external software `AAPP`_ before
   `Satpy`_ can read the data.  This preprocessing can be done with
   `aapp-runner`_, For this preprocessing, it is advantageous to pass a single
@@ -78,9 +74,9 @@ Alternative to cat that does something else.
 gatherer
 ^^^^^^^^
 
-Given a list of granules (typically by :ref:`segment-gatherer`), determine
-which one of those granules (if any) cover one or more areas of interest
-as configured by the user.
+Determines what granules with different start times belong together.
+A use case may be a reception system in which a single overpass results
+in multiple files, that should be grouped together for further processing.
 
 scisys_receiver
 ^^^^^^^^^^^^^^^

@@ -62,6 +62,10 @@ timeliness = 300
 time_name = start_time
 
 [hrptl0]
+# Example to collect multiple direct readout instruments for a single
+# timeslot.  This may be needed for some downstream software, such
+# as NWC/PPS.  It does not collect multiple timeslots for a single
+# overpass, that's what gatherer is for.
 pattern = {segment:4s}_HRP_00_{orig_platform_name}_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{processing_time:%Y%m%d%H%M%S}Z
 wanted_files = :AVHR,:AMSA,:HIRS,:MHSx
 all_files = :AVHR,:AMSA,:HIRS,:MHSx
