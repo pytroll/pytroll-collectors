@@ -75,18 +75,37 @@ gatherer
 ^^^^^^^^
 
 Determines what granules with different start times belong together.
-A use case may be a reception system in which a single overpass results
-in multiple files, that should be grouped together for further processing.
+A use case may be a reception system in which a single overpass results in
+multiple files, that should be grouped together for further processing.
+It uses `pytroll-schedule`_ to estimate the area coverage based on start
+and end times contained in filenames.
 
-Configuration for gatherer is in ini files.  It needs exactly one ``[default]``
-section with exactly one entry ``[regions]``, which contains one or more areas
-for which granules are gathered.  Then it needs one or more additional sections
-corresponding to what should be gathered.  Each of those additional sections
-have the following mandatory fields:
+The  ``gatherer`` collection is started when it receives a posttroll message,
+perhaps from `trollstalker`_ or `segment-gatherer`_.  Using the configured
+granule duration and the area of interest, it calculates the starting times
+of granules it should expect to be covered in this area before and after the
+granule it was messaged about.  Collection is considered finished when either
+all expected granules have been collected or when a timeout is reached,
+whatever comes first.  Timeout is configured with the ``timeliness`` option
+(see below).
+
+.. _pytroll-schedule: http://pytroll-schedule.readthedocs.org/
+
+The configuration file in INI format needs a section called ``[DEFAULT]``
+and one or more sections
+corresponding to what should be gathered.  The ``[DEFAULT]`` section should contain
+exactly one field:
+
+regions
+    A whitespace separated list of names corresponding to areas for
+    which granules are gathered.
+
+All other sections have the following mandatory fields:
 
 pattern
     Defines the file pattern.  This is needed to create the full list of
-    expected files to know what to wait for.
+    expected files to know what to wait for.  If you don't pass this,
+    gatherer will not fail, but ...
 
 topics
     Defines what posttroll topics to listen to for messages related to files
@@ -97,7 +116,13 @@ publish_topic
     files that have been gathered.
 
 timeliness
-    Defines how long to wait before not expecting any more files?
+    Defines the maximum allowed age of the granule in minutes (Warning:
+    unit different compared to duration).  Collection is stopped
+    ``timeliness`` minutes after the expected end time of the last expected
+    granule.
+
+service
+    ??
 
 And the following optional fields:
 
@@ -110,6 +135,9 @@ platform_name
 format
     Defines the file format.  This is used for ...
 
+type
+    File type.  Used how?  Difference with format?
+
 variant
     Defines variant through which data come in.  Used how?
 
@@ -117,11 +145,13 @@ level
     Data level.  Used how?
 
 duration
-    Different from timeliness?
+    Duration of a granule in seconds (Warning: unit different compared to timeliness)
 
 orbit_type
     What type of orbit?  Used how?
 
+nameserver
+    Nameserver to use to publish posttroll messages.
 
 scisys_receiver
 ^^^^^^^^^^^^^^^

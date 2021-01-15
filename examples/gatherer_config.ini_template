@@ -1,4 +1,4 @@
-[default]
+[DEFAULT]
 ; gather data within those areas
 regions = euron1 afghanistan afhorn
 
@@ -10,7 +10,11 @@ type = HDF5
 level = 1B
 platform_name = Suomi-NPP
 sensor = viirs
+; max allowed age of the granule in MINUTES (collection is stopped if
+; the current time is ``timeliness`` minutes after the estimated end of
+; the estimated last granule to be collected)
 timeliness = 30
+; duration of a granule in SECONDS
 duration = 85.4
 publish_topic = 
 
