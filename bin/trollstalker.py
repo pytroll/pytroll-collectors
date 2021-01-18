@@ -187,7 +187,7 @@ class EventHandler(ProcessEvent):
             LOGGER.debug("Extracted: %s", str(self.info))
         except ValueError:
             # Filename didn't match pattern, so empty the info dict
-            LOGGER.info("Couldn't extract any usefull information")
+            LOGGER.info("Couldn't extract any useful information")
             self.info = OrderedDict()
         else:
             self.info['uri'] = event.pathname
