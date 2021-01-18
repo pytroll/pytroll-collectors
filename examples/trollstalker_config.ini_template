@@ -46,6 +46,12 @@ alias_platform_name = noaa18:NOAA-18|noaa19:NOAA-19
 # matching events will be processed
 history=10
 
+# Uncomment if the files you want to stalker will be created in a
+# directory in the directory you are watching.
+# For example if the base dir for inotify to watch is 2 levels up from
+# the origin sift match.
+# origin_inotify_base_dir_skip_levels=-2
+
 [hrit]
 topic=/HRIT/topic/or/something/
 directory=/path/to/satellite/data/
