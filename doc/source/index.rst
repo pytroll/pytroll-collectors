@@ -93,6 +93,15 @@ stdout
 publish_topic
     Optional; publish a message when file is produced, using this topic.
 
+publish_port
+    Optional; use a custom port when publishing a message.
+
+nameservers
+    Optional; nameservers to publish on.
+
+subscriber_nameserver
+    Optional; nameserver to listen to.
+
 .. _Kai: https://navigator.eumetsat.int/product/EO:EUM:SW:METOP:165
 
 catter
