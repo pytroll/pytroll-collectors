@@ -12,7 +12,8 @@ Welcome to pytroll-collectors's documentation!
 
 Pytroll-collectors is a collection of scripts and modules to aid in
 operational processing of satellite reception data.
-The scripts communicate with each other using `posttroll`_ messages.
+The scripts run continuously (like daemons) and
+communicate with each other using `posttroll`_ messages.
 
 For example, a chain for processing MetOp AVHRR data from direct
 reception, in which external software deposits files on the file system,
@@ -39,6 +40,8 @@ The exact configuration depends on factors that will vary depending on
 what satellite data are processed, whether thore are from direct readout,
 EUMETCAST, or another source, what system is used for direct readout,
 and other factors.
+Some users use the 3rd party software `supervisor`_ to start and monitor
+the different scripts in pytroll-collectors.
 
 There are example configurations in the ``examples/`` directory.
 
@@ -47,6 +50,7 @@ There are example configurations in the ``examples/`` directory.
 .. _Satpy: https://satpy.readthedocs.io/
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 .. _Kai: https://navigator.eumetsat.int/product/EO:EUM:SW:METOP:165
+.. _supervisor: http://supervisord.org/
 
 Scripts
 -------
@@ -62,7 +66,34 @@ cat
 ^^^
 
 Concatenates granules or segments to a single file.  This may be a useful step
-before using external software for preprocessing data.
+before using external software for preprocessing data.  You will need `Kai`_
+from EUMETSAT to concatenate MetOp AVHRR granules.  Cat listens to input
+messages via posttroll according to topics defined in the configuration file.
+Upon completion, it will publish a posttroll message with topic defined in
+the configuration file.
+
+The kai configuration file is in the INI format and should have one ore
+more sections.  Each section may have the following fields:
+
+output_file_pattern
+    A pattern (trollsift syntax) on what the output file should be.
+
+aliases
+    Optional (what does it do?)
+
+min_length
+    Optional, integer, minimum number of minutes needed to consider the data
+
+command
+    Command used for concatenation.
+
+stdout
+    Optional; if command writes to stdout, redirect output here.
+
+publish_topic
+    Optional; publish a message when file is produced, using this topic.
+
+.. _Kai: https://navigator.eumetsat.int/product/EO:EUM:SW:METOP:165
 
 catter
 ^^^^^^
@@ -180,6 +211,9 @@ The config determines what file patterns are monitored and what posttroll
 messages will be sent, among other things.
 Listeners to this message may be, for example,
 :ref:`segment-gatherer` or `aapp-runner`_.
+
+Configuration files have one section per file type that is listened to.
+Each section may contain the following 
 
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 

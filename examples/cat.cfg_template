@@ -1,10 +1,18 @@
 [kai_cat]
 topic=/EPS/0/
+; Command used for concatenation.
 command=kai -i {input_files} -o {output_file}
+; Pattern for produced output file, with trollsift syntax.
 output_file_pattern=/san1/polar_in/ears/metop/avhrr_{platform_name}_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}.eps
+; Minimum number of minutes to continue processing.  If the files cover
+; less time, does not write an output file.
+;minutes=10
+; Topic to use for posttroll publishing.
+publish_topic=/EPS/cat
 
 [hrpt_cat]
 topic=/HRPT/0/
 command=cat {input_files}
+; Redirect output from command to this file
 stdout={output_file}
 output_file_pattern=/san1/polar_in/ears/hrpt/avhrr_{platform_name}_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}.hrp

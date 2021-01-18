@@ -10,12 +10,15 @@ type = HDF5
 level = 1B
 platform_name = Suomi-NPP
 sensor = viirs
-; max allowed age of the granule in MINUTES (collection is stopped if
+; max allowed age of the granule in MINUTES.  Collection is stopped if
 ; the current time is ``timeliness`` minutes after the estimated end of
-; the estimated last granule to be collected)
-timeliness = 30
+; the estimated last expected granule to be collected.  That means that
+; if the gatherer expects 5-minute granules at 10:05, 10:10, 10:15, 10:20,
+; and 10:25, but gets nothing after 10:10, and timeout is 10 minutes, it
+; will wait until 10:25 + 5 minutes + 10 minutes = 10:40 before giving up.
+timeliness = 10
 ; duration of a granule in SECONDS
-duration = 85.4
+duration = 180
 publish_topic = 
 
 [ears_viirs]
