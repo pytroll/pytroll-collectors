@@ -213,7 +213,6 @@ Listeners to this message may be, for example,
 :ref:`segment-gatherer` or `aapp-runner`_.
 
 Configuration files have one section per file type that is listened to.
-Each section may contain the following 
 
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 
