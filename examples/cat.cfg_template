@@ -9,6 +9,8 @@ output_file_pattern=/san1/polar_in/ears/metop/avhrr_{platform_name}_{start_time:
 ;minutes=10
 ; Topic to use for posttroll publishing.
 publish_topic=/EPS/cat
+; Minimum number of granules to consider processing
+min_length=2
 
 [hrpt_cat]
 topic=/HRPT/0/

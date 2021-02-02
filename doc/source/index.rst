@@ -114,6 +114,8 @@ Alternative to cat that does something else.
 gatherer
 ^^^^^^^^
 
+Watches files or messages and gathers satellite granules in "collections",
+sending then the collection of files in a message for further processing.
 Determines what granules with different start times belong together.
 A use case may be a reception system in which a single overpass results in
 multiple files, that should be grouped together for further processing.
@@ -214,16 +216,34 @@ the pytroll-collectors source tree.
 trollstalker
 ^^^^^^^^^^^^
 
-Monitor when files appear using inotify, typically run as a deamon.
-When a file appears, send a message using posttroll, which must be running.
+Trollstalker is a script that monitors the arrival of given files in the
+specified directories.  It is typically run as a daemon or via a process
+control system such as `supervisord`_ or `daemontools`_.  When such a file
+is detected, a pytroll message is sent on the network via the posttroll
+nameserver (which must be running) to notify other interested processes.
+
+In order to start *trollstalker*::
+
+  $ cd pytroll-collectors/bin/
+  $ ./trollstalker.py -c ../examples/trollstalker_config.ini -C noaa_hrpt
+
+Now you can test if the messaging works by copying a data file to your input
+directory. *Trollstalker* should send a message, and depending on the
+configuration, also print the message on the terminal. If there's no message,
+check the configuration files that the input directory and file pattern are set
+correctly.
+
 The config determines what file patterns are monitored and what posttroll
 messages will be sent, among other things.
 Listeners to this message may be, for example,
 :ref:`segment-gatherer` or `aapp-runner`_.
 
 Configuration files have one section per file type that is listened to.
+To listen to multiple file types, start ``trollstalker`` multiple times.
 
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
+.. _supervisord: http://supervisord.org/
+.. _daemontools: http://cr.yp.to/daemontools.html
 
 trollstalker2
 ^^^^^^^^^^^^^
