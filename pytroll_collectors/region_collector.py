@@ -152,7 +152,7 @@ class RegionCollector(object):
         # If file is within region, make pass prediction to know what to wait
         # for
         if (cov := granule_pass.area_coverage(self.region)) > 0:
-            LOG.debug(f"Granule {granule_metadata['uri']:s} is overlapping"
+            LOG.debug(f"Granule {granule_metadata['uri']:s} is overlapping "
                       f"region {self.region.name:s} by fraction {cov:.5f}")
             self.granule_times.add(start_time)
             self.granules.append(granule_metadata)
