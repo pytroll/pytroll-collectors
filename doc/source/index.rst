@@ -266,6 +266,14 @@ The message sent by ``trollstalker`` contains a dictionary which contains:
 - All fields from the ``filepattern``, and
 - Any keys starting with ``var_`` in the configuration file and their values.
 
+The additional keys may be essential if the package listening to
+trollstalker messages expects an entry in the posttroll message that
+is normally extracted from the filename.  For example, :ref:`gatherer`
+needs a ``platform_name`` to be present at all times.  If a filename does
+not contain a platform name or is for some other reason not matched
+with a trollsift pattern, it may need to be sent explicitly with
+``var_platform_name``.
+
 .. literalinclude:: ../../examples/trollstalker_config.ini_template
    :language: ini
 
