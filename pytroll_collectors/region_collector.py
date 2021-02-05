@@ -188,8 +188,8 @@ class RegionCollector(object):
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info("Planned granules for %s: %s", self.region.name,
-                         str(sorted(self.planned_granule_times)))
+                LOG.info(f"Planned granules for {platform!s} over "
+                         f"{self.region.name:s}: {sorted(self.planned_granule_times)!s}")
                 self.timeout = (max(self.planned_granule_times) +
                                 self.granule_duration +
                                 self.timeliness)
