@@ -92,7 +92,7 @@ class RegionCollector(object):
 
         granule_metadata['end_time'] = end_time
 
-        LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
+        LOG.debug(f"Adding area ID for {platform!s} to metadata: {self.region.area_id!s}")
         granule_metadata['collection_area_id'] = self.region.area_id
 
         self.last_file_added = False
@@ -109,8 +109,7 @@ class RegionCollector(object):
                 # If last granule return swath and cleanup
                 # if self.granule_times == self.planned_granule_times:
                 if self.is_swath_complete():
-                    LOG.info("Collection finished for area: %s",
-                             str(self.region.area_id))
+                    LOG.info(f"Collection finished for {platform!s} area: {self.region.area_id!s}")
                     return self.finish()
                 else:
                     try:
@@ -127,8 +126,7 @@ class RegionCollector(object):
 
                     if new_timeout < self.timeout:
                         self.timeout = new_timeout
-                        LOG.info("Adjusted timeout: %s",
-                                 self.timeout.isoformat())
+                        LOG.info(f"Adjusted timeout for {platform!s}: {self.timeout:%Y-%m-%d %H:%M:%S}")
 
                     return
 
