@@ -69,7 +69,12 @@ topic=/H8/topic/or/something/
 directory=/path/to/satellite/data/
 filepattern = {path}IMG_{platform_name:4s}{channel:3s}_{time:%Y%m%d%H%M}_{segment}
 
-# define new variable "platform_name" because it is not included in the filepattern
+# The posttroll message sent by trollstalker will include the keys from the
+# filepattern with their corresponding values, but some clients may need
+# additional information; for example, gatherer needs a "platform_name".
+# This is usually included in the filepattern, but not always.  Even when
+# it is, we may need to override it.  Therefore, we define new variable
+# "platform_name" here.
 var_platform_name = himawari8
 
 # define new datetime variable aligned/ceiled to 15 minutes intervals 

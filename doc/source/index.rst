@@ -104,10 +104,18 @@ subscriber_nameserver
 
 .. _Kai: https://navigator.eumetsat.int/product/EO:EUM:SW:METOP:165
 
+Example configuration:
+
+.. literalinclude:: ../../examples/cat.cfg_template
+   :language: ini
+
 catter
 ^^^^^^
 
 Alternative to cat that does something else.
+
+.. literalinclude:: ../../examples/catter.cfg_template
+   :language: ini
 
 .. _gatherer:
 
@@ -195,6 +203,9 @@ orbit_type
 nameserver
     Nameserver to use to publish posttroll messages.
 
+.. literalinclude:: ../../examples/gatherer_config.ini_template
+   :language: ini
+
 scisys_receiver
 ^^^^^^^^^^^^^^^
 
@@ -210,6 +221,16 @@ segment_gatherer
 Configuration for ``segment_gatherer`` can be either in ini or yaml
 files.  There are several examples in the ``examples/`` directory in
 the pytroll-collectors source tree.
+
+Example ini config:
+
+.. literalinclude:: ../../examples/segment_gatherer.ini_template
+   :language: ini
+
+Example yaml config:
+
+.. literalinclude:: ../../examples/segment_gatherer_msg_and_iodc.yaml_template
+   :language: yaml
 
 .. _trollstalker:
 
@@ -240,6 +261,13 @@ Listeners to this message may be, for example,
 
 Configuration files have one section per file type that is listened to.
 To listen to multiple file types, start ``trollstalker`` multiple times.
+The message sent by ``trollstalker`` contains a dictionary which contains:
+
+- All fields from the ``filepattern``, and
+- Any keys starting with ``var_`` in the configuration file and their values.
+
+.. literalinclude:: ../../examples/trollstalker_config.ini_template
+   :language: ini
 
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 .. _supervisord: http://supervisord.org/
