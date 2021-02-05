@@ -102,7 +102,7 @@ class RegionCollector(object):
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
                 self.last_file_added = True
-                LOG.info("Added %s (%s) granule to area %s",
+                LOG.info("Added %s (%s) granule to area %s because we expect it",
                          platform,
                          str(start_time),
                          self.region.area_id)
@@ -162,7 +162,7 @@ class RegionCollector(object):
 
             if not self.planned_granule_times:
                 self.planned_granule_times.add(start_time)
-                LOG.info("Added %s (%s) granule to area %s",
+                LOG.info("Added %s (%s) granule to area %s because it overlaps",
                          platform,
                          str(start_time),
                          self.region.area_id)
