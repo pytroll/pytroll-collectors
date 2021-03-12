@@ -19,7 +19,7 @@
 from datetime import datetime
 
 project = 'pytroll-collectors'
-copyright = f"2014-{datetime.now():%Y}, Pytroll developers"
+project_copyright = f"2014-{datetime.now():%Y}, Pytroll developers"
 author = 'Panu Lahtinen, Martin Raspaud, Trygve Aspenes, Adam Dybbroe'
 
 # The full version, including alpha/beta/rc tags

@@ -125,15 +125,13 @@ class EventHandler(ProcessEvent):
                 try:
                     self._watchManager.rm_watch(self._watched_dirs[event.pathname], quiet=False)
                 except pyinotify.WatchManagerError:
-                    #As the directory is deleted prior removing the watch will cause a error message
-                    #from pyinotify. This is ok, so just pass the exception.
+                    # As the directory is deleted prior removing the watch will cause a error message
+                    # from pyinotify. This is ok, so just pass the exception.
                     LOGGER.debug("Removed watch: {}".format(event.pathname))
-                    pass
                 finally:
                     del self._watched_dirs[event.pathname]
             except KeyError:
                 LOGGER.warning("Dir {} not watched by inotify. Can not delete watch.".format(event.pathname))
-        return
 
     def process(self, event):
         '''Process the event'''
@@ -160,7 +158,6 @@ class EventHandler(ProcessEvent):
                 LOGGER.debug("Added watch on dir: {}".format(event.pathname))
             except AttributeError:
                 LOGGER.error("No watchmanager given. Can not add watch on {}".format(event.pathname))
-                pass
 
     def create_message(self):
         """Create broadcasted message
@@ -269,7 +266,7 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
     manager = WatchManager()
 
     # Collect mask for events that are monitored
-    if type(event_names) is not list:
+    if not isinstance(event_names, list):
         event_names = event_names.split(',')
     event_mask = 0
     for event in event_names:
@@ -463,7 +460,7 @@ def main():
 
     LOGGER.debug("Logger started")
 
-    if type(monitored_dirs) is not list:
+    if not isinstance(monitored_dirs, list):
         monitored_dirs = [monitored_dirs]
 
     if nameservers:
