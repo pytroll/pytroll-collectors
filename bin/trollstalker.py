@@ -307,14 +307,14 @@ def parse_vars(config):
     added to metadata. <value> is a trollsift pattern.
 
     '''
-    vars = OrderedDict()
+    variables = OrderedDict()
 
     for key in config:
         if 'var_' in key:
             new_key = key.replace('var_', '')
             var = config[key]
-            vars[new_key] = var
-    return vars
+            variables[new_key] = var
+    return variables
 
 
 def main():
