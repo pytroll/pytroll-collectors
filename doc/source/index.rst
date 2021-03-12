@@ -220,6 +220,9 @@ nameserver
 scisys_receiver
 ^^^^^^^^^^^^^^^
 
+Translates messages published by Scisys reception software to posttroll
+messages.
+
 .. automodule:: pytroll_collectors.scisys
 
 .. _segment-gatherer:
