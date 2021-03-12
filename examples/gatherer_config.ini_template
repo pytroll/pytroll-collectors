@@ -1,23 +1,23 @@
 [DEFAULT]
-; gather data within those areas
+# gather data within those areas
 regions = euron1 afghanistan afhorn
 
 [local_viirs]
-; gatherer needs to create the full list of expected files to know what to wait for
+# gatherer needs to create the full list of expected files to know what to wait for
 pattern = /san1/pps/import/PPS_data/source/npp_????????_????_?????/SV{channel:3s}_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_cspp_dev.h5
 format = SDR
 type = HDF5
 level = 1B
 platform_name = Suomi-NPP
 sensor = viirs
-; max allowed age of the granule in MINUTES.  Collection is stopped if
-; the current time is ``timeliness`` minutes after the estimated end of
-; the estimated last expected granule to be collected.  That means that
-; if the gatherer expects 5-minute granules at 10:05, 10:10, 10:15, 10:20,
-; and 10:25, but gets nothing after 10:10, and timeout is 10 minutes, it
-; will wait until 10:25 + 5 minutes + 10 minutes = 10:40 before giving up.
+# max allowed age of the granule in MINUTES.  Collection is stopped if
+# the current time is ``timeliness`` minutes after the estimated end of
+# the estimated last expected granule to be collected.  That means that
+# if the gatherer expects 5-minute granules at 10:05, 10:10, 10:15, 10:20,
+# and 10:25, but gets nothing after 10:10, and timeout is 10 minutes, it
+# will wait until 10:25 + 5 minutes + 10 minutes = 10:40 before giving up.
 timeliness = 10
-; duration of a granule in SECONDS
+# duration of a granule in SECONDS
 duration = 180
 publish_topic = 
 

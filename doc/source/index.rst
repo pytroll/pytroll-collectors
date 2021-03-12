@@ -15,7 +15,7 @@ operational processing of satellite reception data.
 The scripts run continuously (like daemons) and
 communicate with each other using `posttroll`_ messages.
 
-For example, a chain for processing MetOp AVHRR data from direct
+For example, a chain for processing Metop AVHRR data from direct
 reception, in which external software deposits files on the file system,
 may look somewhat like this:
 
@@ -23,7 +23,7 @@ may look somewhat like this:
   :ref:`trollstalker` uses inotify and sends a `posttroll`_ message
   when a file appears.
 * This message is received by :ref:`gatherer`.  Depending on the
-  reception system, a single MetOp AVHRR overpass may produce multiple files.
+  reception system, a single Metop AVHRR overpass may produce multiple files.
   :ref:`gatherer` determines what files belong together in a region and sends
   a posttroll message containing all those filenames.
 * AVHRR data need preprocessing with the external software `AAPP`_ before
@@ -37,7 +37,7 @@ may look somewhat like this:
   directly from :ref:`gatherer`.  See documentation for `aapp-runner`_.
 
 The exact configuration depends on factors that will vary depending on
-what satellite data are processed, whether thore are from direct readout,
+what satellite data are processed, whether those are from direct readout,
 EUMETCAST, or another source, what system is used for direct readout,
 and other factors.
 Some users use the 3rd party software `supervisor`_ to start and monitor
@@ -62,15 +62,18 @@ their task is done.
 
 .. _cat:
 
-cat
-^^^
+cat.py
+^^^^^^
 
-Concatenates granules or segments to a single file.  This may be a useful step
-before using external software for preprocessing data.  You will need `Kai`_
-from EUMETSAT to concatenate MetOp AVHRR granules.  Cat listens to input
-messages via posttroll according to topics defined in the configuration file.
-Upon completion, it will publish a posttroll message with topic defined in
-the configuration file.
+Concatenates granules or segments from NOAA and Metop level 0 data to a
+single file.  This may be a useful step before using external software
+for preprocessing data.  In particular, AAPP removes some scanlines from
+each end of the granule, so processing single granules will leave gaps
+between them.  You will need `Kai`_ from EUMETSAT to concatenate Metop
+granules (but not for NOAA granules).  Cat listens to input messages
+via posttroll according to topics defined in the configuration file.
+Upon completion, it will publish a posttroll message with topic defined
+in the configuration file.
 
 The kai configuration file is in the INI format and should have one ore
 more sections.  Each section may have the following fields:
@@ -122,6 +125,11 @@ Alternative to cat that does something else.
 gatherer
 ^^^^^^^^
 
+Collects granulated swath data so that the granules cover the configured
+target area(s) in a contiguous manner.  Uses `pytroll-schedule`_ (which
+uses `pyorbital`_) to calculate the required granules using orbital
+parameters (Three Line Elements; TLEs).
+
 Watches files or messages and gathers satellite granules in "collections",
 sending then the collection of files in a message for further processing.
 Determines what granules with different start times belong together.
@@ -143,8 +151,7 @@ whatever comes first.  Timeout is configured with the ``timeliness`` option
 
 The configuration file in INI format needs a section called ``[DEFAULT]``
 and one or more sections
-corresponding to what should be gathered.  The ``[DEFAULT]`` section should contain
-exactly one field:
+corresponding to what should be gathered.  The ``[DEFAULT]`` section holds common items for all other sections.  It can be used to define the regions:
 
 regions
     A whitespace separated list of names corresponding to areas for
@@ -171,10 +178,11 @@ timeliness
     ``timeliness`` minutes after the expected end time of the last expected
     granule.
 
-service
-    ??
-
 And the following optional fields:
+
+service
+    The posttroll service name which publishing the messages.
+    If given, only subscribe to messages from this service.
 
 sensor
     Defines the sensor.  This is used for ...
@@ -192,13 +200,15 @@ variant
     Defines variant through which data come in.  Used how?
 
 level
-    Data level.  Used how?
+    Data level.  Some downstream scripts may expect to see this in the
+    messages they receive.
 
 duration
     Duration of a granule in seconds (Warning: unit different compared to timeliness)
 
 orbit_type
-    What type of orbit?  Used how?
+    What type of orbit?  Some downstream scripts may expect to receive this
+    information through posttroll messages.
 
 nameserver
     Nameserver to use to publish posttroll messages.
@@ -217,6 +227,25 @@ segment_gatherer
 ^^^^^^^^^^^^^^^^
 
 .. automodule:: pytroll_collectors.segments
+
+Collects together files that belong together for a single time step.
+
+Geostationary example: Single full disk dataset of Meteosat SEVIRI data
+are segmented to 144 separate files. These are prolog (PRO), epilog (EPI),
+24 segments for HRV and 8 segments for each of the lower level channels.
+For processing, some of those segments are essential (if absent, no
+processing can take place), others are optional (if one segment in the
+middle is missing, an image can be produced, but it will have a gap).
+
+Low Earth Orbit (LEO) example: EARS/VIIRS data are split to M-channel
+(includes all M-channels) files and DNB-channel files. These files have
+the same start and end times and coverage, just different data.
+
+Historically this was created to collect SEVIRI segments, which has some
+impact on the configuration.
+
+The YAML format supports collection of several different data together. As
+an example: SEVIRI data and NWC SAF GEO products.
 
 Configuration for ``segment_gatherer`` can be either in ini or yaml
 files.  There are several examples in the ``examples/`` directory in
@@ -237,11 +266,16 @@ Example yaml config:
 trollstalker
 ^^^^^^^^^^^^
 
-Trollstalker is a script that monitors the arrival of given files in the
-specified directories.  It is typically run as a daemon or via a process
-control system such as `supervisord`_ or `daemontools`_.  When such a file
-is detected, a pytroll message is sent on the network via the posttroll
-nameserver (which must be running) to notify other interested processes.
+Trollstalker is an alternative for users who do not use the
+`trollmoves`_ client/server system.  If file transfers are done through
+`trollmoves`_, there is no need for trollstalker.  If file transfers are
+done through any other software, trollstalker can be used to detect file
+arrival.
+
+It is typically run as a daemon or via a process control system such
+as `supervisord`_ or `daemontools`_.  When such a file is detected,
+a pytroll message is sent on the network via the posttroll nameserver
+(which must be running) to notify other interested processes.
 
 In order to start *trollstalker*::
 
@@ -280,6 +314,7 @@ with a trollsift pattern, it may need to be sent explicitly with
 .. _aapp-runner: https://github.com/pytroll/pytroll-aapp-runner
 .. _supervisord: http://supervisord.org/
 .. _daemontools: http://cr.yp.to/daemontools.html
+.. _trollmoves: https://github.com/pytroll/trollmoves
 
 trollstalker2
 ^^^^^^^^^^^^^
