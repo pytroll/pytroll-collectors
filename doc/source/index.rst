@@ -148,6 +148,7 @@ whatever comes first.  Timeout is configured with the ``timeliness`` option
 (see below).
 
 .. _pytroll-schedule: http://pytroll-schedule.readthedocs.org/
+.. _pyorbital: https://pyorbital.readthedocs.io/en/latest/
 
 The configuration file in INI format needs a section called ``[DEFAULT]``
 and one or more sections
