@@ -40,7 +40,7 @@ METOP-C
 
 @pytest.fixture
 def europe():
-    """AreaDefinition for Europe, for testing purposes."""
+    """Return european AreaDefinition."""
     from pyresample.area_config import load_area_from_string
     return load_area_from_string(yaml_europe)
 
@@ -60,16 +60,13 @@ def test_init(europe):
 
 def test_collect(europe_collector, caplog):
     """Test that granules can be collected."""
-    from trollsched.satpass import Pass
-    tstart = datetime.datetime(2021, 4, 11, 10, 0, 0)
-    tend = datetime.datetime(2021, 4, 11, 10, 3, 0)
-    #tend = datetime.datetime(2021, 4, 11, 10, 14, 53)
     granule_metadata = {
             "platform_name": "Metop-C",
             "sensor": "avhrr"}
+
     def fakeopen(url):
         return io.BytesIO(tles)
-    with unittest.mock.patch("pyorbital.tlefile.urlopen", new=fakeopen) as tu:
+    with unittest.mock.patch("pyorbital.tlefile.urlopen", new=fakeopen):
         # tu.return_value = io.BytesIO(tles)
         with caplog.at_level(logging.DEBUG):
             for s_min in (0, 3, 6, 9, 12, 15, 18):
