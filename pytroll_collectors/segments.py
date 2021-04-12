@@ -22,8 +22,17 @@
 
 """Gather segments.
 
-Gather GEO stationary segments, or polar satellite granules for one timestep,
-and send them in a bunch as a dataset.
+Gather posttroll messages corresponding to individual files that belong
+to the same measurement start time.  This may be different instruments
+on polar satellite granules, different channels, or geostationary image
+segments.
+
+When all are present, send a single posttroll message containing all
+the segments in a bunch.
+
+To gather multiple files with different start times, the gatherer
+module/script should be used.  This is the case if a polar satellite
+reception system produces multiple files for the same overpass.
 """
 
 import datetime as dt
