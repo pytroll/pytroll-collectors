@@ -52,32 +52,88 @@ def europe_collector(europe):
     return RegionCollector(europe)
 
 
+def _fakeopen(url):
+    return io.BytesIO(tles)
+
+
 def test_init(europe):
     """Test that initialisation appears to work."""
     from pytroll_collectors.region_collector import RegionCollector
     RegionCollector(europe)
 
 
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect(europe_collector, caplog):
     """Test that granules can be collected."""
     granule_metadata = {
             "platform_name": "Metop-C",
             "sensor": "avhrr"}
 
-    def fakeopen(url):
-        return io.BytesIO(tles)
-    with unittest.mock.patch("pyorbital.tlefile.urlopen", new=fakeopen):
-        # tu.return_value = io.BytesIO(tles)
-        with caplog.at_level(logging.DEBUG):
-            for s_min in (0, 3, 6, 9, 12, 15, 18):
-                europe_collector.collect(
-                        {**granule_metadata,
-                         **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                            "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                            "uri": f"file://{s_min:d}"}})
+    with caplog.at_level(logging.DEBUG):
+        for s_min in (0, 3, 6, 9, 12, 15, 18):
+            europe_collector.collect(
+                    {**granule_metadata,
+                     **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
+                        "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
+                        "uri": f"file://{s_min:d}"}})
+
     assert "Granule file://0 is overlapping region euro_ma by fraction 0.03685" in caplog.text
     assert "Added Metop-C (2021-04-11 10:00:00) granule to area euro_ma because it overlaps" in caplog.text
     assert "Collection finished for Metop-C area: euro_ma" in caplog.text
     for n in (3, 6, 9, 12, 15):
         assert f"Added Metop-C (2021-04-11 10:{n:>02d}:00) granule to area euro_ma because we expect it" in caplog.text
     assert "Granule file://18 is not overlapping euro_ma"
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_collect_duration(europe):
+    """Test with tle_platform_name, without end_time, using call syntax."""
+    from pytroll_collectors.region_collector import RegionCollector
+    alt_europe_collector = RegionCollector(
+            europe,
+            timeliness=datetime.timedelta(seconds=300),
+            granule_duration=datetime.timedelta(seconds=120))
+    granule_metadata = {
+            "sensor": ["avhrr"],
+            "tle_platform_name": "Metop-C",
+            "start_time": datetime.datetime(2021, 4, 11, 0, 0)}
+    alt_europe_collector(granule_metadata)
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_adjust_timeout(europe, caplog):
+    """Test timeout adjustment."""
+    from pytroll_collectors.region_collector import RegionCollector
+    granule_metadata = {
+            "sensor": "avhrr",
+            "tle_platform_name": "Metop-C",
+            "uri": "file://alt/0"}
+    alt_europe_collector = RegionCollector(
+            europe,
+            granule_duration=datetime.timedelta(seconds=180))
+
+    with caplog.at_level(logging.DEBUG):
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 12)})
+    assert "Adjusted timeout" in caplog.text
+
+
+@pytest.mark.skip(reason="test never finishes")
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_faulty_end_time(europe_collector, caplog):
+    """Test adapting if end_time before start_time."""
+    granule_metadata = {
+        "platform_name": "Metop-C",
+        "sensor": "avhrr",
+        "start_time": datetime.datetime(2021, 4, 11, 0, 0),
+        "end_time": datetime.datetime(2021, 4, 10, 23, 58)}
+    with caplog.at_level(logging.DEBUG):
+        europe_collector(granule_metadata)
+    assert "Adjusted end time" in caplog.text
