@@ -62,5 +62,5 @@ setup(name="pytroll_collectors",
                         'trollsift', 'netifaces', 'watchdog',
                         'pytroll-schedule',
                         'six'],
-      tests_require=['trollsift', 'six', 'netifaces', 'watchdog'],
+      tests_require=['trollsift', 'six', 'netifaces', 'watchdog', 'posttroll'],
       )
