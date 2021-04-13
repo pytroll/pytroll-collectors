@@ -368,7 +368,7 @@ class AbstractMessageProcessor(Thread):
 
     def __init__(self, services, topics, nameserver="localhost"):
         """Init the message processor."""
-        Thread.__init__(self)
+        super(AbstractMessageProcessor, self).__init__()
         LOG.debug("Nameserver: {}".format(nameserver))
         self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
         self.sub = None
