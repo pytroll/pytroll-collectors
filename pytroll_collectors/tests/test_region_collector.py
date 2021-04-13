@@ -81,6 +81,3 @@ def test_collect(europe_collector, caplog):
     for n in (3, 6, 9, 12, 15):
         assert f"Added Metop-C (2021-04-11 10:{n:>02d}:00) granule to area euro_ma because we expect it" in caplog.text
     assert "Granule file://18 is not overlapping euro_ma"
-
-
-# fixme: add (failing) test when area coverage too large

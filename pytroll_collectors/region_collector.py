@@ -111,24 +111,23 @@ class RegionCollector(object):
                 if self.is_swath_complete():
                     LOG.info(f"Collection finished for {platform!s} area: {self.region.area_id!s}")
                     return self.finish()
-                else:
-                    try:
-                        new_timeout = (max(self.planned_granule_times -
-                                           self.granule_times) +
-                                       self.granule_duration +
-                                       self.timeliness)
-                    except ValueError:
-                        LOG.error("Calculation of new timeout failed, "
-                                  "keeping previous timeout.")
-                        LOG.error("Planned: %s", self.planned_granule_times)
-                        LOG.error("Received: %s", self.granule_times)
-                        return
-
-                    if new_timeout < self.timeout:
-                        self.timeout = new_timeout
-                        LOG.info(f"Adjusted timeout for {platform!s}: {self.timeout:%Y-%m-%d %H:%M:%S}")
-
+                try:
+                    new_timeout = (max(self.planned_granule_times -
+                                       self.granule_times) +
+                                   self.granule_duration +
+                                   self.timeliness)
+                except ValueError:
+                    LOG.error("Calculation of new timeout failed, "
+                              "keeping previous timeout.")
+                    LOG.error("Planned: %s", self.planned_granule_times)
+                    LOG.error("Received: %s", self.granule_times)
                     return
+
+                if new_timeout < self.timeout:
+                    self.timeout = new_timeout
+                    LOG.info(f"Adjusted timeout for {platform!s}: {self.timeout:%Y-%m-%d %H:%M:%S}")
+
+                return
 
         # Get corners from input data
 
