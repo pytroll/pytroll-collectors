@@ -1,15 +1,24 @@
-[default]
+[DEFAULT]
+# gather data within those areas
 regions = euron1 afghanistan afhorn
 
 [local_viirs]
+# gatherer needs to create the full list of expected files to know what to wait for
 pattern = /san1/pps/import/PPS_data/source/npp_????????_????_?????/SV{channel:3s}_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_cspp_dev.h5
 format = SDR
 type = HDF5
 level = 1B
 platform_name = Suomi-NPP
 sensor = viirs
-timeliness = 30
-duration = 85.4
+# max allowed age of the granule in MINUTES.  Collection is stopped if
+# the current time is ``timeliness`` minutes after the estimated end of
+# the estimated last expected granule to be collected.  That means that
+# if the gatherer expects 5-minute granules at 10:05, 10:10, 10:15, 10:20,
+# and 10:25, but gets nothing after 10:10, and timeout is 10 minutes, it
+# will wait until 10:25 + 5 minutes + 10 minutes = 10:40 before giving up.
+timeliness = 10
+# duration of a granule in SECONDS
+duration = 180
 publish_topic = 
 
 [ears_viirs]
@@ -21,7 +30,6 @@ platform_name = Suomi-NPP
 sensor = viirs
 timeliness = 30
 duration = 85.4
-# NOTE: be sure to have EARSSuomi-NPP.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -34,7 +42,6 @@ duration = 60
 platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
-# NOTE: be sure to have EARSNOAA-18.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -47,7 +54,6 @@ duration = 60
 platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
-# NOTE: be sure to have EARSNOAA-19.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -59,7 +65,6 @@ platform_name = Metop-B
 sensor = avhrr/3
 timeliness = 15
 level = 0
-# NOTE: be sure to have EARSMetop-B.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = 
 
@@ -71,7 +76,6 @@ platform_name = Metop-A
 sensor = avhrr/3
 timeliness = 15
 level = 0
-# NOTE: be sure to have EARSMetop-A.cfg in PPP_CONFIG_DIR
 variant = EARS
 publish_topic = /EARS/Metop-B
 
@@ -82,7 +86,6 @@ type = binary
 platform_name = Metop-B
 sensor = avhrr/3
 timeliness = 100
-# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
 variant = GDS
 orbit_type = polar
 publish_topic = /GDS/Metop-B
@@ -94,7 +97,6 @@ type = PDS
 platform_name = Metop-A
 sensor = avhrr/3
 timeliness = 100
-# NOTE: be sure to have GDSMetop-B.cfg in PPP_CONFIG_DIR
 variant = GDS
 publish_topic = /GDS/Metop-A
 
@@ -107,7 +109,6 @@ platform_name = EOS-Terra
 sensor = modis
 timeliness = 180
 duration = 300
-# NOTE: be sure to have EARSEOS-Terra.cfg in PPP_CONFIG_DIR
 variant = EARS
 
 [EARS_aqua]
@@ -119,5 +120,4 @@ platform_name = EOS-Aqua
 sensor = modis
 timeliness = 180
 duration = 300
-# NOTE: be sure to have EARSEOS-Aqua.cfg in PPP_CONFIG_DIR
 variant = EARS
