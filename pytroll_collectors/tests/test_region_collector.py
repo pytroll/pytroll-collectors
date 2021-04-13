@@ -71,10 +71,10 @@ def test_collect(europe_collector, caplog):
         with caplog.at_level(logging.DEBUG):
             for s_min in (0, 3, 6, 9, 12, 15, 18):
                 europe_collector.collect(
-                        granule_metadata |
-                        {"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                         "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                         "uri": f"file://{s_min:d}"})
+                        {**granule_metadata,
+                         **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
+                            "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
+                            "uri": f"file://{s_min:d}"}})
     assert "Granule file://0 is overlapping region euro_ma by fraction 0.03685" in caplog.text
     assert "Added Metop-C (2021-04-11 10:00:00) granule to area euro_ma because it overlaps" in caplog.text
     assert "Collection finished for Metop-C area: euro_ma" in caplog.text
