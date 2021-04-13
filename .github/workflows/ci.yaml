@@ -22,12 +22,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -U pytest pytest-cov scipy trollsift pillow six
-      - name: Install georest
+      - name: Install pytroll-collectors
         run: |
           pip install --no-deps -e .
       - name: Run tests
         run: |
-          pytest --cov=georest georest/tests --cov-report=xml
+          pytest --cov=pytroll_collectors pytroll_collectors/tests --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
