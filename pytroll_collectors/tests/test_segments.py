@@ -511,6 +511,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('all_files' in config['patterns']['msg'])
         self.assertTrue('is_critical_set' in config['patterns']['msg'])
         self.assertTrue('variable_tags' in config['patterns']['msg'])
+        self.assertTrue('time_name' in config['patterns']['msg'])
 
     def test_check_schedule_time(self):
         """Test Check Schedule Time."""
