@@ -883,6 +883,11 @@ def ini_to_dict(fname, section):
     except (NoOptionError, ValueError):
         conf['providing_server'] = None
 
+    try:
+        conf['time_name'] = config.get(section, "time_name")
+    except (NoOptionError, ValueError):
+        conf['time_name'] = 'start_time'
+
     return conf
 
 

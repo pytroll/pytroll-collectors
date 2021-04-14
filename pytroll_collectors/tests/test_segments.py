@@ -496,6 +496,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('posttroll' in config)
         self.assertTrue('time_tolerance' in config)
         self.assertTrue('timeliness' in config)
+        self.assertTrue('time_name' in config)
 
         self.assertTrue('topics' in config['posttroll'])
         self.assertTrue('nameservers' in config['posttroll'])
