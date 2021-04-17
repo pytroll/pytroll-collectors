@@ -156,7 +156,19 @@ def setup(decoder):
             duration = timedelta(seconds=CONFIG.getfloat(section, "duration"))
         except NoOptionError:
             duration = None
-        collectors = [region_collector.RegionCollector(region, timeliness, duration)
+        # Parse schedule cut if configured. Mainly for EARS data.
+        try:
+            schedule_cut = CONFIG.get(section, 'schedule_cut')
+        except NoOptionError:
+            schedule_cut = None
+        # If you want to provide your own method to provide the schedule cut data
+        try:
+            schedule_cut_method = CONFIG.get(section, 'schedule_cut_method')
+        except NoOptionError:
+            schedule_cut_method = None
+
+        collectors = [region_collector.RegionCollector(region, timeliness, duration,
+                                                       schedule_cut, schedule_cut_method)
                       for region in regions]
 
         try:
