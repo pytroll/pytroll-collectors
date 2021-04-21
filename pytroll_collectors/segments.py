@@ -40,6 +40,8 @@ import logging.handlers
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
+import glob
+import os
 
 import trollsift
 from posttroll import message as pmessage, publisher
@@ -566,6 +568,7 @@ class SegmentGatherer(object):
 
         self._loop = False
         self._providing_server = self._config.get('providing_server')
+        self._is_first_message_after_start = True
 
     def _create_patterns(self):
         return {key: Pattern(key, pattern_config, self._config)
@@ -734,6 +737,8 @@ class SegmentGatherer(object):
             slot = self.slots[slot_time]
 
         slot.add_file(message)
+        if self._config.get("check_existing_files_after_start", False):
+            self.check_and_add_existing_files(slot, message)
 
     def message_from_posttroll(self, msg):
         """Create a message object from a posttroll message instance."""
@@ -786,6 +791,31 @@ class SegmentGatherer(object):
 
         return time_ok
 
+    def check_and_add_existing_files(self, slot, message):
+        """Check for existing files in the uri basedir and add them to the slot."""
+        if not self._is_first_message_after_start:
+            return
+        if message.type != "file":
+            logger.error("Only 'file' messages are supported.")
+            return
+        # Disable debug logging temporarily
+        logging.disable(logging.DEBUG)
+        mask = message.pattern.parser.globify({})
+        path = urlparse(message.message_data["uri"]).path
+        base_dir = os.path.dirname(path)
+        fnames = glob.glob(os.path.join(base_dir, mask))
+        logger.info("Checking %d pre-existing files after restart.", len(fnames))
+        for fname in fnames:
+            meta = {
+                "uid": os.path.basename(fname),
+                "uri": os.path.join(base_dir, fname),
+                "sensor": message._posttroll_message.data["sensor"]
+                }
+            msg = self.message_from_posttroll(pmessage.Message(message._posttroll_message.subject, "file", meta))
+            slot.add_file(msg)
+        self._is_first_message_after_start = False
+        # Restore the original logging level
+        logging.disable(logging.NOTSET)
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
     """Get a copy of *the_dict* without entries having substring 'ignore' in key."""
@@ -887,6 +917,11 @@ def ini_to_dict(fname, section):
         conf['time_name'] = config.get(section, "time_name")
     except (NoOptionError, ValueError):
         conf['time_name'] = 'start_time'
+
+    try:
+        conf['check_existing_files_after_start'] = config.getboolean(section, "check_existing_files_after_start")
+    except (NoOptionError, ValueError):
+        conf['check_existing_files_after_start'] = False
 
     return conf
 

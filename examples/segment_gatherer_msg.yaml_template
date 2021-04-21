@@ -38,3 +38,7 @@ posttroll:
   # List of addresses for incoming messages. Default: [] (use multicast)
   # format: 123.456.78.9:12345
   # addresses: null
+
+# When the first message arrives after start-up, check if there are matching
+#   files available for the same slot.  Default: false
+# check_existing_files_after_start = true

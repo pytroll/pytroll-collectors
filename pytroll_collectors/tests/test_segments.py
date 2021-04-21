@@ -105,6 +105,27 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
 
+    @patch("pytroll_collectors.segments.glob")
+    def test_check_and_add_existing_files(self, glob):
+        """Test that existing matching files are added to the slot."""
+        existing_files = [
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            # A file that should not match
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        glob.glob.return_value = existing_files
+        mda = self.mda_msg0deg.copy()
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
+        slot_str = str(mda["start_time"])
+        slot = self.msg0deg.slots[slot_str]
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) in slot._info['msg']['received_files']
+        assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
+
     def test_init(self):
         """Test init."""
         self.assertTrue(self.msg0deg._subject is None)
