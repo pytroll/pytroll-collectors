@@ -50,10 +50,11 @@ class TestPostTrollTrigger(unittest.TestCase):
         collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
         collector.return_value = None
+        publisher = Mock()
 
-        def terminator(obj, publish_topic=None):
+        def terminator(obj, publisher, publish_topic=None):
             collector.timeout = None
-        ptt = PostTrollTrigger([collector], terminator, None, None,
+        ptt = PostTrollTrigger([collector], terminator, None, None, publisher,
                                publish_topic=None)
 
         sub = ptt.msgproc.nssub.start.return_value
@@ -70,7 +71,8 @@ class TestPostTrollTrigger(unittest.TestCase):
     def test_duration(self):
         """Test duration"""
         from pytroll_collectors.trigger import PostTrollTrigger
-        ptt = PostTrollTrigger(None, None, None, None, duration=60)
+        publisher = Mock()
+        ptt = PostTrollTrigger(None, None, None, None, publisher, duration=60)
 
         msg_data = ptt.decode_message(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
 

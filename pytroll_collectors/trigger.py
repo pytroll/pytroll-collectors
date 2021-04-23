@@ -30,11 +30,162 @@ from datetime import datetime, timedelta
 from fnmatch import fnmatch
 from threading import Event, Thread
 
+from six.moves.configparser import NoOptionError
+
 from posttroll.subscriber import NSSubscriber
+from posttroll import message
 from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
+from trollsift import compose, Parser
+from pytroll_collectors.region_collector import RegionCollector
+try:
+    from satpy.resample import get_area_def
+except ImportError:
+    from mpop.projector import get_area_def
+
 
 LOG = logging.getLogger(__name__)
+
+
+def get_metadata(config, fname):
+    """Parse metadata from the file."""
+    res = None
+    for section in config.sections():
+        try:
+            parser = Parser(config.get(section, "pattern"))
+        except NoOptionError:
+            continue
+        if not parser.validate(fname):
+            continue
+        res = parser.parse(fname)
+        res.update(dict(config.items(section)))
+
+        for key in ["watcher", "pattern", "timeliness", "regions"]:
+            res.pop(key, None)
+
+        res = fix_start_end_time(res)
+
+        if ("sensor" in res) and ("," in res["sensor"]):
+            res["sensor"] = res["sensor"].split(",")
+
+        res["uri"] = fname
+        res["filename"] = os.path.basename(fname)
+
+    return res
+
+
+def setup_triggers(config, publisher, decoder=get_metadata):
+    """Setup the granule triggers."""
+    granule_triggers = []
+
+    for section in config.sections():
+        regions = [get_area_def(region)
+                   for region in config.get(section, "regions").split()]
+
+        timeliness = timedelta(minutes=config.getint(section, "timeliness"))
+        try:
+            duration = timedelta(seconds=config.getfloat(section, "duration"))
+        except NoOptionError:
+            duration = None
+        collectors = [RegionCollector(region, timeliness, duration)
+                      for region in regions]
+
+        try:
+            observer_class = config.get(section, "watcher")
+            pattern = config.get(section, "pattern")
+            parser = Parser(pattern)
+            glob = parser.globify()
+        except NoOptionError:
+            observer_class = None
+
+        try:
+            publish_topic = config.get(section, "publish_topic")
+        except NoOptionError:
+            publish_topic = None
+
+        try:
+            nameserver = config.get(section, "nameserver")
+        except NoOptionError:
+            nameserver = "localhost"
+
+        try:
+            publish_message_after_each_reception = config.get(section, "publish_message_after_each_reception")
+            LOG.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
+        except NoOptionError:
+            publish_message_after_each_reception = False
+
+        if observer_class in ["PollingObserver", "Observer"]:
+            LOG.debug("Using %s for %s", observer_class, section)
+            granule_trigger = \
+                WatchDogTrigger(collectors,
+                                terminator_function,
+                                decoder,
+                                [glob],
+                                observer_class,
+                                publish_topic=publish_topic)
+
+        else:
+            LOG.debug("Using posttroll for %s", section)
+            try:
+                duration = config.getfloat(section, "duration")
+            except NoOptionError:
+                duration = None
+
+            granule_trigger = PostTrollTrigger(
+                collectors, terminator_function,
+                config.get(section, 'service').split(','),
+                config.get(section, 'topics').split(','),
+                publisher,
+                duration=duration,
+                publish_topic=publish_topic, nameserver=nameserver,
+                publish_message_after_each_reception=publish_message_after_each_reception)
+        granule_triggers.append(granule_trigger)
+
+    return granule_triggers
+
+
+def terminator_function(metadata, publisher, publish_topic=None):
+    """Terminate the gathering."""
+    sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
+
+    mda = metadata[0].copy()
+
+    if publish_topic is not None:
+        LOG.info("Composing topic.")
+        subject = compose(publish_topic, mda)
+    else:
+        LOG.info("Using default topic.")
+        subject = "/".join(("", mda["format"], mda["data_processing_level"],
+                            ''))
+
+    mda['start_time'] = sorted_mda[0]['start_time']
+    mda['end_time'] = sorted_mda[-1]['end_time']
+    mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
+    mda['collection'] = []
+
+    is_correct = False
+    for meta in sorted_mda:
+        new_mda = {}
+        if "uri" in meta or 'dataset' in meta:
+            is_correct = True
+        for key in ['dataset', 'uri', 'uid']:
+            if key in meta:
+                new_mda[key] = meta[key]
+            new_mda['start_time'] = meta['start_time']
+            new_mda['end_time'] = meta['end_time']
+        mda['collection'].append(new_mda)
+
+    for key in ['dataset', 'uri', 'uid']:
+        if key in mda:
+            del mda[key]
+
+    if is_correct:
+        msg = message.Message(subject, "collection",
+                              mda)
+        LOG.info("sending %s", str(msg))
+        publisher.send(str(msg))
+    else:
+        LOG.warning("Malformed metadata, no key: %s", "uri")
 
 
 def total_seconds(tdef):
@@ -71,10 +222,11 @@ def fix_start_end_time(mda):
 class Trigger(object):
     """Abstract trigger class."""
 
-    def __init__(self, collectors, terminator, publish_topic=None):
+    def __init__(self, collectors, terminator, publisher, publish_topic=None):
         """Init the trigger."""
         self.collectors = collectors
         self.terminator = terminator
+        self.publisher = publisher
         self.publish_topic = publish_topic
 
     def _do(self, metadata):
@@ -85,17 +237,16 @@ class Trigger(object):
         for collector in self.collectors:
             res = collector(metadata.copy())
             if res:
-                return self.terminator(res, publish_topic=self.publish_topic)
+                return self.terminator(res, self.publisher, publish_topic=self.publish_topic)
 
 
 class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, decoder, publish_topic=None, publish_message_after_each_reception=False):
+    def __init__(self, collectors, terminator, decoder, publisher, publish_topic=None, publish_message_after_each_reception=False):
         """Init the file trigger."""
         Thread.__init__(self)
-        Trigger.__init__(self, collectors, terminator,
-                         publish_topic=publish_topic)
+        Trigger.__init__(self, collectors, terminator, publisher, publish_topic=publish_topic)
         self.decoder = decoder
         self._running = True
         self.new_file = Event()
@@ -138,8 +289,7 @@ class FileTrigger(Trigger, Thread):
                         # Only clean up the collector.
                         next_timeout[0].finish()
                     else:
-                        self.terminator(next_timeout[0].finish(),
-                                        publish_topic=self.publish_topic)
+                        self.terminator(next_timeout[0].finish(), self.publisher, publish_topic=self.publish_topic)
                 else:
                     LOG.debug("Waiting %s seconds until timeout",
                               str(total_seconds(next_timeout[1] -
@@ -150,8 +300,7 @@ class FileTrigger(Trigger, Thread):
                         # Publish message after each new file is reveived
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
-                        self.terminator(next_timeout[0].finish_without_reset(),
-                                        publish_topic=self.publish_topic)
+                        self.terminator(next_timeout[0].finish_without_reset(), self.publisher, publish_topic=self.publish_topic)
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()
@@ -168,12 +317,11 @@ class FileTrigger(Trigger, Thread):
 class InotifyTrigger(ProcessEvent, FileTrigger):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, decoder, patterns,
+    def __init__(self, collectors, terminator, publisher, decoder, patterns,
                  publish_topic=None):
         """Init the inotify trigger."""
         ProcessEvent.__init__(self)
-        FileTrigger.__init__(self, collectors, terminator, decoder,
-                             publish_topic=publish_topic)
+        FileTrigger.__init__(self, collectors, terminator, decoder, publisher, publish_topic=publish_topic)
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))
@@ -407,7 +555,7 @@ class AbstractMessageProcessor(Thread):
 class PostTrollTrigger(FileTrigger):
     """Get posttroll messages."""
 
-    def __init__(self, collectors, terminator, services, topics, duration=None,
+    def __init__(self, collectors, terminator, services, topics, publisher, duration=None,
                  publish_topic=None, nameserver="localhost",
                  publish_message_after_each_reception=False):
         """Init the posttroll trigger."""
@@ -415,7 +563,7 @@ class PostTrollTrigger(FileTrigger):
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, terminator, self.decode_message,
-                             publish_topic=publish_topic,
+                             publisher, publish_topic=publish_topic,
                              publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
