@@ -31,7 +31,7 @@ import logging.handlers
 import os
 import os.path
 
-from six.moves.configparser import RawConfigParser, NoOptionError
+from six.moves.configparser import RawConfigParser
 
 from pytroll_collectors.trigger import get_metadata, setup_triggers
 from posttroll import publisher
@@ -101,7 +101,7 @@ def main():
 
     if opts.config_item:
         for section in opts.config_item:
-            if section not in CONFIG.sections():
+            if section not in config.sections():
                 LOGGER.warning(
                     "No config item called %s found in config file.", section)
         for section in config.sections():
