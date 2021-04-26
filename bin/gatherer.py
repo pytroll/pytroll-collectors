@@ -101,6 +101,22 @@ def _clean_config(config, opts, logger):
     return config
 
 
+def _setup_publisher(opts):
+    if opts.config_item:
+        publisher_name = "gatherer_" + "_".join(opts.config_item)
+    else:
+        publisher_name = "gatherer"
+
+    publish_port = opts.publish_port
+    publisher_nameservers = opts.nameservers
+
+    pub = publisher.NoisyPublisher(publisher_name, port=publish_port,
+                                   nameservers=publisher_nameservers)
+    pub.start()
+
+    return pub
+
+
 def main():
     """Run the gatherer."""
     config = RawConfigParser()
@@ -118,23 +134,12 @@ def main():
     if config is None:
         return
 
-    if opts.config_item:
-        publisher_name = "gatherer_" + "_".join(opts.config_item)
-    else:
-        publisher_name = "gatherer"
-
-    publish_port = opts.publish_port
-    publisher_nameservers = opts.nameservers
-
-    pub = publisher.NoisyPublisher(publisher_name, port=publish_port,
-                                   nameservers=publisher_nameservers)
+    pub = _setup_publisher(opts)
 
     granule_triggers = setup_triggers(config, pub, decoder=get_metadata)
-
-    pub.start()
-
     for granule_trigger in granule_triggers:
         granule_trigger.start()
+
     try:
         while True:
             time.sleep(1)
