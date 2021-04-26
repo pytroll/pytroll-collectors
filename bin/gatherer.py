@@ -36,9 +36,6 @@ from pytroll_collectors.trigger import get_metadata, setup_triggers
 from posttroll import publisher
 
 
-logger = logging.getLogger(__name__)
-
-
 def arg_parse():
     """Handle input arguments."""
     import argparse
@@ -63,24 +60,13 @@ def arg_parse():
     return parser.parse_args()
 
 
-def main():
-    """Run the gatherer."""
-    config = RawConfigParser()
-    global logger
-
-    opts = arg_parse()
-    config.read(opts.config)
-
-    print("Setting timezone to UTC")
-    os.environ["TZ"] = "UTC"
-    time.tzset()
-
+def setup_logging(opts):
+    """Setup logging."""
     handlers = []
     if opts.log:
         handlers.append(logging.handlers.TimedRotatingFileHandler(opts.log,
                                                                   "midnight",
                                                                   backupCount=7))
-
     handlers.append(logging.StreamHandler())
 
     if opts.verbose:
@@ -96,8 +82,10 @@ def main():
         logging.getLogger('').addHandler(handler)
 
     logging.getLogger("posttroll").setLevel(logging.INFO)
-    logger = logging.getLogger("gatherer")
+    return logging.getLogger("gatherer")
 
+
+def _clean_config(config, opts, logger):
     if opts.config_item:
         for section in opts.config_item:
             if section not in config.sections():
@@ -106,9 +94,31 @@ def main():
         for section in config.sections():
             if section not in opts.config_item:
                 config.remove_section(section)
+                logger.info("Removed unused section '%s'", section)
         if len(config.sections()) == 0:
             logger.error("No valid config item provided")
-            return
+            return None
+    return config
+
+
+def main():
+    """Run the gatherer."""
+    config = RawConfigParser()
+
+    opts = arg_parse()
+    config.read(opts.config)
+
+    logger = setup_logging(opts)
+
+    print("Setting timezone to UTC")
+    os.environ["TZ"] = "UTC"
+    time.tzset()
+
+    config = _clean_config(config, opts, logger)
+    if config is None:
+        return
+
+    if opts.config_item:
         publisher_name = "gatherer_" + "_".join(opts.config_item)
     else:
         publisher_name = "gatherer"
