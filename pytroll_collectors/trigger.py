@@ -119,10 +119,9 @@ def fix_start_end_time(mda):
 class Trigger(object):
     """Abstract trigger class."""
 
-    def __init__(self, collectors, terminator, publisher, publish_topic=None):
+    def __init__(self, collectors, publisher, publish_topic=None):
         """Init the trigger."""
         self.collectors = collectors
-        self.terminator = terminator
         self.publisher = publisher
         self.publish_topic = publish_topic
 
@@ -134,17 +133,17 @@ class Trigger(object):
         for collector in self.collectors:
             res = collector(metadata.copy())
             if res:
-                return self.terminator(res, self.publisher, publish_topic=self.publish_topic)
+                return terminator_function(res, self.publisher, publish_topic=self.publish_topic)
 
 
 class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, config, publisher,
+    def __init__(self, collectors, config, publisher,
                  publish_topic=None, publish_message_after_each_reception=False):
         """Init the file trigger."""
         Thread.__init__(self)
-        Trigger.__init__(self, collectors, terminator, publisher, publish_topic=publish_topic)
+        Trigger.__init__(self, collectors, publisher, publish_topic=publish_topic)
         self._config = config
         self.decoder = self._get_metadata
         self._running = True
@@ -214,7 +213,7 @@ class FileTrigger(Trigger, Thread):
                         # Only clean up the collector.
                         next_timeout[0].finish()
                     else:
-                        self.terminator(next_timeout[0].finish(), self.publisher, publish_topic=self.publish_topic)
+                        terminator_function(next_timeout[0].finish(), self.publisher, publish_topic=self.publish_topic)
                 else:
                     logger.debug("Waiting %s seconds until timeout",
                                  str(total_seconds(next_timeout[1] -
@@ -225,8 +224,8 @@ class FileTrigger(Trigger, Thread):
                         # Publish message after each new file is reveived
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
-                        self.terminator(next_timeout[0].finish_without_reset(), self.publisher,
-                                        publish_topic=self.publish_topic)
+                        terminator_function(next_timeout[0].finish_without_reset(), self.publisher,
+                                            publish_topic=self.publish_topic)
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()
@@ -243,11 +242,11 @@ class FileTrigger(Trigger, Thread):
 class InotifyTrigger(ProcessEvent, FileTrigger):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, publisher, config, patterns,
+    def __init__(self, collectors, publisher, config, patterns,
                  publish_topic=None):
         """Init the inotify trigger."""
         ProcessEvent.__init__(self)
-        FileTrigger.__init__(self, collectors, terminator, config, publisher, publish_topic=publish_topic)
+        FileTrigger.__init__(self, collectors, config, publisher, publish_topic=publish_topic)
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))
@@ -357,11 +356,11 @@ try:
     class WatchDogTrigger(FileTrigger):
         """File trigger, acting upon filesystem events."""
 
-        def __init__(self, collectors, terminator, config,
-                     patterns, observer_class_name, publisher, publish_topic=None):
+        def __init__(self, collectors, config, patterns, observer_class_name, publisher,
+                     publish_topic=None):
             """Init the trigger."""
             self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
-            FileTrigger.__init__(self, collectors, terminator, config, publisher,
+            FileTrigger.__init__(self, collectors, config, publisher,
                                  publish_topic=publish_topic)
             self.wdp.process = self.add_file
 
@@ -429,15 +428,14 @@ class AbstractMessageProcessor(Thread):
 class PostTrollTrigger(FileTrigger):
     """Get posttroll messages."""
 
-    def __init__(self, collectors, terminator, services, topics, publisher, duration=None,
+    def __init__(self, collectors, services, topics, publisher, duration=None,
                  publish_topic=None, nameserver="localhost",
                  publish_message_after_each_reception=False):
         """Init the posttroll trigger."""
         self.duration = duration
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
-        FileTrigger.__init__(self, collectors, terminator, None,
-                             publisher, publish_topic=publish_topic,
+        FileTrigger.__init__(self, collectors, None, publisher, publish_topic=publish_topic,
                              publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):

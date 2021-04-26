@@ -34,7 +34,7 @@ from satpy.resample import get_area_def
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
-from pytroll_collectors.trigger import PostTrollTrigger, WatchDogTrigger, terminator_function
+from pytroll_collectors.trigger import PostTrollTrigger, WatchDogTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,6 @@ class GeographicGatherer(object):
         logger.debug("Using %s for %s", observer_class, section)
         return WatchDogTrigger(
             collectors,
-            terminator_function,
             self._config,
             [glob],
             observer_class,
@@ -127,7 +126,7 @@ class GeographicGatherer(object):
         publish_message_after_each_reception = self._get_publish_message_after_each_reception(section)
 
         return PostTrollTrigger(
-            collectors, terminator_function,
+            collectors,
             self._config.get(section, 'service').split(','),
             self._config.get(section, 'topics').split(','),
             self.publisher,
