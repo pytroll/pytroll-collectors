@@ -270,58 +270,6 @@ try:
     from watchdog.observers.polling import PollingObserver
     from watchdog.observers import Observer
 
-    # class WatchDogTriggerOld(FileSystemEventHandler, FileTrigger):
-    #     """File trigger, acting upon inotify events."""
-    #
-    #     cases = {"PollingObserver": PollingObserver,
-    #              "Observer": Observer}
-    #
-    #     def __init__(self, collectors, terminator, decoder, patterns,
-    #                  observer_class_name, publish_topic=None):
-    #         """Init the watchdog trigger."""
-    #         FileSystemEventHandler.__init__(self)
-    #         FileTrigger.__init__(self, collectors, terminator, decoder,
-    #                              publish_topic=publish_topic)
-    #         self.input_dirs = []
-    #         for pattern in patterns:
-    #             self.input_dirs.append(os.path.dirname(pattern))
-    #         self.patterns = patterns
-    #
-    #         self.new_file = Event()
-    #         self.observer = self.cases.get(observer_class_name, Observer)()
-    #
-    #     def on_created(self, event):
-    #         """Process file creation."""
-    #         try:
-    #             for pattern in self.patterns:
-    #                 if fnmatch(event.src_path, pattern):
-    #                     LOG.debug("New file detected (created): %s",
-    #                               event.src_path)
-    #                     self.add_file(event.src_path)
-    #                     LOG.debug("Done adding")
-    #                     return
-    #         except Exception as e:
-    #             LOG.exception(
-    #                 "Something wrong happened in the event processing: %s",
-    #                 e.message)
-    #
-    #     def start(self):
-    #         """Start trigger."""
-    #         # add watches
-    #         for idir in self.input_dirs:
-    #             self.observer.schedule(self, idir)
-    #         self.observer.start()
-    #
-    #         FileTrigger.start(self)
-    #         LOG.debug("Started polling")
-    #
-    #     def stop(self):
-    #         """Stop the trigger."""
-    #         self.observer.stop()
-    #         FileTrigger.stop(self)
-    #         self.observer.join()
-    #         self.join()
-
     class AbstractWatchDogProcessor(FileSystemEventHandler):
         """File trigger, acting upon file system events."""
 
