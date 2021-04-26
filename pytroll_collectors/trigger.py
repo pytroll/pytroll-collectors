@@ -35,37 +35,10 @@ from posttroll.subscriber import NSSubscriber
 from posttroll import message
 from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
-from trollsift import compose, Parser
+from trollsift import compose
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_metadata(config, fname):
-    """Parse metadata from the file."""
-    res = None
-    for section in config.sections():
-        try:
-            parser = Parser(config.get(section, "pattern"))
-        except NoOptionError:
-            continue
-        if not parser.validate(fname):
-            continue
-        res = parser.parse(fname)
-        res.update(dict(config.items(section)))
-
-        for key in ["watcher", "pattern", "timeliness", "regions"]:
-            res.pop(key, None)
-
-        res = fix_start_end_time(res)
-
-        if ("sensor" in res) and ("," in res["sensor"]):
-            res["sensor"] = res["sensor"].split(",")
-
-        res["uri"] = fname
-        res["filename"] = os.path.basename(fname)
-
-    return res
 
 
 def terminator_function(metadata, publisher, publish_topic=None):

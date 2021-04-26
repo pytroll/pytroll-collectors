@@ -27,15 +27,15 @@
 import logging
 import time
 import datetime as dt
+import os.path
 
 from six.moves.configparser import NoOptionError
 from posttroll import publisher
 from satpy.resample import get_area_def
 from trollsift import Parser
 
-from pytroll_collectors.trigger import get_metadata
 from pytroll_collectors.region_collector import RegionCollector
-from pytroll_collectors.trigger import PostTrollTrigger, WatchDogTrigger, terminator_function
+from pytroll_collectors.trigger import fix_start_end_time, PostTrollTrigger, WatchDogTrigger, terminator_function
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +43,10 @@ logger = logging.getLogger(__name__)
 class GeographicGatherer(object):
     """Container for granule triggers for geographich segment gathering."""
 
-    def __init__(self, config, opts, decoder=get_metadata):
+    def __init__(self, config, opts):
         """Initialize the class."""
         self._config = config
         self._opts = opts
-        self.decoder = decoder
         self.publisher = None
         self.triggers = []
 
@@ -109,11 +108,37 @@ class GeographicGatherer(object):
         return WatchDogTrigger(
             collectors,
             terminator_function,
-            self.decoder,
+            self._get_metadata,
             [glob],
             observer_class,
             self.publisher,
             publish_topic=publish_topic)
+
+    def _get_metadata(self, fname):
+        """Parse metadata from the file."""
+        res = None
+        for section in self._config.sections():
+            try:
+                parser = Parser(self._config.get(section, "pattern"))
+            except NoOptionError:
+                continue
+            if not parser.validate(fname):
+                continue
+            res = parser.parse(fname)
+            res.update(dict(self._config.items(section)))
+
+            for key in ["watcher", "pattern", "timeliness", "regions"]:
+                res.pop(key, None)
+
+            res = fix_start_end_time(res)
+
+            if ("sensor" in res) and ("," in res["sensor"]):
+                res["sensor"] = res["sensor"].split(",")
+
+            res["uri"] = fname
+            res["filename"] = os.path.basename(fname)
+
+        return res
 
     def _get_publish_topic(self, section):
         try:
