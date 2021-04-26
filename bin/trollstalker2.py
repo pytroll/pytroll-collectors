@@ -39,7 +39,7 @@ from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
 from trollsift import Parser
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 try:
     # Python 2
@@ -65,7 +65,7 @@ class FilePublisher(AbstractWatchDogProcessor):
 
         self.topic = self.config["topic"]
         self.tbus_orbit = self.config.get("tbus_orbit", False)
-        LOGGER.debug("Looking for: %s", str(
+        logger.debug("Looking for: %s", str(
             [parser.globify() for parser in self.parsers]))
         AbstractWatchDogProcessor.__init__(self,
                                            [parser.globify()
@@ -96,7 +96,7 @@ class FilePublisher(AbstractWatchDogProcessor):
     def process(self, pathname):
         '''Process the event'''
         # New file created and closed
-        LOGGER.debug("processing %s", pathname)
+        logger.debug("processing %s", pathname)
         # parse information and create self.info dict{}
         metadata = self.config.copy()
         success = False
@@ -108,14 +108,14 @@ class FilePublisher(AbstractWatchDogProcessor):
             except ValueError:
                 pass
             if not success:
-                LOGGER.warning("Could not find a matching pattern for %s",
+                logger.warning("Could not find a matching pattern for %s",
                                pathname)
 
         metadata['uri'] = pathname
         metadata['uid'] = os.path.basename(pathname)
 
         if self.tbus_orbit and "orbit_number" in metadata:
-            LOGGER.info("Changing orbit number by -1!")
+            logger.info("Changing orbit number by -1!")
             metadata["orbit_number"] -= 1
 
         # replace values with corresponding aliases, if any are given
@@ -125,7 +125,7 @@ class FilePublisher(AbstractWatchDogProcessor):
                     metadata[key] = self.aliases[key][str(metadata[key])]
 
         message = Message(self.topic, 'file', metadata)
-        LOGGER.info("Publishing message %s" % str(message))
+        logger.info("Publishing message %s" % str(message))
         self.pub.send(str(message))
 
 
@@ -218,7 +218,7 @@ def main():
         except AttributeError:
             loglevel = logging.DEBUG
 
-        LOGGER.setLevel(loglevel)
+        logger.setLevel(loglevel)
         rootlogger = logging.getLogger("")
         rootlogger.setLevel(loglevel)
         strhndl = logging.StreamHandler()
@@ -231,7 +231,7 @@ def main():
     else:
         logging.config.fileConfig(log_config)
 
-    LOGGER.debug("Logger started")
+    logger.debug("Logger started")
 
     # Start watching for new files
     notifier = FilePublisher(config)
@@ -241,12 +241,12 @@ def main():
         while True:
             time.sleep(6000000)
     except KeyboardInterrupt:
-        LOGGER.info("Interrupting TrollStalker")
+        logger.info("Interrupting TrollStalker")
     finally:
         notifier.stop()
 
 
 if __name__ == "__main__":
     # LOGGER = logging.getLogger("trollstalker")
-    LOGGER = logging.getLogger("trollstalker")
+    logger = logging.getLogger("trollstalker")
     main()

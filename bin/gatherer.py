@@ -37,7 +37,7 @@ from pytroll_collectors.trigger import get_metadata, setup_triggers
 from posttroll import publisher
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def arg_parse():
@@ -67,7 +67,7 @@ def arg_parse():
 def main():
     """Run the gatherer."""
     config = RawConfigParser()
-    global LOGGER
+    global logger
 
     opts = arg_parse()
     config.read(opts.config)
@@ -97,18 +97,18 @@ def main():
         logging.getLogger('').addHandler(handler)
 
     logging.getLogger("posttroll").setLevel(logging.INFO)
-    LOGGER = logging.getLogger("gatherer")
+    logger = logging.getLogger("gatherer")
 
     if opts.config_item:
         for section in opts.config_item:
             if section not in config.sections():
-                LOGGER.warning(
+                logger.warning(
                     "No config item called %s found in config file.", section)
         for section in config.sections():
             if section not in opts.config_item:
                 config.remove_section(section)
         if len(config.sections()) == 0:
-            LOGGER.error("No valid config item provided")
+            logger.error("No valid config item provided")
             return
         publisher_name = "gatherer_" + "_".join(opts.config_item)
     else:
@@ -133,13 +133,13 @@ def main():
                 if not granule_trigger.is_alive():
                     raise RuntimeError
     except KeyboardInterrupt:
-        LOGGER.info("Shutting down...")
+        logger.info("Shutting down...")
     except RuntimeError:
-        LOGGER.critical('Something went wrong!')
+        logger.critical('Something went wrong!')
     except OSError:
-        LOGGER.critical('Something went wrong!')
+        logger.critical('Something went wrong!')
     finally:
-        LOGGER.warning('Ending publication the gathering of granules...')
+        logger.warning('Ending publication the gathering of granules...')
         for granule_trigger in granule_triggers:
             granule_trigger.stop()
         pub.stop()

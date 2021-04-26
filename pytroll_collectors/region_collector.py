@@ -31,7 +31,7 @@ from trollsched.satpass import Pass
 
 import logging
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 PLOT = False
 
@@ -87,12 +87,12 @@ class RegionCollector(object):
             if end_time.time() < start_time.time():
                 end_date += timedelta(days=1)
             end_time = datetime.combine(end_date, end_time.time())
-            LOG.debug('Adjusted end time from %s to %s.',
-                      old_end_time, end_time)
+            logger.debug('Adjusted end time from %s to %s.',
+                         old_end_time, end_time)
 
         granule_metadata['end_time'] = end_time
 
-        LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
+        logger.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
 
         self.last_file_added = False
@@ -102,15 +102,15 @@ class RegionCollector(object):
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
                 self.last_file_added = True
-                LOG.info("Added %s (%s) granule to area %s",
-                         platform,
-                         str(start_time),
-                         self.region.area_id)
+                logger.info("Added %s (%s) granule to area %s",
+                            platform,
+                            str(start_time),
+                            self.region.area_id)
                 # If last granule return swath and cleanup
                 # if self.granule_times == self.planned_granule_times:
                 if self.is_swath_complete():
-                    LOG.info("Collection finished for area: %s",
-                             str(self.region.area_id))
+                    logger.info("Collection finished for area: %s",
+                                str(self.region.area_id))
                     return self.finish()
                 else:
                     try:
@@ -119,16 +119,16 @@ class RegionCollector(object):
                                        self.granule_duration +
                                        self.timeliness)
                     except ValueError:
-                        LOG.error("Calculation of new timeout failed, "
-                                  "keeping previous timeout.")
-                        LOG.error("Planned: %s", self.planned_granule_times)
-                        LOG.error("Received: %s", self.granule_times)
+                        logger.error("Calculation of new timeout failed, "
+                                     "keeping previous timeout.")
+                        logger.error("Planned: %s", self.planned_granule_times)
+                        logger.error("Received: %s", self.granule_times)
                         return
 
                     if new_timeout < self.timeout:
                         self.timeout = new_timeout
-                        LOG.info("Adjusted timeout: %s",
-                                 self.timeout.isoformat())
+                        logger.info("Adjusted timeout: %s",
+                                    self.timeout.isoformat())
 
                     return
 
@@ -136,12 +136,12 @@ class RegionCollector(object):
 
         if self.granule_duration is None:
             self.granule_duration = end_time - start_time
-            LOG.debug("Estimated granule duration to %s",
-                      str(self.granule_duration))
+            logger.debug("Estimated granule duration to %s",
+                         str(self.granule_duration))
 
-        LOG.info("Platform name %s and sensor %s: Start and end times = %s %s", str(platform),
-                 str(granule_metadata["sensor"]),
-                 start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
+        logger.info("Platform name %s and sensor %s: Start and end times = %s %s", str(platform),
+                    str(granule_metadata["sensor"]),
+                    start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         self.sensor = granule_metadata["sensor"]
         if isinstance(self.sensor, list):
@@ -160,12 +160,12 @@ class RegionCollector(object):
 
             if not self.planned_granule_times:
                 self.planned_granule_times.add(start_time)
-                LOG.info("Added %s (%s) granule to area %s",
-                         platform,
-                         str(start_time),
-                         self.region.area_id)
-                LOG.debug("Predicting granules covering %s",
-                          self.region.area_id)
+                logger.info("Added %s (%s) granule to area %s",
+                            platform,
+                            str(start_time),
+                            self.region.area_id)
+                logger.debug("Predicting granules covering %s",
+                             self.region.area_id)
                 gr_time = start_time
                 while True:
                     gr_time += self.granule_duration
@@ -186,34 +186,34 @@ class RegionCollector(object):
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info("Planned granules for %s: %s", self.region.name,
-                         str(sorted(self.planned_granule_times)))
+                logger.info("Planned granules for %s: %s", self.region.name,
+                            str(sorted(self.planned_granule_times)))
                 self.timeout = (max(self.planned_granule_times) +
                                 self.granule_duration +
                                 self.timeliness)
-                LOG.info("Planned timeout for %s: %s", self.region.name,
-                         self.timeout.isoformat())
+                logger.info("Planned timeout for %s: %s", self.region.name,
+                            self.timeout.isoformat())
 
         else:
             try:
-                LOG.debug("Granule %s is not overlapping %s",
-                          granule_metadata["uri"], self.region.name)
+                logger.debug("Granule %s is not overlapping %s",
+                             granule_metadata["uri"], self.region.name)
             except KeyError:
                 try:
-                    LOG.debug("Granule with start and end times = %s  %s  "
-                              "is not overlapping %s",
-                              str(granule_metadata["start_time"]),
-                              str(granule_metadata["end_time"]),
-                              str(self.region.name))
+                    logger.debug("Granule with start and end times = %s  %s  "
+                                 "is not overlapping %s",
+                                 str(granule_metadata["start_time"]),
+                                 str(granule_metadata["end_time"]),
+                                 str(self.region.name))
                 except KeyError:
-                    LOG.debug("Failed printing debug info...")
-                    LOG.debug("Keys in granule_metadata = %s",
-                              str(granule_metadata.keys()))
+                    logger.debug("Failed printing debug info...")
+                    logger.debug("Keys in granule_metadata = %s",
+                                 str(granule_metadata.keys()))
 
         # If last granule return swath and cleanup
         if self.is_swath_complete():
-            LOG.debug("Collection finished for area: %s",
-                      str(self.region.area_id))
+            logger.debug("Collection finished for area: %s",
+                         str(self.region.area_id))
             return self.finish()
 
     def is_swath_complete(self):
@@ -227,14 +227,14 @@ class RegionCollector(object):
                                self.granule_duration +
                                self.timeliness)
             except ValueError:
-                LOG.error("Calculation of new timeout failed, "
-                          "keeping previous timeout.")
-                LOG.error("Planned: %s", self.planned_granule_times)
-                LOG.error("Received: %s", self.granule_times)
+                logger.error("Calculation of new timeout failed, "
+                             "keeping previous timeout.")
+                logger.error("Planned: %s", self.planned_granule_times)
+                logger.error("Received: %s", self.granule_times)
                 return False
             if new_timeout < self.timeout:
                 self.timeout = new_timeout
-                LOG.info("Adjusted timeout: %s", self.timeout.isoformat())
+                logger.info("Adjusted timeout: %s", self.timeout.isoformat())
 
         return False
 

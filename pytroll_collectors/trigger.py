@@ -41,7 +41,7 @@ from pytroll_collectors.region_collector import RegionCollector
 from pyresample import parse_area_file
 
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_metadata(config, fname):
@@ -113,7 +113,7 @@ def _get_watchdog_trigger(config, section, observer_class, collectors, decoder, 
     glob = parser.globify()
     publish_topic = _get_publish_topic(config, section)
 
-    LOG.debug("Using %s for %s", observer_class, section)
+    logger.debug("Using %s for %s", observer_class, section)
     return WatchDogTrigger(
         collectors,
         terminator_function,
@@ -133,7 +133,7 @@ def _get_publish_topic(config, section):
 
 
 def _get_posttroll_trigger(config, section, observer_class, collectors, decoder, publisher):
-    LOG.debug("Using posttroll for %s", section)
+    logger.debug("Using posttroll for %s", section)
     nameserver = _get_nameserver(config, section)
     publish_topic = _get_publish_topic(config, section)
     duration = _get_duration(config, section)
@@ -168,7 +168,7 @@ def _get_duration(config, section):
 def _get_publish_message_after_each_reception(config, section):
     try:
         publish_message_after_each_reception = config.get(section, "publish_message_after_each_reception")
-        LOG.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
+        logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
     except NoOptionError:
         publish_message_after_each_reception = False
     return publish_message_after_each_reception
@@ -181,10 +181,10 @@ def terminator_function(metadata, publisher, publish_topic=None):
     mda = metadata[0].copy()
 
     if publish_topic is not None:
-        LOG.info("Composing topic.")
+        logger.info("Composing topic.")
         subject = compose(publish_topic, mda)
     else:
-        LOG.info("Using default topic.")
+        logger.info("Using default topic.")
         subject = "/".join(("", mda["format"], mda["data_processing_level"],
                             ''))
 
@@ -212,10 +212,10 @@ def terminator_function(metadata, publisher, publish_topic=None):
     if is_correct:
         msg = message.Message(subject, "collection",
                               mda)
-        LOG.info("sending %s", str(msg))
+        logger.info("sending %s", str(msg))
         publisher.send(str(msg))
     else:
-        LOG.warning("Malformed metadata, no key: %s", "uri")
+        logger.warning("Malformed metadata, no key: %s", "uri")
 
 
 def total_seconds(tdef):
@@ -262,7 +262,7 @@ class Trigger(object):
     def _do(self, metadata):
         """Execute the collectors and terminator."""
         if not metadata:
-            LOG.warning("No metadata")
+            logger.warning("No metadata")
             return
         for collector in self.collectors:
             res = collector(metadata.copy())
@@ -285,7 +285,7 @@ class FileTrigger(Trigger, Thread):
 
     def _do(self, pathname):
         mda = self.decoder(pathname)
-        LOG.debug("mda: %s", str(mda))
+        logger.debug("mda: %s", str(mda))
         Trigger._do(self, mda)
 
     def add_file(self, pathname):
@@ -309,10 +309,10 @@ class FileTrigger(Trigger, Thread):
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
-                    LOG.warning("Timeout detected, terminating collector")
-                    LOG.debug("Area: %s, timeout: %s",
-                              next_timeout[0].region,
-                              str(next_timeout[1]))
+                    logger.warning("Timeout detected, terminating collector")
+                    logger.debug("Area: %s, timeout: %s",
+                                 next_timeout[0].region,
+                                 str(next_timeout[1]))
                     if self.publish_message_after_each_reception:
                         # If this options is given:
                         # Dont send message as it is assumed this was send
@@ -322,10 +322,10 @@ class FileTrigger(Trigger, Thread):
                     else:
                         self.terminator(next_timeout[0].finish(), self.publisher, publish_topic=self.publish_topic)
                 else:
-                    LOG.debug("Waiting %s seconds until timeout",
-                              str(total_seconds(next_timeout[1] -
-                                                datetime.utcnow())))
-                    LOG.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
+                    logger.debug("Waiting %s seconds until timeout",
+                                 str(total_seconds(next_timeout[1] -
+                                                   datetime.utcnow())))
+                    logger.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
                     if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
                         # If this option is given:
                         # Publish message after each new file is reveived
@@ -364,16 +364,16 @@ class InotifyTrigger(ProcessEvent, FileTrigger):
         """Process a closing file."""
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (close write): %s",
-                          event.pathname)
+                logger.debug("New file detected (close write): %s",
+                             event.pathname)
                 self.add_file(event.pathname)
 
     def process_IN_MOVED_TO(self, event):
         """Process a file moving into the directory."""
         for pattern in self.patterns:
             if fnmatch(event.src_path, pattern):
-                LOG.debug("New file detected (moved to): %s",
-                          event.pathname)
+                logger.debug("New file detected (moved to): %s",
+                             event.pathname)
                 self.add_file(event.pathname)
 
     def loop(self):
@@ -467,7 +467,7 @@ try:
             self.input_dirs = []
             for pattern in patterns:
                 self.input_dirs.append(os.path.dirname(pattern))
-                LOG.debug("watching " + str(os.path.dirname(pattern)))
+                logger.debug("watching " + str(os.path.dirname(pattern)))
             self.patterns = patterns
 
             self.new_file = Event()
@@ -486,12 +486,12 @@ try:
             try:
                 for pattern in self.patterns:
                     if fnmatch(pathname, pattern):
-                        LOG.debug("New file detected : " + pathname)
+                        logger.debug("New file detected : " + pathname)
                         self.process(pathname)
-                        LOG.debug("Done processing file")
+                        logger.debug("Done processing file")
                         return
             except Exception:
-                LOG.exception(
+                logger.exception(
                     "Something wrong happened in the event processing!")
 
         def process(self, pathname):
@@ -505,7 +505,7 @@ try:
                 self.observer.schedule(self, idir)
             self.observer.start()
 
-            LOG.debug("Started watching filesystem")
+            logger.debug("Started watching filesystem")
 
         def stop(self):
             """Stop processor."""
@@ -529,7 +529,7 @@ try:
             self.wdp.start()
 
             FileTrigger.start(self)
-            LOG.debug("Started polling")
+            logger.debug("Started polling")
 
         def stop(self):
             """Stop the trigger."""
@@ -539,7 +539,7 @@ try:
 
 
 except ImportError:
-    LOG.exception("Watchdog import failed!")
+    logger.exception("Watchdog import failed!")
     WatchDogTrigger = None
 
 
@@ -549,7 +549,7 @@ class AbstractMessageProcessor(Thread):
     def __init__(self, services, topics, nameserver="localhost"):
         """Init the message processor."""
         super(AbstractMessageProcessor, self).__init__()
-        LOG.debug("Nameserver: {}".format(nameserver))
+        logger.debug("Nameserver: {}".format(nameserver))
         self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
         self.sub = None
         self.loop = True
@@ -614,7 +614,7 @@ class PostTrollTrigger(FileTrigger):
         try:
             mgs_data = fix_start_end_time(message.data)
         except KeyError:
-            LOG.exception("Something went wrong!")
+            logger.exception("Something went wrong!")
         else:
             return mgs_data
 

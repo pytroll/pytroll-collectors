@@ -34,7 +34,7 @@ import socket
 
 from trollsift import compose
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def create_aligned_datetime_var(var_pattern, info_dict):
@@ -172,10 +172,10 @@ def is_uri_on_server(uri, strict=False):
     for the path to be considered valid.
     """
     url = urlparse(uri)
-    LOG.debug("URL: %s", str(url))
+    logger.debug("URL: %s", str(url))
     try:
         url_ip = socket.gethostbyname(url.hostname)
-        LOG.debug("url_ip: %s", url_ip)
+        logger.debug("url_ip: %s", url_ip)
     except (socket.gaierror, TypeError):
         if strict:
             return False
