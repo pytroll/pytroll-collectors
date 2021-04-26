@@ -74,7 +74,7 @@ class TestPostTrollTrigger(unittest.TestCase):
         publisher = Mock()
         ptt = PostTrollTrigger(None, None, None, None, publisher, duration=60)
 
-        msg_data = ptt.decode_message(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
+        msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
 
         self.assertIn("end_time", msg_data)
         self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
