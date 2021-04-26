@@ -35,7 +35,7 @@ from posttroll.subscriber import NSSubscriber
 from posttroll import message
 from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
-from trollsift import compose
+from trollsift import compose, Parser
 
 
 logger = logging.getLogger(__name__)
@@ -140,18 +140,45 @@ class Trigger(object):
 class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, decoder, publisher,
+    def __init__(self, collectors, terminator, config, publisher,
                  publish_topic=None, publish_message_after_each_reception=False):
         """Init the file trigger."""
         Thread.__init__(self)
         Trigger.__init__(self, collectors, terminator, publisher, publish_topic=publish_topic)
-        self.decoder = decoder
+        self._config = config
+        self.decoder = self._get_metadata
         self._running = True
         self.new_file = Event()
         self.publish_message_after_each_reception = publish_message_after_each_reception
 
+    def _get_metadata(self, fname):
+        """Parse metadata from the file."""
+        res = None
+        for section in self._config.sections():
+            try:
+                parser = Parser(self._config.get(section, "pattern"))
+            except NoOptionError:
+                continue
+            if not parser.validate(fname):
+                continue
+            res = parser.parse(fname)
+            res.update(dict(self._config.items(section)))
+
+            for key in ["watcher", "pattern", "timeliness", "regions"]:
+                res.pop(key, None)
+
+            res = fix_start_end_time(res)
+
+            if ("sensor" in res) and ("," in res["sensor"]):
+                res["sensor"] = res["sensor"].split(",")
+
+            res["uri"] = fname
+            res["filename"] = os.path.basename(fname)
+
+        return res
+
     def _do(self, pathname):
-        mda = self.decoder(pathname)
+        mda = self._get_metadata(pathname)
         logger.debug("mda: %s", str(mda))
         Trigger._do(self, mda)
 
@@ -216,11 +243,11 @@ class FileTrigger(Trigger, Thread):
 class InotifyTrigger(ProcessEvent, FileTrigger):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, publisher, decoder, patterns,
+    def __init__(self, collectors, terminator, publisher, config, patterns,
                  publish_topic=None):
         """Init the inotify trigger."""
         ProcessEvent.__init__(self)
-        FileTrigger.__init__(self, collectors, terminator, decoder, publisher, publish_topic=publish_topic)
+        FileTrigger.__init__(self, collectors, terminator, config, publisher, publish_topic=publish_topic)
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))
@@ -330,11 +357,11 @@ try:
     class WatchDogTrigger(FileTrigger):
         """File trigger, acting upon filesystem events."""
 
-        def __init__(self, collectors, terminator, decoder,
+        def __init__(self, collectors, terminator, config,
                      patterns, observer_class_name, publisher, publish_topic=None):
             """Init the trigger."""
             self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
-            FileTrigger.__init__(self, collectors, terminator, decoder, publisher,
+            FileTrigger.__init__(self, collectors, terminator, config, publisher,
                                  publish_topic=publish_topic)
             self.wdp.process = self.add_file
 
@@ -409,7 +436,7 @@ class PostTrollTrigger(FileTrigger):
         self.duration = duration
         self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
-        FileTrigger.__init__(self, collectors, terminator, self.decode_message,
+        FileTrigger.__init__(self, collectors, terminator, None,
                              publisher, publish_topic=publish_topic,
                              publish_message_after_each_reception=publish_message_after_each_reception)
 
@@ -418,7 +445,7 @@ class PostTrollTrigger(FileTrigger):
         FileTrigger.start(self)
         self.msgproc.start()
 
-    def decode_message(self, message):
+    def _get_metadata(self, message):
         """Return the message data."""
 
         # Include file duration in message data
