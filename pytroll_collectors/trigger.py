@@ -31,14 +31,11 @@ from fnmatch import fnmatch
 from threading import Event, Thread
 
 from six.moves.configparser import NoOptionError
-
 from posttroll.subscriber import NSSubscriber
 from posttroll import message
 from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
 from trollsift import compose, Parser
-from pytroll_collectors.region_collector import RegionCollector
-from satpy.resample import get_area_def
 
 
 logger = logging.getLogger(__name__)
@@ -69,109 +66,6 @@ def get_metadata(config, fname):
         res["filename"] = os.path.basename(fname)
 
     return res
-
-
-def setup_triggers(config, publisher, decoder=get_metadata):
-    """Setup the granule triggers."""
-    granule_triggers = []
-
-    for section in config.sections():
-        regions = [get_area_def(region)
-                   for region in config.get(section, "regions").split()]
-        collectors = _get_collectors(config, section, regions)
-        granule_triggers.append(_get_granule_trigger(config, section, publisher, collectors, decoder))
-
-    return granule_triggers
-
-
-def _get_collectors(config, section, regions):
-    timeliness = timedelta(minutes=config.getint(section, "timeliness"))
-    try:
-        duration = timedelta(seconds=config.getfloat(section, "duration"))
-    except NoOptionError:
-        duration = None
-    return [RegionCollector(region, timeliness, duration) for region in regions]
-
-
-def _get_granule_trigger(config, section, publisher, collectors, decoder):
-    try:
-        observer_class = config.get(section, "watcher")
-    except NoOptionError:
-        observer_class = None
-
-    if observer_class in ["PollingObserver", "Observer"]:
-        granule_trigger = _get_watchdog_trigger(config, section, observer_class, collectors, decoder, publisher)
-    else:
-        granule_trigger = _get_posttroll_trigger(config, section, observer_class, collectors, decoder, publisher)
-
-    return granule_trigger
-
-
-def _get_watchdog_trigger(config, section, observer_class, collectors, decoder, publisher):
-    pattern = config.get(section, "pattern")
-    parser = Parser(pattern)
-    glob = parser.globify()
-    publish_topic = _get_publish_topic(config, section)
-
-    logger.debug("Using %s for %s", observer_class, section)
-    return WatchDogTrigger(
-        collectors,
-        terminator_function,
-        decoder,
-        [glob],
-        observer_class,
-        publisher,
-        publish_topic=publish_topic)
-
-
-def _get_publish_topic(config, section):
-    try:
-        publish_topic = config.get(section, "publish_topic")
-    except NoOptionError:
-        publish_topic = None
-    return publish_topic
-
-
-def _get_posttroll_trigger(config, section, observer_class, collectors, decoder, publisher):
-    logger.debug("Using posttroll for %s", section)
-    nameserver = _get_nameserver(config, section)
-    publish_topic = _get_publish_topic(config, section)
-    duration = _get_duration(config, section)
-    publish_message_after_each_reception = _get_publish_message_after_each_reception(config, section)
-
-    return PostTrollTrigger(
-        collectors, terminator_function,
-        config.get(section, 'service').split(','),
-        config.get(section, 'topics').split(','),
-        publisher,
-        duration=duration,
-        publish_topic=publish_topic, nameserver=nameserver,
-        publish_message_after_each_reception=publish_message_after_each_reception)
-
-
-def _get_nameserver(config, section):
-    try:
-        nameserver = config.get(section, "nameserver")
-    except NoOptionError:
-        nameserver = "localhost"
-    return nameserver
-
-
-def _get_duration(config, section):
-    try:
-        duration = config.getfloat(section, "duration")
-    except NoOptionError:
-        duration = None
-    return duration
-
-
-def _get_publish_message_after_each_reception(config, section):
-    try:
-        publish_message_after_each_reception = config.get(section, "publish_message_after_each_reception")
-        logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
-    except NoOptionError:
-        publish_message_after_each_reception = False
-    return publish_message_after_each_reception
 
 
 def terminator_function(metadata, publisher, publish_topic=None):

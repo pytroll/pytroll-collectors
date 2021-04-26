@@ -26,9 +26,16 @@
 
 import logging
 import time
+import datetime as dt
 
-from pytroll_collectors.trigger import get_metadata, setup_triggers
+from six.moves.configparser import NoOptionError
 from posttroll import publisher
+from satpy.resample import get_area_def
+from trollsift import Parser
+
+from pytroll_collectors.trigger import get_metadata
+from pytroll_collectors.region_collector import RegionCollector
+from pytroll_collectors.trigger import PostTrollTrigger, WatchDogTrigger, terminator_function
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +49,7 @@ class GeographicGatherer(object):
         self._opts = opts
         self.decoder = decoder
         self.publisher = None
-        self.triggers = None
+        self.triggers = []
 
         self._setup_publisher()
         self._setup_triggers()
@@ -62,9 +69,99 @@ class GeographicGatherer(object):
 
     def _setup_triggers(self):
         """Set up the granule triggers."""
-        self.triggers = setup_triggers(self._config, self.publisher, decoder=self.decoder)
-        for trigger in self.triggers:
+        for section in self._config.sections():
+            regions = [get_area_def(region)
+                       for region in self._config.get(section, "regions").split()]
+            collectors = self._get_collectors(section, regions)
+            trigger = self._get_granule_trigger(section, collectors)
             trigger.start()
+            self.triggers.append(trigger)
+
+
+    def _get_collectors(self, section, regions):
+        timeliness = dt.timedelta(minutes=self._config.getint(section, "timeliness"))
+        try:
+            duration = dt.timedelta(seconds=self._config.getfloat(section, "duration"))
+        except NoOptionError:
+            duration = None
+        return [RegionCollector(region, timeliness, duration) for region in regions]
+
+    def _get_granule_trigger(self, section, collectors):
+        try:
+            observer_class = self._config.get(section, "watcher")
+        except NoOptionError:
+            observer_class = None
+
+        if observer_class in ["PollingObserver", "Observer"]:
+            granule_trigger = self._get_watchdog_trigger(section, observer_class, collectors)
+        else:
+            granule_trigger = self._get_posttroll_trigger(section, observer_class, collectors)
+
+        return granule_trigger
+
+    def _get_watchdog_trigger(self, section, observer_class, collectors):
+        pattern = self._config.get(section, "pattern")
+        parser = Parser(pattern)
+        glob = parser.globify()
+        publish_topic = self._get_publish_topic(section)
+
+        logger.debug("Using %s for %s", observer_class, section)
+        return WatchDogTrigger(
+            collectors,
+            terminator_function,
+            self.decoder,
+            [glob],
+            observer_class,
+            self.publisher,
+            publish_topic=publish_topic)
+
+    def _get_publish_topic(self, section):
+        try:
+            publish_topic = self._config.get(section, "publish_topic")
+        except NoOptionError:
+            publish_topic = None
+        return publish_topic
+
+
+    def _get_posttroll_trigger(self, section, observer_class, collectors):
+        logger.debug("Using posttroll for %s", section)
+        nameserver = self._get_nameserver(section)
+        publish_topic = self._get_publish_topic(section)
+        duration = self._get_duration(section)
+        publish_message_after_each_reception = self._get_publish_message_after_each_reception(section)
+
+        return PostTrollTrigger(
+            collectors, terminator_function,
+            self._config.get(section, 'service').split(','),
+            self._config.get(section, 'topics').split(','),
+            self.publisher,
+            duration=duration,
+            publish_topic=publish_topic, nameserver=nameserver,
+            publish_message_after_each_reception=publish_message_after_each_reception)
+
+
+    def _get_nameserver(self, section):
+        try:
+            nameserver = self._config.get(section, "nameserver")
+        except NoOptionError:
+            nameserver = "localhost"
+        return nameserver
+
+
+    def _get_duration(self, section):
+        try:
+            duration = self._config.getfloat(section, "duration")
+        except NoOptionError:
+            duration = None
+        return duration
+
+    def _get_publish_message_after_each_reception(self, section):
+        try:
+            publish_message_after_each_reception = self._config.get(section, "publish_message_after_each_reception")
+            logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
+        except NoOptionError:
+            publish_message_after_each_reception = False
+        return publish_message_after_each_reception
 
     def run(self):
         """Run granule triggers."""
