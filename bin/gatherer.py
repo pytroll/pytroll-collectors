@@ -32,8 +32,7 @@ import os.path
 
 from six.moves.configparser import RawConfigParser
 
-from pytroll_collectors.trigger import get_metadata, setup_triggers
-from posttroll import publisher
+from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
 
 def arg_parse():
@@ -101,22 +100,6 @@ def _clean_config(config, opts, logger):
     return config
 
 
-def _setup_publisher(opts):
-    if opts.config_item:
-        publisher_name = "gatherer_" + "_".join(opts.config_item)
-    else:
-        publisher_name = "gatherer"
-
-    publish_port = opts.publish_port
-    publisher_nameservers = opts.nameservers
-
-    pub = publisher.NoisyPublisher(publisher_name, port=publish_port,
-                                   nameservers=publisher_nameservers)
-    pub.start()
-
-    return pub
-
-
 def main():
     """Run the gatherer."""
     config = RawConfigParser()
@@ -134,29 +117,8 @@ def main():
     if config is None:
         return
 
-    pub = _setup_publisher(opts)
-
-    granule_triggers = setup_triggers(config, pub, decoder=get_metadata)
-    for granule_trigger in granule_triggers:
-        granule_trigger.start()
-
-    try:
-        while True:
-            time.sleep(1)
-            for granule_trigger in granule_triggers:
-                if not granule_trigger.is_alive():
-                    raise RuntimeError
-    except KeyboardInterrupt:
-        logger.info("Shutting down...")
-    except RuntimeError:
-        logger.critical('Something went wrong!')
-    except OSError:
-        logger.critical('Something went wrong!')
-    finally:
-        logger.warning('Ending publication the gathering of granules...')
-        for granule_trigger in granule_triggers:
-            granule_trigger.stop()
-        pub.stop()
+    granule_triggers = GeographicGatherer(config, opts)
+    granule_triggers.run()
 
 
 if __name__ == '__main__':
