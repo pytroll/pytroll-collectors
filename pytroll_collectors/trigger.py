@@ -38,7 +38,7 @@ from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
 from trollsift import compose, Parser
 from pytroll_collectors.region_collector import RegionCollector
-from pyresample import parse_area_file
+from satpy.resample import get_area_def
 
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def setup_triggers(config, publisher, decoder=get_metadata):
     granule_triggers = []
 
     for section in config.sections():
-        regions = [parse_area_file(region)
+        regions = [get_area_def(region)
                    for region in config.get(section, "regions").split()]
         collectors = _get_collectors(config, section, regions)
         granule_triggers.append(_get_granule_trigger(config, section, publisher, collectors, decoder))
