@@ -33,11 +33,11 @@ from six.moves.configparser import RawConfigParser
 import logging
 import logging.config
 import os.path
-import datetime as dt
 
 from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
 from trollsift import Parser
+from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,6 @@ try:
 except NameError:
     # Pyton 3
     str_or_unicode = (str, bytes)
-
-from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
 
 class FilePublisher(AbstractWatchDogProcessor):
@@ -185,7 +183,7 @@ def main():
 
     args_dict = vars(args)
     args_dict = {k: args_dict[k]
-                 for k in args_dict if args_dict[k] != None}
+                 for k in args_dict if args_dict[k] is not None}
 
     config = {}
 

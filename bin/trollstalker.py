@@ -35,7 +35,6 @@ import logging
 import logging.config
 import os
 import os.path
-import re
 import datetime as dt
 from collections import deque, OrderedDict
 
@@ -120,7 +119,7 @@ class EventHandler(ProcessEvent):
 
     def process_IN_DELETE(self, event):
         """On delete."""
-        if (event.mask & pyinotify.IN_ISDIR ):
+        if (event.mask & pyinotify.IN_ISDIR):
             try:
                 try:
                     self._watchManager.rm_watch(self._watched_dirs[event.pathname], quiet=False)
@@ -484,6 +483,7 @@ def main():
         logger.info("Interupting TrollStalker")
     finally:
         notifier.stop()
+
 
 if __name__ == "__main__":
     logger = logging.getLogger("trollstalker")

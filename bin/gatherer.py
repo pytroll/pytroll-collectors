@@ -24,7 +24,6 @@
 
 """Gather granule messages to send them in a bunch."""
 
-from datetime import timedelta
 import time
 import logging
 import logging.handlers
