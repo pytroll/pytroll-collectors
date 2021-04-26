@@ -38,10 +38,7 @@ from pyinotify import (IN_CLOSE_WRITE, IN_MOVED_TO, Notifier, ProcessEvent,
                        WatchManager)
 from trollsift import compose, Parser
 from pytroll_collectors.region_collector import RegionCollector
-try:
-    from satpy.resample import get_area_def
-except ImportError:
-    from mpop.projector import get_area_def
+from pyresample import parse_area_file
 
 
 LOG = logging.getLogger(__name__)
@@ -79,7 +76,7 @@ def setup_triggers(config, publisher, decoder=get_metadata):
     granule_triggers = []
 
     for section in config.sections():
-        regions = [get_area_def(region)
+        regions = [parse_area_file(region)
                    for region in config.get(section, "regions").split()]
         collectors = _get_collectors(config, section, regions)
         granule_triggers.append(_get_granule_trigger(config, section, publisher, collectors, decoder))
@@ -276,7 +273,8 @@ class Trigger(object):
 class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, terminator, decoder, publisher, publish_topic=None, publish_message_after_each_reception=False):
+    def __init__(self, collectors, terminator, decoder, publisher,
+                 publish_topic=None, publish_message_after_each_reception=False):
         """Init the file trigger."""
         Thread.__init__(self)
         Trigger.__init__(self, collectors, terminator, publisher, publish_topic=publish_topic)
@@ -333,7 +331,8 @@ class FileTrigger(Trigger, Thread):
                         # Publish message after each new file is reveived
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
-                        self.terminator(next_timeout[0].finish_without_reset(), self.publisher, publish_topic=self.publish_topic)
+                        self.terminator(next_timeout[0].finish_without_reset(), self.publisher,
+                                        publish_topic=self.publish_topic)
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()
