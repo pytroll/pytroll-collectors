@@ -43,33 +43,38 @@ class FakeMessage(object):
 class TestPostTrollTrigger(unittest.TestCase):
     """Test the posttroll trigger."""
 
-    @patch('pytroll_collectors.trigger.FileTrigger.terminator')
-    @patch('pytroll_collectors.trigger.Trigger.terminator')
     @patch('pytroll_collectors.trigger.PostTrollTrigger._get_metadata')
     @patch('pytroll_collectors.trigger.NSSubscriber')
-    def test_timeout(self, nssub, get_metadata, trig_terminator, file_terminator):
+    def test_timeout(self, nssub, get_metadata):
         """Test timing out."""
         from pytroll_collectors.trigger import PostTrollTrigger
+
+        messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri1'}),
+                    FakeMessage({"b": "b", 'start_time': 2, 'end_time': 3, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri2'}),
+                    FakeMessage({"c": "c", 'start_time': 3, 'end_time': 4, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri3'})]
+
         collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
         collector.return_value = None
+        def finish():
+            collector.timeout = None
+            return [msg.data for msg in messages]
+        collector.finish = finish
         publisher = Mock()
 
         ptt = PostTrollTrigger([collector], None, None, publisher,
                                publish_topic=None)
-
         sub = ptt.msgproc.nssub.start.return_value
-        messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2}),
-                    FakeMessage({"b": "b", 'start_time': 1, 'end_time': 2}),
-                    FakeMessage({"c": "c", 'start_time': 1, 'end_time': 2})]
         sub.recv.return_value = iter(messages)
-
         ptt.start()
         time.sleep(.4)
         ptt.stop()
 
-        # Timeout means the terminator is called with the return value of collector.finish()
-        assert call(collector.finish()) in file_terminator.mock_calls
+        # Timeout means a message should've been sent in the terminator
+        publisher.send.assert_called_once()
 
     def test_duration(self):
         """Test duration"""
