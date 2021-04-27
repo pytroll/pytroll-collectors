@@ -89,7 +89,7 @@ class Trigger(object):
         for collector in self.collectors:
             res = collector(metadata.copy())
             if res:
-                return self.terminator(res)
+                self.terminator(res)
 
     def terminator(self, metadata):
         """Terminate the gathering."""
@@ -102,8 +102,7 @@ class Trigger(object):
             subject = compose(self.publish_topic, mda)
         else:
             logger.info("Using default topic.")
-            subject = "/".join(("", mda["format"], mda["data_processing_level"],
-                                ''))
+            subject = "/".join(("", mda["format"], mda["data_processing_level"], ''))
 
         mda['start_time'] = sorted_mda[0]['start_time']
         mda['end_time'] = sorted_mda[-1]['end_time']
@@ -127,8 +126,7 @@ class Trigger(object):
                 del mda[key]
 
         if is_correct:
-            msg = message.Message(subject, "collection",
-                                mda)
+            msg = message.Message(subject, "collection", mda)
             logger.info("sending %s", str(msg))
             self.publisher.send(str(msg))
         else:
