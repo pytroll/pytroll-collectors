@@ -41,50 +41,6 @@ from trollsift import compose, Parser
 logger = logging.getLogger(__name__)
 
 
-def terminator_function(metadata, publisher, publish_topic=None):
-    """Terminate the gathering."""
-    sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
-
-    mda = metadata[0].copy()
-
-    if publish_topic is not None:
-        logger.info("Composing topic.")
-        subject = compose(publish_topic, mda)
-    else:
-        logger.info("Using default topic.")
-        subject = "/".join(("", mda["format"], mda["data_processing_level"],
-                            ''))
-
-    mda['start_time'] = sorted_mda[0]['start_time']
-    mda['end_time'] = sorted_mda[-1]['end_time']
-    mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
-    mda['collection'] = []
-
-    is_correct = False
-    for meta in sorted_mda:
-        new_mda = {}
-        if "uri" in meta or 'dataset' in meta:
-            is_correct = True
-        for key in ['dataset', 'uri', 'uid']:
-            if key in meta:
-                new_mda[key] = meta[key]
-            new_mda['start_time'] = meta['start_time']
-            new_mda['end_time'] = meta['end_time']
-        mda['collection'].append(new_mda)
-
-    for key in ['dataset', 'uri', 'uid']:
-        if key in mda:
-            del mda[key]
-
-    if is_correct:
-        msg = message.Message(subject, "collection",
-                              mda)
-        logger.info("sending %s", str(msg))
-        publisher.send(str(msg))
-    else:
-        logger.warning("Malformed metadata, no key: %s", "uri")
-
-
 def total_seconds(tdef):
     """Calculate total time in seconds."""
     return ((tdef.microseconds +
@@ -133,7 +89,50 @@ class Trigger(object):
         for collector in self.collectors:
             res = collector(metadata.copy())
             if res:
-                return terminator_function(res, self.publisher, publish_topic=self.publish_topic)
+                return self.terminator(res)
+
+    def terminator(self, metadata):
+        """Terminate the gathering."""
+        sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
+
+        mda = metadata[0].copy()
+
+        if self.publish_topic is not None:
+            logger.info("Composing topic.")
+            subject = compose(self.publish_topic, mda)
+        else:
+            logger.info("Using default topic.")
+            subject = "/".join(("", mda["format"], mda["data_processing_level"],
+                                ''))
+
+        mda['start_time'] = sorted_mda[0]['start_time']
+        mda['end_time'] = sorted_mda[-1]['end_time']
+        mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
+        mda['collection'] = []
+
+        is_correct = False
+        for meta in sorted_mda:
+            new_mda = {}
+            if "uri" in meta or 'dataset' in meta:
+                is_correct = True
+            for key in ['dataset', 'uri', 'uid']:
+                if key in meta:
+                    new_mda[key] = meta[key]
+                new_mda['start_time'] = meta['start_time']
+                new_mda['end_time'] = meta['end_time']
+            mda['collection'].append(new_mda)
+
+        for key in ['dataset', 'uri', 'uid']:
+            if key in mda:
+                del mda[key]
+
+        if is_correct:
+            msg = message.Message(subject, "collection",
+                                mda)
+            logger.info("sending %s", str(msg))
+            self.publisher.send(str(msg))
+        else:
+            logger.warning("Malformed metadata, no key: %s", "uri")
 
 
 class FileTrigger(Trigger, Thread):
@@ -145,7 +144,6 @@ class FileTrigger(Trigger, Thread):
         Thread.__init__(self)
         Trigger.__init__(self, collectors, publisher, publish_topic=publish_topic)
         self._config = config
-        self.decoder = self._get_metadata
         self._running = True
         self.new_file = Event()
         self.publish_message_after_each_reception = publish_message_after_each_reception
@@ -213,7 +211,7 @@ class FileTrigger(Trigger, Thread):
                         # Only clean up the collector.
                         next_timeout[0].finish()
                     else:
-                        terminator_function(next_timeout[0].finish(), self.publisher, publish_topic=self.publish_topic)
+                        self.terminator(next_timeout[0].finish())
                 else:
                     logger.debug("Waiting %s seconds until timeout",
                                  str(total_seconds(next_timeout[1] -
@@ -224,8 +222,7 @@ class FileTrigger(Trigger, Thread):
                         # Publish message after each new file is reveived
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
-                        terminator_function(next_timeout[0].finish_without_reset(), self.publisher,
-                                            publish_topic=self.publish_topic)
+                        self.terminator(next_timeout[0].finish_without_reset())
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()

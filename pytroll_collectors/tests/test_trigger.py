@@ -43,8 +43,11 @@ class FakeMessage(object):
 class TestPostTrollTrigger(unittest.TestCase):
     """Test the posttroll trigger."""
 
+    @patch('pytroll_collectors.trigger.FileTrigger.terminator')
+    @patch('pytroll_collectors.trigger.Trigger.terminator')
+    @patch('pytroll_collectors.trigger.PostTrollTrigger._get_metadata')
     @patch('pytroll_collectors.trigger.NSSubscriber')
-    def test_timeout(self, nssub):
+    def test_timeout(self, nssub, get_metadata, trig_terminator, file_terminator):
         """Test timing out."""
         from pytroll_collectors.trigger import PostTrollTrigger
         collector = Mock()
@@ -52,27 +55,27 @@ class TestPostTrollTrigger(unittest.TestCase):
         collector.return_value = None
         publisher = Mock()
 
-        def terminator(obj, publisher, publish_topic=None):
-            collector.timeout = None
-        ptt = PostTrollTrigger([collector], terminator, None, None, publisher,
+        ptt = PostTrollTrigger([collector], None, None, publisher,
                                publish_topic=None)
 
         sub = ptt.msgproc.nssub.start.return_value
-        sub.recv.return_value = iter([FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2}),
-                                      FakeMessage(
-                                          {"b": "b", 'start_time': 1, 'end_time': 2}),
-                                      FakeMessage({"c": "c", 'start_time': 1, 'end_time': 2})])
+        messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2}),
+                    FakeMessage({"b": "b", 'start_time': 1, 'end_time': 2}),
+                    FakeMessage({"c": "c", 'start_time': 1, 'end_time': 2})]
+        sub.recv.return_value = iter(messages)
 
         ptt.start()
         time.sleep(.4)
         ptt.stop()
-        self.assertTrue(collector.timeout is None)
+
+        # Timeout means the terminator is called with the return value of collector.finish()
+        assert call(collector.finish()) in file_terminator.mock_calls
 
     def test_duration(self):
         """Test duration"""
         from pytroll_collectors.trigger import PostTrollTrigger
         publisher = Mock()
-        ptt = PostTrollTrigger(None, None, None, None, publisher, duration=60)
+        ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
 
         msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
 
