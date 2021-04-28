@@ -103,6 +103,8 @@ def main():
     granule_triggers = GeographicGatherer(config, opts)
     granule_triggers.run()
 
+    logger.info("GeographicGatherer has stopped.")
+
 
 if __name__ == '__main__':
 
