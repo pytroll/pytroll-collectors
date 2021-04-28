@@ -121,12 +121,12 @@ class RegionCollector(object):
 
                 try:
                     new_timeout = (max(self.planned_granule_times -
-                                        self.granule_times) +
-                                    self.granule_duration +
-                                    self.timeliness)
+                                       self.granule_times) +
+                                   self.granule_duration +
+                                   self.timeliness)
                 except ValueError:
                     logger.error("Calculation of new timeout failed, "
-                                    "keeping previous timeout.")
+                                 "keeping previous timeout.")
                     logger.error("Planned: %s", self.planned_granule_times)
                     logger.error("Received: %s", self.granule_times)
                     return
