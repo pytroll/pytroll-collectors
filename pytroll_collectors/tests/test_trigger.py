@@ -60,6 +60,7 @@ class TestPostTrollTrigger(unittest.TestCase):
         collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
         collector.return_value = None
+
         def finish():
             collector.timeout = None
             return [msg.data for msg in messages]
