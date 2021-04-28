@@ -49,8 +49,23 @@ class GeographicGatherer(object):
         self.publisher = None
         self.triggers = []
 
+        self._clean_config()
         self._setup_publisher()
         self._setup_triggers()
+
+    def _clean_config(self):
+        if self._opts.config_item:
+            for section in self._opts.config_item:
+                if section not in self._config.sections():
+                    logger.warning(
+                        "No config item called %s found in config file.", section)
+            for section in self._config.sections():
+                if section not in self._opts.config_item:
+                    self._config.remove_section(section)
+                    logger.info("Removed unused section '%s'", section)
+            if len(self._config.sections()) == 0:
+                logger.error("No valid config item provided")
+                raise NoOptionError
 
     def _setup_publisher(self):
         if self._opts.config_item:

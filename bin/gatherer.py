@@ -84,22 +84,6 @@ def setup_logging(opts):
     return logging.getLogger("gatherer")
 
 
-def _clean_config(config, opts, logger):
-    if opts.config_item:
-        for section in opts.config_item:
-            if section not in config.sections():
-                logger.warning(
-                    "No config item called %s found in config file.", section)
-        for section in config.sections():
-            if section not in opts.config_item:
-                config.remove_section(section)
-                logger.info("Removed unused section '%s'", section)
-        if len(config.sections()) == 0:
-            logger.error("No valid config item provided")
-            return None
-    return config
-
-
 def main():
     """Run the gatherer."""
     config = RawConfigParser()
@@ -113,7 +97,6 @@ def main():
     os.environ["TZ"] = "UTC"
     time.tzset()
 
-    config = _clean_config(config, opts, logger)
     if config is None:
         return
 
