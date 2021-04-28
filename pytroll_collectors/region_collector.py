@@ -27,7 +27,10 @@
 import os
 from datetime import timedelta, datetime
 
-from trollsched.satpass import Pass
+try:
+    from trollsched.satpass import Pass
+except ImportError:
+    Pass = None
 
 import logging
 
@@ -62,7 +65,10 @@ class RegionCollector(object):
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
-        return self.collect(granule_metadata)
+        try:
+            return self.collect(granule_metadata)
+        except TypeError:
+            raise ImportError("Pytroll-schedule is needed to run RegionCollector")
 
     def collect(self, granule_metadata):
         """Do the collection."""
