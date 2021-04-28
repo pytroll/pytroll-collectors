@@ -118,25 +118,25 @@ class RegionCollector(object):
                     logger.info("Collection finished for area: %s",
                                 str(self.region.area_id))
                     return self.finish()
-                else:
-                    try:
-                        new_timeout = (max(self.planned_granule_times -
-                                           self.granule_times) +
-                                       self.granule_duration +
-                                       self.timeliness)
-                    except ValueError:
-                        logger.error("Calculation of new timeout failed, "
-                                     "keeping previous timeout.")
-                        logger.error("Planned: %s", self.planned_granule_times)
-                        logger.error("Received: %s", self.granule_times)
-                        return
 
-                    if new_timeout < self.timeout:
-                        self.timeout = new_timeout
-                        logger.info("Adjusted timeout: %s",
-                                    self.timeout.isoformat())
-
+                try:
+                    new_timeout = (max(self.planned_granule_times -
+                                        self.granule_times) +
+                                    self.granule_duration +
+                                    self.timeliness)
+                except ValueError:
+                    logger.error("Calculation of new timeout failed, "
+                                    "keeping previous timeout.")
+                    logger.error("Planned: %s", self.planned_granule_times)
+                    logger.error("Received: %s", self.granule_times)
                     return
+
+                if new_timeout < self.timeout:
+                    self.timeout = new_timeout
+                    logger.info("Adjusted timeout: %s",
+                                self.timeout.isoformat())
+
+                return
 
         # Get corners from input data
 
