@@ -22,90 +22,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Gather granule messages to send them in a bunch."""
+"""Obsolete gatherer script."""
 
 import time
-import logging
-import logging.handlers
-import os
+from importlib.util import spec_from_file_location, module_from_spec
 import os.path
 
-from six.moves.configparser import RawConfigParser
-
-from pytroll_collectors.geographic_gatherer import GeographicGatherer
-
-
-def arg_parse():
-    """Handle input arguments."""
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log",
-                        help="File to log to (defaults to stdout)",
-                        default=None)
-    parser.add_argument("-v", "--verbose", help="print debug messages too",
-                        action="store_true")
-    parser.add_argument("-c", "--config-item",
-                        help="config item to use (all by default). Can be specified multiply times",
-                        action="append")
-    parser.add_argument("-p", "--publish-port", default=0, type=int,
-                        help="Port to publish the messages on. Default: automatic")
-    parser.add_argument("-n", "--nameservers",
-                        help=("Connect publisher to given nameservers: "
-                              "'-n localhost -n 123.456.789.0'. Default: localhost"),
-                        action="append")
-    parser.add_argument("config", help="config file to be used")
-
-    return parser.parse_args()
-
-
-def setup_logging(opts):
-    """Setup logging."""
-    handlers = []
-    if opts.log:
-        handlers.append(logging.handlers.TimedRotatingFileHandler(opts.log,
-                                                                  "midnight",
-                                                                  backupCount=7))
-    handlers.append(logging.StreamHandler())
-
-    if opts.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-    for handler in handlers:
-        handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
-                                               " %(name)s] %(message)s",
-                                               '%Y-%m-%d %H:%M:%S'))
-        handler.setLevel(loglevel)
-        logging.getLogger('').setLevel(loglevel)
-        logging.getLogger('').addHandler(handler)
-
-    logging.getLogger("posttroll").setLevel(logging.INFO)
-    return logging.getLogger("gatherer")
-
-
-def main():
-    """Run the gatherer."""
-    config = RawConfigParser()
-
-    opts = arg_parse()
-    config.read(opts.config)
-
-    logger = setup_logging(opts)
-
-    print("Setting timezone to UTC")
-    os.environ["TZ"] = "UTC"
-    time.tzset()
-
-    if config is None:
-        return
-
-    granule_triggers = GeographicGatherer(config, opts)
-    granule_triggers.run()
-
-    logger.info("GeographicGatherer has stopped.")
+spec = spec_from_file_location(
+    "geographic_gatherer",
+    os.path.join(os.path.dirname(__file__), "geographic_gatherer.py"))
+geographic_gatherer = module_from_spec(spec)
+spec.loader.exec_module(geographic_gatherer)
 
 
 if __name__ == '__main__':
-
-    main()
+    print("\nThe 'gatherer.py' script is deprecated.\n\n"
+          "Please use 'geographic_gatherer.py' instead\n")
+    time.sleep(10)
+    geographic_gatherer.main()
