@@ -30,7 +30,10 @@ import datetime as dt
 
 from six.moves.configparser import NoOptionError
 from posttroll import publisher
-from satpy.resample import get_area_def
+try:
+    from satpy.resample import get_area_def
+except ImportError:
+    get_area_def = None
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
@@ -40,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 class GeographicGatherer(object):
-    """Container for granule triggers for geographich segment gathering."""
+    """Container for granule triggers for geographic segment gathering."""
 
     def __init__(self, config, opts):
         """Initialize the class."""
@@ -51,7 +54,10 @@ class GeographicGatherer(object):
 
         self._clean_config()
         self._setup_publisher()
-        self._setup_triggers()
+        try:
+            self._setup_triggers()
+        except TypeError:
+            raise ImportError("Satpy is required to run GeographicGatherer")
 
     def _clean_config(self):
         if self._opts.config_item:
