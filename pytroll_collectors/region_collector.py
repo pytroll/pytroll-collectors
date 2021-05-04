@@ -80,23 +80,7 @@ class RegionCollector(object):
             platform = granule_metadata['platform_name']
 
         start_time = granule_metadata['start_time']
-        if ("end_time" not in granule_metadata and
-                self.granule_duration is not None):
-            granule_metadata["end_time"] = (granule_metadata["start_time"] +
-                                            self.granule_duration)
-
-        end_time = granule_metadata['end_time']
-
-        if start_time > end_time:
-            old_end_time = end_time
-            end_date = start_time.date()
-            if end_time.time() < start_time.time():
-                end_date += timedelta(days=1)
-            end_time = datetime.combine(end_date, end_time.time())
-            logger.debug('Adjusted end time from %s to %s.',
-                         old_end_time, end_time)
-
-        granule_metadata['end_time'] = end_time
+        self._set_end_time(granule_metadata)
 
         logger.debug("Adding area ID to metadata: %s", str(self.region.area_id))
         granule_metadata['collection_area_id'] = self.region.area_id
@@ -139,7 +123,7 @@ class RegionCollector(object):
                 return
 
         # Get corners from input data
-
+        end_time = granule_metadata["end_time"]
         if self.granule_duration is None:
             self.granule_duration = end_time - start_time
             logger.debug("Estimated granule duration to %s",
@@ -222,6 +206,14 @@ class RegionCollector(object):
                          str(self.region.area_id))
             return self.finish()
 
+    def _set_end_time(self, granule_metadata):
+        if ("end_time" not in granule_metadata and
+                self.granule_duration is not None):
+            granule_metadata["end_time"] = ( +
+                                            self.granule_duration)
+        granule_metadata['end_time'] = _adjust_end_time(
+            granule_metadata['end_time'], granule_metadata["start_time"])
+
     def is_swath_complete(self):
         """Check if the swath is complete."""
         if self.granule_times:
@@ -282,3 +274,14 @@ def read_granule_metadata(filename):
             metadata[attr] = datetime.strptime(
                 metadata[attr], "%Y-%m-%dT%H:%M:%S")
     return metadata
+
+
+def _adjust_end_time(end_time, start_time):
+    if start_time > end_time:
+        old_end_time = end_time
+        end_date = start_time.date()
+        if end_time.time() < start_time.time():
+            end_date += timedelta(days=1)
+        end_time = datetime.combine(end_date, end_time.time())
+        logger.debug('Adjusted end time from %s to %s.', old_end_time, end_time)
+    return end_time
