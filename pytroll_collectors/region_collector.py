@@ -74,11 +74,6 @@ class RegionCollector(object):
         """Do the collection."""
         # Check if input data is being waited for
 
-        if "tle_platform_name" in granule_metadata:
-            platform = granule_metadata['tle_platform_name']
-        else:
-            platform = granule_metadata['platform_name']
-
         start_time = granule_metadata['start_time']
         self._set_end_time(granule_metadata)
 
@@ -87,40 +82,15 @@ class RegionCollector(object):
 
         self.last_file_added = False
         for ptime in self.planned_granule_times:
-            if abs(start_time - ptime) < timedelta(seconds=3) and \
-               ptime not in self.granule_times:
-                self.granule_times.add(ptime)
-                self.granules.append(granule_metadata)
-                self.last_file_added = True
-                logger.info("Added %s (%s) granule to area %s",
-                            platform,
-                            str(start_time),
-                            self.region.area_id)
+            if self._is_new_valid_granule(start_time, ptime):
+                self._add_granule(ptime, granule_metadata)
                 # If last granule return swath and cleanup
-                # if self.granule_times == self.planned_granule_times:
                 if self.is_swath_complete():
                     logger.info("Collection finished for area: %s",
                                 str(self.region.area_id))
                     return self.finish()
-
-                try:
-                    new_timeout = (max(self.planned_granule_times -
-                                       self.granule_times) +
-                                   self.granule_duration +
-                                   self.timeliness)
-                except ValueError:
-                    logger.error("Calculation of new timeout failed, "
-                                 "keeping previous timeout.")
-                    logger.error("Planned: %s", self.planned_granule_times)
-                    logger.error("Received: %s", self.granule_times)
-                    return
-
-                if new_timeout < self.timeout:
-                    self.timeout = new_timeout
-                    logger.info("Adjusted timeout: %s",
-                                self.timeout.isoformat())
-
-                return
+                self._adjust_timeout()
+                return None
 
         # Get corners from input data
         end_time = granule_metadata["end_time"]
@@ -129,14 +99,15 @@ class RegionCollector(object):
             logger.debug("Estimated granule duration to %s",
                          str(self.granule_duration))
 
-        logger.info("Platform name %s and sensor %s: Start and end times = %s %s", str(platform),
+        logger.info("Platform name %s and sensor %s: Start and end times = %s %s",
+                    str(_get_platform_name(granule_metadata)),
                     str(granule_metadata["sensor"]),
                     start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         self.sensor = granule_metadata["sensor"]
         if isinstance(self.sensor, list):
             self.sensor = self.sensor[0]
-        granule_pass = Pass(platform, start_time, end_time,
+        granule_pass = Pass(_get_platform_name(granule_metadata), start_time, end_time,
                             instrument=self.sensor)
 
         # If file is within region, make pass prediction to know what to wait
@@ -151,7 +122,7 @@ class RegionCollector(object):
             if not self.planned_granule_times:
                 self.planned_granule_times.add(start_time)
                 logger.info("Added %s (%s) granule to area %s",
-                            platform,
+                            _get_platform_name(granule_metadata),
                             str(start_time),
                             self.region.area_id)
                 logger.debug("Predicting granules covering %s",
@@ -159,7 +130,7 @@ class RegionCollector(object):
                 gr_time = start_time
                 while True:
                     gr_time += self.granule_duration
-                    gr_pass = Pass(platform, gr_time,
+                    gr_pass = Pass(_get_platform_name(granule_metadata), gr_time,
                                    gr_time + self.granule_duration,
                                    instrument=self.sensor)
                     if not gr_pass.area_coverage(self.region) > 0:
@@ -169,7 +140,7 @@ class RegionCollector(object):
                 gr_time = start_time
                 while True:
                     gr_time -= self.granule_duration
-                    gr_pass = Pass(platform, gr_time,
+                    gr_pass = Pass(_get_platform_name(granule_metadata), gr_time,
                                    gr_time + self.granule_duration,
                                    instrument=self.sensor)
                     if not gr_pass.area_coverage(self.region) > 0:
@@ -206,10 +177,12 @@ class RegionCollector(object):
                          str(self.region.area_id))
             return self.finish()
 
+        return None
+
     def _set_end_time(self, granule_metadata):
         if ("end_time" not in granule_metadata and
                 self.granule_duration is not None):
-            granule_metadata["end_time"] = ( +
+            granule_metadata["end_time"] = (granule_metadata["start_time"] +
                                             self.granule_duration)
         granule_metadata['end_time'] = _adjust_end_time(
             granule_metadata['end_time'], granule_metadata["start_time"])
@@ -219,22 +192,38 @@ class RegionCollector(object):
         if self.granule_times:
             if self.planned_granule_times.issubset(self.granule_times):
                 return True
-            try:
-                new_timeout = (max(self.planned_granule_times -
-                                   self.granule_times) +
-                               self.granule_duration +
-                               self.timeliness)
-            except ValueError:
-                logger.error("Calculation of new timeout failed, "
-                             "keeping previous timeout.")
-                logger.error("Planned: %s", self.planned_granule_times)
-                logger.error("Received: %s", self.granule_times)
-                return False
-            if new_timeout < self.timeout:
-                self.timeout = new_timeout
-                logger.info("Adjusted timeout: %s", self.timeout.isoformat())
+            self._adjust_timeout()
 
         return False
+
+    def _is_new_valid_granule(self, start_time, ptime):
+        return (abs(start_time - ptime) < timedelta(seconds=3) and
+                ptime not in self.granule_times)
+
+    def _add_granule(self, ptime, granule_metadata):
+        self.granule_times.add(ptime)
+        self.granules.append(granule_metadata)
+        self.last_file_added = True
+        logger.info("Added %s (%s) granule to area %s",
+                    _get_platform_name(granule_metadata),
+                    str(granule_metadata["start_time"]),
+                    self.region.area_id)
+
+    def _adjust_timeout(self):
+        try:
+            new_timeout = (max(self.planned_granule_times -
+                               self.granule_times) +
+                           self.granule_duration +
+                           self.timeliness)
+        except ValueError:
+            logger.error("Calculation of new timeout failed, "
+                         "keeping previous timeout.")
+            logger.error("Planned: %s", self.planned_granule_times)
+            logger.error("Received: %s", self.granule_times)
+            return
+        if new_timeout < self.timeout:
+            self.timeout = new_timeout
+            logger.info("Adjusted timeout: %s", self.timeout.isoformat())
 
     def cleanup(self):
         """Clear members."""
@@ -285,3 +274,9 @@ def _adjust_end_time(end_time, start_time):
         end_time = datetime.combine(end_date, end_time.time())
         logger.debug('Adjusted end time from %s to %s.', old_end_time, end_time)
     return end_time
+
+
+def _get_platform_name(granule_metadata):
+    if "tle_platform_name" in granule_metadata:
+        return granule_metadata['tle_platform_name']
+    return granule_metadata['platform_name']
