@@ -61,7 +61,6 @@ class RegionCollector(object):
         self.timeout = None
         self.granule_duration = granule_duration
         self.last_file_added = False
-        self.sensor = None
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
@@ -92,84 +91,16 @@ class RegionCollector(object):
                 self._adjust_timeout()
                 return None
 
-        # Get corners from input data
+        start_time = granule_metadata["start_time"]
         end_time = granule_metadata["end_time"]
-        if self.granule_duration is None:
-            self.granule_duration = end_time - start_time
-            logger.debug("Estimated granule duration to %s",
-                         str(self.granule_duration))
-
+        self._set_granule_duration(start_time, end_time)
         logger.info("Platform name %s and sensor %s: Start and end times = %s %s",
                     str(_get_platform_name(granule_metadata)),
-                    str(granule_metadata["sensor"]),
+                    str(_get_sensor(granule_metadata)),
                     start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
-        self.sensor = granule_metadata["sensor"]
-        if isinstance(self.sensor, list):
-            self.sensor = self.sensor[0]
-        granule_pass = Pass(_get_platform_name(granule_metadata), start_time, end_time,
-                            instrument=self.sensor)
-
-        # If file is within region, make pass prediction to know what to wait
-        # for
-        if granule_pass.area_coverage(self.region) > 0:
-            self.granule_times.add(start_time)
-            self.granules.append(granule_metadata)
-            self.last_file_added = True
-
-            # Computation of the predicted granules within the region
-
-            if not self.planned_granule_times:
-                self.planned_granule_times.add(start_time)
-                logger.info("Added %s (%s) granule to area %s",
-                            _get_platform_name(granule_metadata),
-                            str(start_time),
-                            self.region.area_id)
-                logger.debug("Predicting granules covering %s",
-                             self.region.area_id)
-                gr_time = start_time
-                while True:
-                    gr_time += self.granule_duration
-                    gr_pass = Pass(_get_platform_name(granule_metadata), gr_time,
-                                   gr_time + self.granule_duration,
-                                   instrument=self.sensor)
-                    if not gr_pass.area_coverage(self.region) > 0:
-                        break
-                    self.planned_granule_times.add(gr_time)
-
-                gr_time = start_time
-                while True:
-                    gr_time -= self.granule_duration
-                    gr_pass = Pass(_get_platform_name(granule_metadata), gr_time,
-                                   gr_time + self.granule_duration,
-                                   instrument=self.sensor)
-                    if not gr_pass.area_coverage(self.region) > 0:
-                        break
-                    self.planned_granule_times.add(gr_time)
-
-                logger.info("Planned granules for %s: %s", self.region.name,
-                            str(sorted(self.planned_granule_times)))
-                self.timeout = (max(self.planned_granule_times) +
-                                self.granule_duration +
-                                self.timeliness)
-                logger.info("Planned timeout for %s: %s", self.region.name,
-                            self.timeout.isoformat())
-
-        else:
-            try:
-                logger.debug("Granule %s is not overlapping %s",
-                             granule_metadata["uri"], self.region.name)
-            except KeyError:
-                try:
-                    logger.debug("Granule with start and end times = %s  %s  "
-                                 "is not overlapping %s",
-                                 str(granule_metadata["start_time"]),
-                                 str(granule_metadata["end_time"]),
-                                 str(self.region.name))
-                except KeyError:
-                    logger.debug("Failed printing debug info...")
-                    logger.debug("Keys in granule_metadata = %s",
-                                 str(granule_metadata.keys()))
+        if _granule_covers_region(granule_metadata, self.region):
+            self._predict_pass_granules(granule_metadata)
 
         # If last granule return swath and cleanup
         if self.is_swath_complete():
@@ -246,6 +177,64 @@ class RegionCollector(object):
         """Return if last file was added to the region."""
         return self.last_file_added
 
+    def _predict_pass_granules(self, granule_metadata):
+        self.granule_times.add(granule_metadata["start_time"])
+        self.granules.append(granule_metadata)
+        self.last_file_added = True
+
+        # Computation of the predicted granules within the region
+        if not self.planned_granule_times:
+            self.planned_granule_times.add(granule_metadata["start_time"])
+            logger.info("Added %s (%s) granule to area %s",
+                        _get_platform_name(granule_metadata),
+                        str(granule_metadata["start_time"]),
+                        self.region.area_id)
+            logger.debug("Predicting granules covering %s", self.region.area_id)
+
+            # Forward prediction
+            self._predict(granule_metadata, self.granule_duration)
+            # Backward prediction
+            self._predict(granule_metadata, -self.granule_duration)
+
+            logger.info("Planned granules for %s: %s", self.region.name,
+                        str(sorted(self.planned_granule_times)))
+            self.timeout = (max(self.planned_granule_times) +
+                            self.granule_duration +
+                            self.timeliness)
+            logger.info("Planned timeout for %s: %s", self.region.name,
+                        self.timeout.isoformat())
+        else:
+            try:
+                logger.debug("Granule %s is not overlapping %s",
+                             granule_metadata["uri"], self.region.name)
+            except KeyError:
+                try:
+                    logger.debug("Granule with start and end times = %s  %s  "
+                                 "is not overlapping %s",
+                                 str(granule_metadata["start_time"]),
+                                 str(granule_metadata["end_time"]),
+                                 str(self.region.name))
+                except KeyError:
+                    logger.debug("Failed printing debug info...")
+                    logger.debug("Keys in granule_metadata = %s", str(granule_metadata.keys()))
+
+    def _set_granule_duration(self, start_time, end_time):
+        if self.granule_duration is None:
+            self.granule_duration = end_time - start_time
+            logger.debug("Estimated granule duration to %s",
+                         str(self.granule_duration))
+
+    def _predict(self, granule_metadata, step):
+        gr_time = granule_metadata["start_time"]
+        while True:
+            gr_time += step
+            gr_pass = Pass(_get_platform_name(granule_metadata), gr_time,
+                           gr_time + self.granule_duration,
+                           instrument=_get_sensor(granule_metadata))
+            if not gr_pass.area_coverage(self.region) > 0:
+                break
+            self.planned_granule_times.add(gr_time)
+
 
 def read_granule_metadata(filename):
     """Read granule metadata."""
@@ -280,3 +269,20 @@ def _get_platform_name(granule_metadata):
     if "tle_platform_name" in granule_metadata:
         return granule_metadata['tle_platform_name']
     return granule_metadata['platform_name']
+
+
+def _get_sensor(granule_metadata):
+    sensor = granule_metadata["sensor"]
+    if isinstance(sensor, list):
+        sensor = sensor[0]
+    return sensor
+
+
+def _granule_covers_region(granule_metadata, region):
+    granule_pass = Pass(_get_platform_name(granule_metadata),
+                        granule_metadata["start_time"],
+                        granule_metadata["end_time"],
+                        instrument=_get_sensor(granule_metadata))
+    if granule_pass.area_coverage(region) > 0:
+        return True
+    return False
