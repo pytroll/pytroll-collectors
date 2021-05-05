@@ -74,7 +74,8 @@ class RegionCollector(object):
         start_time = granule_metadata['start_time']
         self._set_end_time(granule_metadata)
 
-        logger.debug("Adding area ID to metadata: %s", str(self.region.area_id))
+        logger.debug("Adding area ID %s to metadata for %s",
+                     self.region.area_id, _get_platform_name(granule_metadata))
         granule_metadata['collection_area_id'] = self.region.area_id
 
         self.last_file_added = False
@@ -83,7 +84,8 @@ class RegionCollector(object):
                 self._add_granule(ptime, granule_metadata)
                 # If last granule return swath and cleanup
                 if self.is_swath_complete():
-                    logger.info("Collection finished for area: %s",
+                    logger.info("Collection finished for %s area %s",
+                                _get_platform_name(granule_metadata),
                                 str(self.region.area_id))
                     return self.finish()
                 self._adjust_timeout()
@@ -102,7 +104,8 @@ class RegionCollector(object):
 
         # If last granule return swath and cleanup
         if self.is_swath_complete():
-            logger.debug("Collection finished for area: %s",
+            logger.debug("Collection finished for %s area %s",
+                         _get_platform_name(granule_metadata),
                          str(self.region.area_id))
             return self.finish()
 
@@ -133,7 +136,7 @@ class RegionCollector(object):
         self.granule_times.add(ptime)
         self.granules.append(granule_metadata)
         self.last_file_added = True
-        logger.info("Added %s (%s) granule to area %s",
+        logger.info("Added expected granule %s (%s) to area %s",
                     _get_platform_name(granule_metadata),
                     str(granule_metadata["start_time"]),
                     self.region.area_id)
@@ -183,7 +186,7 @@ class RegionCollector(object):
         # Computation of the predicted granules within the region
         if not self.planned_granule_times:
             self.planned_granule_times.add(granule_metadata["start_time"])
-            logger.info("Added %s (%s) granule to area %s",
+            logger.info("Added new overlapping %s (%s) granule to area %s",
                         _get_platform_name(granule_metadata),
                         str(granule_metadata["start_time"]),
                         self.region.area_id)
@@ -194,7 +197,9 @@ class RegionCollector(object):
             # Backward prediction
             self._predict(granule_metadata, -self.granule_duration)
 
-            logger.info("Planned granules for %s: %s", self.region.name,
+            logger.info("Planned granules for %s over %s: %s",
+                        _get_platform_name(granule_metadata),
+                        self.region.name,
                         str(sorted(self.planned_granule_times)))
             self.timeout = (max(self.planned_granule_times) +
                             self.granule_duration +
@@ -281,6 +286,9 @@ def _granule_covers_region(granule_metadata, region):
                         granule_metadata["start_time"],
                         granule_metadata["end_time"],
                         instrument=_get_sensor(granule_metadata))
-    if granule_pass.area_coverage(region) > 0:
+    coverage = granule_pass.area_coverage(region)
+    if coverage > 0:
+        logger.debug(f"Granule {granule_metadata['uri']:s} is overlapping "
+                     f"region {region.name:s} by fraction {coverage:.5f}")
         return True
     return False
