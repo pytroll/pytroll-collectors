@@ -186,7 +186,7 @@ class RegionCollector(object):
         # Computation of the predicted granules within the region
         if not self.planned_granule_times:
             self.planned_granule_times.add(granule_metadata["start_time"])
-            logger.info("Added new overlapping %s (%s) granule to area %s",
+            logger.info("Added new overlapping granule %s (%s) to area %s",
                         _get_platform_name(granule_metadata),
                         str(granule_metadata["start_time"]),
                         self.region.area_id)
