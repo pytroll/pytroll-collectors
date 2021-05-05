@@ -36,8 +36,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PLOT = False
-
 
 class RegionCollector(object):
     """This is the region collector.
