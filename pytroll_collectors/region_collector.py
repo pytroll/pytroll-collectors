@@ -92,7 +92,7 @@ class RegionCollector(object):
 
         granule_metadata['end_time'] = end_time
 
-        LOG.debug("Adding area ID to metadata: %s", str(self.region.area_id))
+        LOG.debug(f"Adding area ID {self.region.area_id!s} to metadata for {platform!s}")
         granule_metadata['collection_area_id'] = self.region.area_id
 
         self.last_file_added = False
@@ -102,35 +102,17 @@ class RegionCollector(object):
                 self.granule_times.add(ptime)
                 self.granules.append(granule_metadata)
                 self.last_file_added = True
-                LOG.info("Added %s (%s) granule to area %s",
+                LOG.info("Added expected granule %s (%s) to area %s",
                          platform,
                          str(start_time),
                          self.region.area_id)
                 # If last granule return swath and cleanup
                 # if self.granule_times == self.planned_granule_times:
                 if self.is_swath_complete():
-                    LOG.info("Collection finished for area: %s",
-                             str(self.region.area_id))
+                    LOG.info(f"Collection finished for {platform!s} area {self.region.area_id!s}")
                     return self.finish()
-                else:
-                    try:
-                        new_timeout = (max(self.planned_granule_times -
-                                           self.granule_times) +
-                                       self.granule_duration +
-                                       self.timeliness)
-                    except ValueError:
-                        LOG.error("Calculation of new timeout failed, "
-                                  "keeping previous timeout.")
-                        LOG.error("Planned: %s", self.planned_granule_times)
-                        LOG.error("Received: %s", self.granule_times)
-                        return
 
-                    if new_timeout < self.timeout:
-                        self.timeout = new_timeout
-                        LOG.info("Adjusted timeout: %s",
-                                 self.timeout.isoformat())
-
-                    return
+                return
 
         # Get corners from input data
 
@@ -151,7 +133,10 @@ class RegionCollector(object):
 
         # If file is within region, make pass prediction to know what to wait
         # for
-        if granule_pass.area_coverage(self.region) > 0:
+        cov = granule_pass.area_coverage(self.region)
+        if cov > 0:
+            LOG.debug(f"Granule {granule_metadata['uri']:s} is overlapping "
+                      f"region {self.region.name:s} by fraction {cov:.5f}")
             self.granule_times.add(start_time)
             self.granules.append(granule_metadata)
             self.last_file_added = True
@@ -160,7 +145,7 @@ class RegionCollector(object):
 
             if not self.planned_granule_times:
                 self.planned_granule_times.add(start_time)
-                LOG.info("Added %s (%s) granule to area %s",
+                LOG.info("Added new overlapping granule %s (%s) to area %s",
                          platform,
                          str(start_time),
                          self.region.area_id)
@@ -186,8 +171,8 @@ class RegionCollector(object):
                         break
                     self.planned_granule_times.add(gr_time)
 
-                LOG.info("Planned granules for %s: %s", self.region.name,
-                         str(sorted(self.planned_granule_times)))
+                LOG.info(f"Planned granules for {platform!s} over "
+                         f"{self.region.name:s}: {sorted(self.planned_granule_times)!s}")
                 self.timeout = (max(self.planned_granule_times) +
                                 self.granule_duration +
                                 self.timeliness)
