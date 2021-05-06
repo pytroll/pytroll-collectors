@@ -199,24 +199,24 @@ class RegionCollector(object):
 
             logger.info("Planned granules for %s over %s: %s",
                         _get_platform_name(granule_metadata),
-                        self.region.name,
+                        self.region.description,
                         str(sorted(self.planned_granule_times)))
             self.timeout = (max(self.planned_granule_times) +
                             self.granule_duration +
                             self.timeliness)
-            logger.info("Planned timeout for %s: %s", self.region.name,
+            logger.info("Planned timeout for %s: %s", self.region.description,
                         self.timeout.isoformat())
         else:
             try:
                 logger.debug("Granule %s is not overlapping %s",
-                             granule_metadata["uri"], self.region.name)
+                             granule_metadata["uri"], self.region.description)
             except KeyError:
                 try:
                     logger.debug("Granule with start and end times = %s  %s  "
                                  "is not overlapping %s",
                                  str(granule_metadata["start_time"]),
                                  str(granule_metadata["end_time"]),
-                                 str(self.region.name))
+                                 str(self.region.description))
                 except KeyError:
                     logger.debug("Failed printing debug info...")
                     logger.debug("Keys in granule_metadata = %s", str(granule_metadata.keys()))
@@ -271,6 +271,6 @@ def _granule_covers_region(granule_metadata, region):
     coverage = granule_pass.area_coverage(region)
     if coverage > 0:
         logger.debug(f"Granule {granule_metadata['uri']:s} is overlapping "
-                     f"region {region.name:s} by fraction {coverage:.5f}")
+                     f"region {region.description:s} by fraction {coverage:.5f}")
         return True
     return False
