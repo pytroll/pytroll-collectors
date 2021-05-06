@@ -239,24 +239,6 @@ class RegionCollector(object):
             self.planned_granule_times.add(gr_time)
 
 
-def read_granule_metadata(filename):
-    """Read granule metadata."""
-    import json
-    with open(filename) as jfp:
-        metadata = json.load(jfp)[0]
-
-    metadata['uri'] = "file://" + os.path.abspath(filename)
-
-    for attr in ["start_time", "end_time"]:
-        try:
-            metadata[attr] = datetime.strptime(
-                metadata[attr], "%Y-%m-%dT%H:%M:%S.%f")
-        except ValueError:
-            metadata[attr] = datetime.strptime(
-                metadata[attr], "%Y-%m-%dT%H:%M:%S")
-    return metadata
-
-
 def _adjust_end_time(end_time, start_time):
     if start_time > end_time:
         old_end_time = end_time
