@@ -24,7 +24,7 @@
 
 """Watchdog trigger for region_collectors."""
 
-from threading import Event, Thread
+from threading import Event
 from fnmatch import fnmatch
 import logging
 import os
@@ -42,7 +42,7 @@ class AbstractWatchDogProcessor(FileSystemEventHandler):
     """File trigger, acting upon file system events."""
 
     cases = {"PollingObserver": PollingObserver,
-                "Observer": Observer}
+             "Observer": Observer}
 
     def __init__(self, patterns, observer_class_name="Observer"):
         """Init the processor."""
@@ -100,11 +100,11 @@ class WatchDogTrigger(FileTrigger):
     """File trigger, acting upon filesystem events."""
 
     def __init__(self, collectors, config, patterns, observer_class_name, publisher,
-                    publish_topic=None):
+                 publish_topic=None):
         """Init the trigger."""
         self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
         FileTrigger.__init__(self, collectors, config, publisher,
-                                publish_topic=publish_topic)
+                             publish_topic=publish_topic)
         self.wdp.process = self.add_file
 
     def start(self):

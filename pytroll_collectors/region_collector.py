@@ -24,7 +24,6 @@
 
 """Region collector."""
 
-import os
 from datetime import timedelta, datetime
 
 try:
