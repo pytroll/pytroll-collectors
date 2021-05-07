@@ -44,11 +44,11 @@ class FakeMessage(object):
 class TestPostTrollTrigger(unittest.TestCase):
     """Test the posttroll trigger."""
 
-    @patch('pytroll_collectors.trigger.PostTrollTrigger._get_metadata')
-    @patch('pytroll_collectors.trigger.NSSubscriber')
+    @patch('pytroll_collectors.triggers.PostTrollTrigger._get_metadata')
+    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
     def test_timeout(self, nssub, get_metadata):
         """Test timing out."""
-        from pytroll_collectors.trigger import PostTrollTrigger
+        from pytroll_collectors.triggers import PostTrollTrigger
 
         messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2, 'collection_area_id': 'area_id',
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri1'}),
@@ -80,7 +80,7 @@ class TestPostTrollTrigger(unittest.TestCase):
 
     def test_duration(self):
         """Test duration"""
-        from pytroll_collectors.trigger import PostTrollTrigger
+        from pytroll_collectors.triggers import PostTrollTrigger
         publisher = Mock()
         ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
 
@@ -93,12 +93,12 @@ class TestPostTrollTrigger(unittest.TestCase):
 class TestAbstractMessageProcessor(unittest.TestCase):
     """Test AbstractMessageProcessor."""
 
-    @patch('pytroll_collectors.trigger.AbstractMessageProcessor.process')
-    @patch('pytroll_collectors.trigger.Thread')
-    @patch('pytroll_collectors.trigger.NSSubscriber')
+    @patch('pytroll_collectors.triggers._posttroll.AbstractMessageProcessor.process')
+    @patch('pytroll_collectors.triggers._posttroll.Thread')
+    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
     def test_all(self, NSSubscriber, Thread, process):
         """Test the run() method."""
-        from pytroll_collectors.trigger import AbstractMessageProcessor
+        from pytroll_collectors.triggers._posttroll import AbstractMessageProcessor
 
         msg_file = Mock(type='file')
         msg_collection = Mock(type='collection')

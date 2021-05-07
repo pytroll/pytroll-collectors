@@ -37,7 +37,7 @@ except ImportError:
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
-from pytroll_collectors.trigger import PostTrollTrigger, WatchDogTrigger
+from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 
 logger = logging.getLogger(__name__)
 
