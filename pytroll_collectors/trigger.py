@@ -81,17 +81,17 @@ class Trigger(object):
         self.publisher = publisher
         self.publish_topic = publish_topic
 
-    def _do(self, metadata):
-        """Execute the collectors and terminator."""
+    def _process_metadata(self, metadata):
+        """Execute the collectors and publish the collection."""
         if not metadata:
             logger.warning("No metadata")
             return
         for collector in self.collectors:
             res = collector(metadata.copy())
             if res:
-                self.terminator(res)
+                self.publish_collection(res)
 
-    def terminator(self, metadata):
+    def publish_collection(self, metadata):
         """Terminate the gathering."""
         sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
 
@@ -172,14 +172,14 @@ class FileTrigger(Trigger, Thread):
 
         return res
 
-    def _do(self, pathname):
+    def _process_pathname(self, pathname):
         mda = self._get_metadata(pathname)
         logger.debug("mda: %s", str(mda))
-        Trigger._do(self, mda)
+        Trigger._process_metadata(self, mda)
 
     def add_file(self, pathname):
         """React to arrival of a file."""
-        self._do(pathname)
+        self._process_pathname(pathname)
         self.new_file.set()
 
     def run(self):
@@ -209,7 +209,7 @@ class FileTrigger(Trigger, Thread):
                         # Only clean up the collector.
                         next_timeout[0].finish()
                     else:
-                        self.terminator(next_timeout[0].finish())
+                        self.publish_collection(next_timeout[0].finish())
                 else:
                     logger.debug("Waiting %s seconds until timeout",
                                  str(total_seconds(next_timeout[1] -
@@ -220,7 +220,7 @@ class FileTrigger(Trigger, Thread):
                         # Publish message after each new file is reveived
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
-                        self.terminator(next_timeout[0].finish_without_reset())
+                        self.publish_collection(next_timeout[0].finish_without_reset())
                     self.new_file.wait(total_seconds(next_timeout[1] -
                                                      datetime.utcnow()))
                     self.new_file.clear()

@@ -75,7 +75,7 @@ class TestPostTrollTrigger(unittest.TestCase):
         time.sleep(.4)
         ptt.stop()
 
-        # Timeout means a message should've been sent in the terminator
+        # Timeout means a message should've been published
         publisher.send.assert_called_once()
 
     def test_duration(self):
