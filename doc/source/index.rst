@@ -22,19 +22,19 @@ may look somewhat like this:
 * The chain starts with :ref:`trollstalker` to monitor files.
   :ref:`trollstalker` uses inotify and sends a `posttroll`_ message
   when a file appears.
-* This message is received by :ref:`gatherer`.  Depending on the
+* This message is received by :ref:`geographic_gatherer`.  Depending on the
   reception system, a single Metop AVHRR overpass may produce multiple files.
-  :ref:`gatherer` determines what files belong together in a region and sends
+  :ref:`geographic_gatherer` determines what files belong together in a region and sends
   a posttroll message containing all those filenames.
 * AVHRR data need preprocessing with the external software `AAPP`_ before
   `Satpy`_ can read the data.  This preprocessing can be done with
   `aapp-runner`_, For this preprocessing, it is advantageous to pass a single
   file.  Therefore, the :ref:`cat` script may be listening to messages from
-  :ref:`gatherer` and concatenate files together (it will need `Kai`_ to do
+  :ref:`geographic_gatherer` and concatenate files together (it will need `Kai`_ to do
   so).  When done, it sends another message.
 * For pre-processing data with AAPP and ANA, `aapp-runner`_ is responsible
   and can be configured to read posttroll messages either from :ref:`cat` or
-  directly from :ref:`gatherer`.  See documentation for `aapp-runner`_.
+  directly from :ref:`geographic_gatherer`.  See documentation for `aapp-runner`_.
 
 The exact configuration depends on factors that will vary depending on
 what satellite data are processed, whether those are from direct readout,
@@ -120,10 +120,13 @@ Alternative to cat that does something else.
 .. literalinclude:: ../../examples/catter.cfg_template
    :language: ini
 
-.. _gatherer:
+.. _geographic_gatherer:
 
-gatherer
-^^^^^^^^
+geographic_gatherer
+^^^^^^^^^^^^^^^^^^^
+
+This was previously known as ``gatherer``, but was renamed to clarify the
+usage.
 
 Collects granulated swath data so that the granules cover the configured
 target area(s) in a contiguous manner.  Uses `pytroll-schedule`_ (which
@@ -138,7 +141,7 @@ multiple files, that should be grouped together for further processing.
 It uses `pytroll-schedule`_ to estimate the area coverage based on start
 and end times contained in filenames.
 
-The  ``gatherer`` collection is started when it receives a posttroll message,
+The  ``geographic_gatherer`` collection is started when it receives a posttroll message,
 perhaps from `trollstalker`_ or `segment-gatherer`_.  Using the configured
 granule duration and the area of interest, it calculates the starting times
 of granules it should expect to be covered in this area before and after the
@@ -306,7 +309,7 @@ The message sent by ``trollstalker`` contains a dictionary which contains:
 
 The additional keys may be essential if the package listening to
 trollstalker messages expects an entry in the posttroll message that
-is normally extracted from the filename.  For example, :ref:`gatherer`
+is normally extracted from the filename.  For example, :ref:`geographic_gatherer`
 needs a ``platform_name`` to be present at all times.  If a filename does
 not contain a platform name or is for some other reason not matched
 with a trollsift pattern, it may need to be sent explicitly with
