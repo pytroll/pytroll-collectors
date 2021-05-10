@@ -29,8 +29,6 @@ from datetime import datetime, timedelta
 
 from unittest.mock import patch, Mock, call
 
-messages = ['']
-
 
 class FakeMessage(object):
     """Fake messages."""
