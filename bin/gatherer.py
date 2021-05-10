@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014 - 2021 PyTroll developers
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
-# Author(s): Martin Raspaud
-#            Panu Lahtinen
-#            Adam Dybbroe
-#
+# Author(s):
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
