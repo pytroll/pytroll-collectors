@@ -26,8 +26,8 @@
 
 import logging
 
-from ._inotify import InotifyTrigger
-from ._posttroll import PostTrollTrigger
+from ._inotify import InotifyTrigger  # noqa: F401
+from ._posttroll import PostTrollTrigger  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
