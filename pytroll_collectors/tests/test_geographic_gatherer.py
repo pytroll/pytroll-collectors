@@ -80,12 +80,25 @@ class TestGeographicGatherer(unittest.TestCase):
             'watcher': 'Observer',
         }
 
-    @patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-    @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-    @patch('pytroll_collectors.geographic_gatherer.publisher')
-    def test_init_minimal(self, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+        self.region_collector_patcher = patch('pytroll_collectors.geographic_gatherer.RegionCollector')
+        self.watchdog_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
+        self.posttroll_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+        self.get_area_def_patcher = patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
+        self.publisher_patcher = patch('pytroll_collectors.geographic_gatherer.publisher')
+
+        self.RegionCollector = self.region_collector_patcher.start()
+        self.WatchDogTrigger = self.watchdog_trigger_patcher.start()
+        self.PostTrollTrigger = self.posttroll_trigger_patcher.start()
+        self.get_area_def = self.get_area_def_patcher.start()
+        self.publisher = self.publisher_patcher.start()
+
+        self.addCleanup(self.region_collector_patcher.stop)
+        self.addCleanup(self.watchdog_trigger_patcher.stop)
+        self.addCleanup(self.posttroll_trigger_patcher.stop)
+        self.addCleanup(self.get_area_def_patcher.stop)
+        self.addCleanup(self.publisher_patcher.stop)
+
+    def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
@@ -100,23 +113,18 @@ class TestGeographicGatherer(unittest.TestCase):
         assert self.config.sections() == sections
 
         # The default is to use PostTrollTrigger, so only that should've been called
-        PostTrollTrigger.assert_called_once()
-        WatchDogTrigger.assert_not_called()
+        self.PostTrollTrigger.assert_called_once()
+        self.WatchDogTrigger.assert_not_called()
 
         # RegionCollector is called with two areas, the configured timeout and no duration
         for region in self.config.get(sections[0], 'regions').split():
-            assert call(region, dt.timedelta(seconds=1800), None) in RegionCollector.mock_calls
+            assert call(region, dt.timedelta(seconds=1800), None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
+        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-    @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-    @patch('pytroll_collectors.geographic_gatherer.publisher')
-    def test_init_posttroll(self, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+    def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
@@ -131,37 +139,32 @@ class TestGeographicGatherer(unittest.TestCase):
         assert self.config.sections() == sections
 
         # The PostTrollTrigger is configured, so only that should've been called
-        PostTrollTrigger.assert_called_once()
+        self.PostTrollTrigger.assert_called_once()
         pt_call = call(
-            [RegionCollector.return_value, RegionCollector.return_value],
+            [self.RegionCollector.return_value, self.RegionCollector.return_value],
             self.config.get(sections[0], 'service').split(','),
             self.config.get(sections[0], 'topics').split(','),
-            publisher.NoisyPublisher.return_value,
+            self.publisher.NoisyPublisher.return_value,
             duration=self.config.getfloat(sections[0], 'duration'),
             publish_topic=self.config.get(sections[0], 'publish_topic'),
             nameserver=self.config.get(sections[0], 'nameserver'),
             publish_message_after_each_reception=self.config.get(sections[0], 'publish_message_after_each_reception'))
-        assert pt_call in PostTrollTrigger.mock_calls
-        PostTrollTrigger.return_value.start.assert_called_once()
-        WatchDogTrigger.assert_not_called()
+        assert pt_call in self.PostTrollTrigger.mock_calls
+        self.PostTrollTrigger.return_value.start.assert_called_once()
+        self.WatchDogTrigger.assert_not_called()
 
         # RegionCollector is called with two areas, the configured timeout and a duration
         for region in self.config.get(sections[0], 'regions').split():
             assert call(
                 region,
                 dt.timedelta(seconds=1200),
-                dt.timedelta(seconds=12, microseconds=300000)) in RegionCollector.mock_calls
+                dt.timedelta(seconds=12, microseconds=300000)) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
+        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-    @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-    @patch('pytroll_collectors.geographic_gatherer.publisher')
-    def test_init_polling_observer(self, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+    def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
@@ -169,14 +172,9 @@ class TestGeographicGatherer(unittest.TestCase):
         opts = FakeOpts(sections)
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector)
+        self._watchdog_test(sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
-    @patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-    @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-    @patch('pytroll_collectors.geographic_gatherer.publisher')
-    def test_init_observer(self, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+    def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
@@ -184,7 +182,7 @@ class TestGeographicGatherer(unittest.TestCase):
         opts = FakeOpts(sections)
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector)
+        self._watchdog_test(sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
     def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
         # There's one trigger
@@ -217,12 +215,7 @@ class TestGeographicGatherer(unittest.TestCase):
         publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
         publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-    @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-    @patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-    @patch('pytroll_collectors.geographic_gatherer.publisher')
-    def test_init_all_sections(self, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+    def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
@@ -235,13 +228,13 @@ class TestGeographicGatherer(unittest.TestCase):
         assert len(gatherer.triggers) == num_sections
 
         # See that the trigger classes have been accessed the correct times
-        assert PostTrollTrigger.call_count == 2
-        assert WatchDogTrigger.call_count == 2
+        assert self.PostTrollTrigger.call_count == 2
+        assert self.WatchDogTrigger.call_count == 2
 
         # N regions for each section
-        assert RegionCollector.call_count == num_sections * len(self.config.get("DEFAULT", "regions").split())
-        publisher.NoisyPublisher.assert_called_once_with(
+        assert self.RegionCollector.call_count == num_sections * len(self.config.get("DEFAULT", "regions").split())
+        self.publisher.NoisyPublisher.assert_called_once_with(
             'gatherer',
             port=9999,
             nameservers=['nameserver_a', 'nameserver_b'])
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
