@@ -88,44 +88,53 @@ class Trigger(object):
 
     def publish_collection(self, metadata):
         """Terminate the gathering."""
-        sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
+        subject = self._get_topic(metadata[0])
+        mda = _merge_metadata(metadata)
 
-        mda = metadata[0].copy()
+        if mda:
+            msg = message.Message(subject, "collection", mda)
+            logger.info("sending %s", str(msg))
+            self.publisher.send(str(msg))
+        else:
+            logger.warning("Malformed metadata, no key: %s", "uri")
 
+    def _get_topic(self, mda):
         if self.publish_topic is not None:
             logger.info("Composing topic.")
             subject = compose(self.publish_topic, mda)
         else:
             logger.info("Using default topic.")
             subject = "/".join(("", mda["format"], mda["data_processing_level"], ''))
+        return subject
 
-        mda['start_time'] = sorted_mda[0]['start_time']
-        mda['end_time'] = sorted_mda[-1]['end_time']
-        mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
-        mda['collection'] = []
 
-        is_correct = False
-        for meta in sorted_mda:
-            new_mda = {}
-            if "uri" in meta or 'dataset' in meta:
-                is_correct = True
-            for key in ['dataset', 'uri', 'uid']:
-                if key in meta:
-                    new_mda[key] = meta[key]
-                new_mda['start_time'] = meta['start_time']
-                new_mda['end_time'] = meta['end_time']
-            mda['collection'].append(new_mda)
+def _merge_metadata(metadata):
+    mda = metadata[0].copy()
+    sorted_mda = sorted(metadata, key=lambda x: x["start_time"])
+    mda['start_time'] = sorted_mda[0]['start_time']
+    mda['end_time'] = sorted_mda[-1]['end_time']
+    mda['collection_area_id'] = sorted_mda[-1]['collection_area_id']
+    mda['collection'] = []
 
+    is_correct = False
+    for meta in sorted_mda:
+        new_mda = {}
+        if "uri" in meta or 'dataset' in meta:
+            is_correct = True
         for key in ['dataset', 'uri', 'uid']:
-            if key in mda:
-                del mda[key]
+            if key in meta:
+                new_mda[key] = meta[key]
+            new_mda['start_time'] = meta['start_time']
+            new_mda['end_time'] = meta['end_time']
+        mda['collection'].append(new_mda)
 
-        if is_correct:
-            msg = message.Message(subject, "collection", mda)
-            logger.info("sending %s", str(msg))
-            self.publisher.send(str(msg))
-        else:
-            logger.warning("Malformed metadata, no key: %s", "uri")
+    for key in ['dataset', 'uri', 'uid']:
+        if key in mda:
+            del mda[key]
+
+    if is_correct:
+        return mda
+    return None
 
 
 class FileTrigger(Trigger, Thread):
