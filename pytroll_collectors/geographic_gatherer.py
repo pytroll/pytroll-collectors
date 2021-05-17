@@ -30,7 +30,11 @@ import datetime as dt
 
 from six.moves.configparser import NoOptionError
 from posttroll import publisher
-from satpy.resample import get_area_def
+# Workaround for unit tests that don't need Satpy + Pyresample
+try:
+    from satpy.resample import get_area_def
+except ImportError:
+    get_area_def = None
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
