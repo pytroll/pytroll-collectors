@@ -131,7 +131,8 @@ usage.
 Collects granulated swath data so that the granules cover the configured
 target area(s) in a contiguous manner.  Uses `pytroll-schedule`_ (which
 uses `pyorbital`_) to calculate the required granules using orbital
-parameters (Three Line Elements; TLEs).
+parameters (Three Line Elements; TLEs).  `Satpy`_ is required to handle the
+area definitions that describe the target area.
 
 Watches files or messages and gathers satellite granules in "collections",
 sending then the collection of files in a message for further processing.

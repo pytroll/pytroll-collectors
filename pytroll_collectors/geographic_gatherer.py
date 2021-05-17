@@ -30,10 +30,7 @@ import datetime as dt
 
 from six.moves.configparser import NoOptionError
 from posttroll import publisher
-try:
-    from satpy.resample import get_area_def
-except ImportError:
-    get_area_def = None
+from satpy.resample import get_area_def
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
