@@ -576,6 +576,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg._create_slot(message)
         slot_str = str(mda["start_time"])
         slot = self.msg0deg.slots[slot_str]
+        self.msg0deg._config['check_existing_files_after_start'] = True
 
         self.msg0deg.check_and_add_existing_files(slot, message)
         assert call(logging.DEBUG) in logging.disable.mock_calls
