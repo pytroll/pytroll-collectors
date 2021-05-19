@@ -81,21 +81,23 @@ class TestGeographicGatherer(unittest.TestCase):
         }
 
         self.region_collector_patcher = patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-        self.watchdog_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-        self.posttroll_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.get_area_def_patcher = patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-        self.publisher_patcher = patch('pytroll_collectors.geographic_gatherer.publisher')
-
         self.RegionCollector = self.region_collector_patcher.start()
-        self.WatchDogTrigger = self.watchdog_trigger_patcher.start()
-        self.PostTrollTrigger = self.posttroll_trigger_patcher.start()
-        self.get_area_def = self.get_area_def_patcher.start()
-        self.publisher = self.publisher_patcher.start()
-
         self.addCleanup(self.region_collector_patcher.stop)
+
+        self.watchdog_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
+        self.WatchDogTrigger = self.watchdog_trigger_patcher.start()
         self.addCleanup(self.watchdog_trigger_patcher.stop)
+
+        self.posttroll_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+        self.PostTrollTrigger = self.posttroll_trigger_patcher.start()
         self.addCleanup(self.posttroll_trigger_patcher.stop)
+
+        self.get_area_def_patcher = patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
+        self.get_area_def = self.get_area_def_patcher.start()
         self.addCleanup(self.get_area_def_patcher.stop)
+
+        self.publisher_patcher = patch('pytroll_collectors.geographic_gatherer.publisher')
+        self.publisher = self.publisher_patcher.start()
         self.addCleanup(self.publisher_patcher.stop)
 
     def test_init_minimal(self):
