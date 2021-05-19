@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014, 2015 Martin Raspaud
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -26,7 +26,7 @@
 import argparse
 import logging
 import logging.config
-from six.moves.configparser import RawConfigParser, NoOptionError
+from configparser import RawConfigParser, NoOptionError
 from subprocess import Popen, PIPE
 import threading
 import os

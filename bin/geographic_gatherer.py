@@ -29,7 +29,7 @@ import logging.handlers
 import os
 import os.path
 
-from six.moves.configparser import RawConfigParser
+from configparser import RawConfigParser
 
 from pytroll_collectors.geographic_gatherer import GeographicGatherer
 

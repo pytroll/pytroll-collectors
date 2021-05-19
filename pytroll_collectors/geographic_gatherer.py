@@ -28,7 +28,7 @@ import logging
 import time
 import datetime as dt
 
-from six.moves.configparser import NoOptionError
+from configparser import NoOptionError
 from posttroll import publisher
 # Workaround for unit tests that don't need Satpy + Pyresample
 try:

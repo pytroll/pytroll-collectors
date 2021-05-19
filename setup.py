@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014 - 2021, Pytroll developers
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -70,8 +70,8 @@ setup(name="pytroll_collectors",
       install_requires=['pyinotify', 'posttroll>=1.3.0',
                         'trollsift', 'netifaces', 'watchdog',
                         'pytroll-schedule',
-                        'six', 'pyyaml'],
-      tests_require=['trollsift', 'six', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify'],
+                        'pyyaml'],
+      tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify'],
       extras_require=extras_require,
       python_requires='>=3.7',
       )

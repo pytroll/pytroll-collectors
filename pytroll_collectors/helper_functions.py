@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014-2018
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -28,7 +28,7 @@ import os
 import datetime as dt
 import re
 import logging
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 import netifaces
 import socket
 

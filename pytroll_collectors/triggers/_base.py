@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012, 2014, 2015, 2019 Martin Raspaud
+# Copyright (c) 2012 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 import logging
 from threading import Thread, Event
 import os
-from six.moves.configparser import NoOptionError
+from configparser import NoOptionError
 
 from trollsift import compose, Parser
 from posttroll import message
