@@ -28,7 +28,7 @@ from fnmatch import fnmatch
 
 import pyinotify
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class EventHandler(pyinotify.ProcessEvent):
@@ -77,7 +77,7 @@ class ConfigWatcher(object):
         self.config_item = config_item
         self.watchman = pyinotify.WatchManager()
 
-        LOGGER.debug("Setting up watcher for %s", config_file)
+        logger.debug("Setting up watcher for %s", config_file)
 
         self.notifier = \
             pyinotify.ThreadedNotifier(self.watchman,
@@ -91,10 +91,10 @@ class ConfigWatcher(object):
 
     def start(self):
         """Start the config watcher."""
-        LOGGER.info("Start watching %s", self.config_file)
+        logger.info("Start watching %s", self.config_file)
         self.notifier.start()
 
     def stop(self):
         """Stop the config watcher."""
-        LOGGER.info("Stop watching %s", self.config_file)
+        logger.info("Stop watching %s", self.config_file)
         self.notifier.stop()

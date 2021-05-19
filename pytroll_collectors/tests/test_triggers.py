@@ -1,22 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2014 Martin Raspaud
-
+#
+# Copyright (c) 2014 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
-
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -28,51 +29,60 @@ from datetime import datetime, timedelta
 
 from unittest.mock import patch, Mock, call
 
-messages = ['']
-
 
 class FakeMessage(object):
     """Fake messages."""
 
-    def __init__(self, data, type='file'):
+    def __init__(self, data, msg_type='file'):
         """Init the fake message."""
         self.data = data
-        self.type = type
+        self.type = msg_type
 
 
 class TestPostTrollTrigger(unittest.TestCase):
     """Test the posttroll trigger."""
 
-    @patch('pytroll_collectors.trigger.NSSubscriber')
-    def test_timeout(self, nssub):
+    @patch('pytroll_collectors.triggers.PostTrollTrigger._get_metadata')
+    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
+    def test_timeout(self, nssub, get_metadata):
         """Test timing out."""
-        from pytroll_collectors.trigger import PostTrollTrigger
+        from pytroll_collectors.triggers import PostTrollTrigger
+
+        messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri1'}),
+                    FakeMessage({"b": "b", 'start_time': 2, 'end_time': 3, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri2'}),
+                    FakeMessage({"c": "c", 'start_time': 3, 'end_time': 4, 'collection_area_id': 'area_id',
+                                 'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri3'})]
+
         collector = Mock()
         collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
         collector.return_value = None
 
-        def terminator(obj, publish_topic=None):
+        def finish():
             collector.timeout = None
-        ptt = PostTrollTrigger([collector], terminator, None, None,
+            return [msg.data for msg in messages]
+        collector.finish = finish
+        publisher = Mock()
+
+        ptt = PostTrollTrigger([collector], None, None, publisher,
                                publish_topic=None)
-
         sub = ptt.msgproc.nssub.start.return_value
-        sub.recv.return_value = iter([FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2}),
-                                      FakeMessage(
-                                          {"b": "b", 'start_time': 1, 'end_time': 2}),
-                                      FakeMessage({"c": "c", 'start_time': 1, 'end_time': 2})])
-
+        sub.recv.return_value = iter(messages)
         ptt.start()
         time.sleep(.4)
         ptt.stop()
-        self.assertTrue(collector.timeout is None)
+
+        # Timeout means a message should've been published
+        publisher.send.assert_called_once()
 
     def test_duration(self):
         """Test duration"""
-        from pytroll_collectors.trigger import PostTrollTrigger
-        ptt = PostTrollTrigger(None, None, None, None, duration=60)
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
 
-        msg_data = ptt.decode_message(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
+        msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
 
         self.assertIn("end_time", msg_data)
         self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
@@ -81,12 +91,12 @@ class TestPostTrollTrigger(unittest.TestCase):
 class TestAbstractMessageProcessor(unittest.TestCase):
     """Test AbstractMessageProcessor."""
 
-    @patch('pytroll_collectors.trigger.AbstractMessageProcessor.process')
-    @patch('pytroll_collectors.trigger.Thread')
-    @patch('pytroll_collectors.trigger.NSSubscriber')
+    @patch('pytroll_collectors.triggers._posttroll.AbstractMessageProcessor.process')
+    @patch('pytroll_collectors.triggers._posttroll.Thread')
+    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
     def test_all(self, NSSubscriber, Thread, process):
         """Test the run() method."""
-        from pytroll_collectors.trigger import AbstractMessageProcessor
+        from pytroll_collectors.triggers._posttroll import AbstractMessageProcessor
 
         msg_file = Mock(type='file')
         msg_collection = Mock(type='collection')
