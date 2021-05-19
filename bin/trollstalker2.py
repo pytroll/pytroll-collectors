@@ -41,19 +41,12 @@ from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
 logger = logging.getLogger(__name__)
 
-try:
-    # Python 2
-    str_or_unicode = (str, unicode)
-except NameError:
-    # Pyton 3
-    str_or_unicode = (str, bytes)
-
 
 class FilePublisher(AbstractWatchDogProcessor):
 
     def __init__(self, config):
         self.config = config.copy()
-        if isinstance(config["filepattern"], str_or_unicode):
+        if isinstance(config["filepattern"], (str, bytes)):
             self.config["filepattern"] = [self.config["filepattern"]]
 
         self.parsers = [Parser(filepattern)

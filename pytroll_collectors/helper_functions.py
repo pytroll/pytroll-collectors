@@ -110,12 +110,7 @@ def align_time(input_val, steps=None,
     offset = offset or dt.timedelta(minutes=0)
     steps = steps or dt.timedelta(minutes=5)
 
-    try:
-        stepss = steps.total_seconds()
-    # Python 2.6 compatibility hack
-    except AttributeError:
-        stepss = steps.days * 86400. + \
-            steps.seconds + steps.microseconds * 1e-6
+    stepss = steps.total_seconds()
     val = input_val - offset
     vals = (val - val.min).seconds
     result = val - dt.timedelta(seconds=(vals - (vals // stepss) * stepss))
