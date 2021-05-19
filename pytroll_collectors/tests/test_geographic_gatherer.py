@@ -172,7 +172,8 @@ class TestGeographicGatherer(unittest.TestCase):
         opts = FakeOpts(sections)
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+        self._watchdog_test(
+            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
     def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
@@ -182,7 +183,8 @@ class TestGeographicGatherer(unittest.TestCase):
         opts = FakeOpts(sections)
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+        self._watchdog_test(
+            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
     def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
         # There's one trigger
