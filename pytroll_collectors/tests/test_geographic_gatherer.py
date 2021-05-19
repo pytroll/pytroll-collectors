@@ -24,7 +24,7 @@
 """Unittests for top level geographic segment gathering."""
 
 import unittest
-from unittest.mock import patch, call
+from unittest.mock import patch, call, DEFAULT
 from configparser import RawConfigParser
 import datetime as dt
 
@@ -80,25 +80,22 @@ class TestGeographicGatherer(unittest.TestCase):
             'watcher': 'Observer',
         }
 
-        self.region_collector_patcher = patch('pytroll_collectors.geographic_gatherer.RegionCollector')
-        self.RegionCollector = self.region_collector_patcher.start()
-        self.addCleanup(self.region_collector_patcher.stop)
+        self.RegionCollector = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.RegionCollector')
+        self.WatchDogTrigger = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
+        self.PostTrollTrigger = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+        self.get_area_def = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
+        self.publisher = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.publisher')
 
-        self.watchdog_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger')
-        self.WatchDogTrigger = self.watchdog_trigger_patcher.start()
-        self.addCleanup(self.watchdog_trigger_patcher.stop)
-
-        self.posttroll_trigger_patcher = patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.PostTrollTrigger = self.posttroll_trigger_patcher.start()
-        self.addCleanup(self.posttroll_trigger_patcher.stop)
-
-        self.get_area_def_patcher = patch('pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
-        self.get_area_def = self.get_area_def_patcher.start()
-        self.addCleanup(self.get_area_def_patcher.stop)
-
-        self.publisher_patcher = patch('pytroll_collectors.geographic_gatherer.publisher')
-        self.publisher = self.publisher_patcher.start()
-        self.addCleanup(self.publisher_patcher.stop)
+    def _patch_and_add_cleanup(self, item, new=DEFAULT):
+        patcher = patch(item, new=new)
+        patched = patcher.start()
+        self.addCleanup(patcher.stop)
+        return patched
 
     def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
