@@ -27,7 +27,7 @@ import logging
 import os
 import os.path
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
 import pytest
 
@@ -49,6 +49,7 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
+LOGGING_ERROR = logging.ERROR
 
 
 class FakeMessage:
@@ -497,6 +498,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('time_tolerance' in config)
         self.assertTrue('timeliness' in config)
         self.assertTrue('time_name' in config)
+        self.assertTrue('check_existing_files_after_start' in config)
 
         self.assertTrue('topics' in config['posttroll'])
         self.assertTrue('nameservers' in config['posttroll'])
@@ -557,6 +559,51 @@ class TestSegmentGatherer(unittest.TestCase):
         col = self.msg0deg_iodc
         publish_service_name = col._generate_publish_service_name()
         self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
+
+    @patch("pytroll_collectors.segments.logging")
+    @patch("pytroll_collectors.segments.glob")
+    def test_check_and_add_existing_files(self, glob, logging):
+        """Test that existing matching files are added to the slot."""
+        existing_files = [
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            # A file that should not match
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        glob.glob.return_value = existing_files
+        mda = self.mda_msg0deg.copy()
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
+        slot_str = str(mda["start_time"])
+        slot = self.msg0deg.slots[slot_str]
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        assert call(logging.DEBUG) in logging.disable.mock_calls
+        assert call(logging.NOTSET) in logging.disable.mock_calls
+        assert logging.disable.call_count == 2
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) in slot._info['msg']['received_files']
+        assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
+
+        # For the next message(s) the existing files should not be handled
+        existing_files = [
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000005___-201611281100-__",
+            "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000006___-201611281100-__"]
+        glob.glob.return_value = existing_files
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) not in slot._info['msg']['received_files']
+        assert logging.disable.call_count == 2
+
+        # Messages with other types than 'file' should be ignored
+        message.type = "collection"
+        self.msg0deg._is_first_message_after_start = True
+        with self._caplog.at_level(LOGGING_ERROR):
+            self.msg0deg.check_and_add_existing_files(slot, message)
+            logs = [rec.message for rec in self._caplog.records]
+            assert "Only 'file' messages are supported." in logs
+        assert logging.disable.call_count == 2
 
 
 viirs_message = (

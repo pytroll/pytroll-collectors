@@ -40,6 +40,8 @@ import logging.handlers
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
+import glob
+import os
 
 import trollsift
 from posttroll import message as pmessage, publisher
@@ -566,6 +568,7 @@ class SegmentGatherer(object):
 
         self._loop = False
         self._providing_server = self._config.get('providing_server')
+        self._is_first_message_after_start = True
 
     def _create_patterns(self):
         return {key: Pattern(key, pattern_config, self._config)
@@ -734,6 +737,7 @@ class SegmentGatherer(object):
             slot = self.slots[slot_time]
 
         slot.add_file(message)
+        self.check_and_add_existing_files(slot, message)
 
     def message_from_posttroll(self, msg):
         """Create a message object from a posttroll message instance."""
@@ -785,6 +789,46 @@ class SegmentGatherer(object):
                 time_ok = True
 
         return time_ok
+
+    def check_and_add_existing_files(self, slot, message):
+        """Check for existing files in the uri basedir and add them to the slot."""
+        if self._should_check_for_existing_files(message):
+            # Disable debug logging temporarily
+            logging.disable(logging.DEBUG)
+            fnames = _get_existing_files_from_message(message)
+            logger.info("Checking %d pre-existing files after restart.", len(fnames))
+            self._add_existing_files_to_slot(slot, fnames, message)
+            # Restore the original logging level
+            logging.disable(logging.NOTSET)
+
+    def _should_check_for_existing_files(self, message):
+        if not self._config.get("check_existing_files_after_start", False):
+            return False
+        if not self._is_first_message_after_start:
+            return False
+        if message.type != "file":
+            logger.error("Only 'file' messages are supported.")
+            return False
+        self._is_first_message_after_start = False
+        return True
+
+    def _add_existing_files_to_slot(self, slot, fnames, message):
+        for fname in fnames:
+            meta = {
+                "uid": os.path.basename(fname),
+                "uri": fname,
+                "sensor": message._posttroll_message.data["sensor"]
+                }
+            msg = self.message_from_posttroll(pmessage.Message(message._posttroll_message.subject, "file", meta))
+            slot.add_file(msg)
+
+
+def _get_existing_files_from_message(message):
+    mask = message.pattern.parser.globify({})
+    path = urlparse(message.message_data["uri"]).path
+    base_dir = os.path.dirname(path)
+
+    return glob.glob(os.path.join(base_dir, mask))
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
@@ -887,6 +931,11 @@ def ini_to_dict(fname, section):
         conf['time_name'] = config.get(section, "time_name")
     except (NoOptionError, ValueError):
         conf['time_name'] = 'start_time'
+
+    try:
+        conf['check_existing_files_after_start'] = config.getboolean(section, "check_existing_files_after_start")
+    except (NoOptionError, ValueError):
+        conf['check_existing_files_after_start'] = False
 
     return conf
 
