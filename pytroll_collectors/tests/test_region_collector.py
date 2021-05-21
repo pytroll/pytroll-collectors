@@ -140,22 +140,26 @@ def test_silence_timeout(europe, caplog):
             europe,
             timeliness=datetime.timedelta(seconds=60),
             granule_duration=datetime.timedelta(seconds=180),
-            silence=datetime.timedelta(seconds=300))
-    alt_europe_collector.collect(
-            {**granule_metadata,
-             "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
-    # earliest timeout is due to monitor for silence
-    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 5)
-    alt_europe_collector.collect(
-            {**granule_metadata,
-             "start_time": datetime.datetime(2021, 4, 11, 10, 3)})
-    # earliest timeout is due to monitor for silence
-    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 8)
-    alt_europe_collector.collect(
-            {**granule_metadata,
-             "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
-    # earliest timeout is due to duration + timelines
-    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+            silence=datetime.timedelta(seconds=900))
+    caplog.set_level(logging.DEBUG)
+    with unittest.mock.patch("pytroll_collectors.region_collector.datetime") as prd:
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 1)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
+        # earliest timeout is due to monitor for silence
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 4)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 3)})
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 19)
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 16)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
+        # earliest timeout is due to duration + timelines
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
 
 
 @pytest.mark.skip(reason="test never finishes")

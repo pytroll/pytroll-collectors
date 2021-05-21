@@ -194,7 +194,7 @@ class TestGeographicGatherer(unittest.TestCase):
         for silence is included in the configuration.
         """
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
-        sections = ["silence_config"]
+        sections = ["silence_section"]
         opts = FakeOpts(sections)
         GeographicGatherer(self.config, opts)
 
@@ -242,7 +242,7 @@ class TestGeographicGatherer(unittest.TestCase):
         assert len(gatherer.triggers) == num_sections
 
         # See that the trigger classes have been accessed the correct times
-        assert self.PostTrollTrigger.call_count == 2
+        assert self.PostTrollTrigger.call_count == 3
         assert self.WatchDogTrigger.call_count == 2
 
         # N regions for each section
