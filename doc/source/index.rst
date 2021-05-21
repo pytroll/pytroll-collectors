@@ -147,9 +147,21 @@ perhaps from `trollstalker`_ or `segment-gatherer`_.  Using the configured
 granule duration and the area of interest, it calculates the starting times
 of granules it should expect to be covered in this area before and after the
 granule it was messaged about.  Collection is considered finished when either
-all expected granules have been collected or when a timeout is reached,
-whatever comes first.  Timeout is configured with the ``timeliness`` option
-(see below).
+of three conditions is reached:
+
+- All expected granules have been collected.
+- A timeout is reached due to the ``timeliness`` option.  This timeout is
+  calculated based on expected *remaining* granules.  That means the timeout
+  can change if the last granule is collected.  For example, we expect
+  granules at times 0, 3, 6, 9, and 12.  Granule duration is 3 minutes and
+  timeliness is 5 minutes.  Initially the timeout is set at t=12+3+5=20.  But
+  if we collect 0, 6, 9, and 12 (but not 3), then after 12 has been collected,
+  timeout is adjusted to 3+3+5=11.  Since the granule at t=12 is probably
+  collected when the clock time is later than t=11, the collection of the final granule
+  at t=12 leads to an immediate trigger of the timeout after the collection of t=12.
+- No granules are collected at all for a period of ``silence`` seconds.
+  Considering the previous example, if we collect 3, 6, 9, but not 12; if
+  silence is set to 5 minutes, then the timeout will be reached at t=9+5=14.
 
 .. _pytroll-schedule: http://pytroll-schedule.readthedocs.org/
 .. _pyorbital: https://pyorbital.readthedocs.io/en/latest/
@@ -182,6 +194,11 @@ timeliness
     unit different compared to duration).  Collection is stopped
     ``timeliness`` minutes after the expected end time of the last expected
     granule.
+
+silence
+    Monitor for silence for this time (in seconds).  If no messages are
+    received at all for this period, ship what we have regardless of other
+    timeouts.
 
 And the following optional fields:
 
@@ -218,7 +235,7 @@ orbit_type
 nameserver
     Nameserver to use to publish posttroll messages.
 
-.. literalinclude:: ../../examples/gatherer_config.ini_template
+.. literalinclude:: ../../examples/geographic_gatherer_config.ini_template
    :language: ini
 
 scisys_receiver

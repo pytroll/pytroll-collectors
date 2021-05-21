@@ -19,6 +19,9 @@ sensor = viirs
 timeliness = 10
 # duration of a granule in SECONDS
 duration = 180
+# silence monitoring in seconds.  Collection is stopped if no granules/messages
+# are received for this amount of time.
+# silence = 600
 publish_topic = 
 
 [ears_viirs]
