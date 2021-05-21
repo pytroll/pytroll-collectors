@@ -117,10 +117,11 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and no duration
         for region in self.config.get(sections[0], 'regions').split():
-            assert call(region, dt.timedelta(seconds=1800), None) in self.RegionCollector.mock_calls
+            assert call(region, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
+        self.publisher.NoisyPublisher.assert_called_once_with(
+            'gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
     def test_init_posttroll(self):
@@ -157,7 +158,7 @@ class TestGeographicGatherer(unittest.TestCase):
             assert call(
                 region,
                 dt.timedelta(seconds=1200),
-                dt.timedelta(seconds=12, microseconds=300000)) in self.RegionCollector.mock_calls
+                dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
         self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
@@ -210,7 +211,7 @@ class TestGeographicGatherer(unittest.TestCase):
             assert call(
                 region,
                 dt.timedelta(minutes=self.config.getint(sections[0], "timeliness")),
-                None) in RegionCollector.mock_calls
+                None, None, None) in RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
         publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
