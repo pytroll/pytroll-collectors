@@ -1,25 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2013 - 2019 PyTroll Community
-
+#
+# Copyright (c) 2013 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Joonas Karjalainen <joonas.karjalainen@fmi.fi>
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #   Martin Raspaud <martin.raspaud@smhi.se>
 #   Adam Dybbroe <adam.dybbroe@smhi.se
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -29,7 +29,7 @@
 import argparse
 import sys
 import time
-from six.moves.configparser import RawConfigParser
+from configparser import RawConfigParser
 import logging
 import logging.config
 import os.path
@@ -41,19 +41,12 @@ from pytroll_collectors.trigger import AbstractWatchDogProcessor
 
 logger = logging.getLogger(__name__)
 
-try:
-    # Python 2
-    str_or_unicode = (str, unicode)
-except NameError:
-    # Pyton 3
-    str_or_unicode = (str, bytes)
-
 
 class FilePublisher(AbstractWatchDogProcessor):
 
     def __init__(self, config):
         self.config = config.copy()
-        if isinstance(config["filepattern"], str_or_unicode):
+        if isinstance(config["filepattern"], (str, bytes)):
             self.config["filepattern"] = [self.config["filepattern"]]
 
         self.parsers = [Parser(filepattern)

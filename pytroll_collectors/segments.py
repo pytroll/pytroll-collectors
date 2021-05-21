@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2015, 2016 Panu Lahtinen
-
+#
+# Copyright (c) 2015 - 2021 Pytroll developers
+#
 # Author(s): Panu Lahtinen
-
+#
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -46,8 +46,8 @@ import os
 import trollsift
 from posttroll import message as pmessage, publisher
 from posttroll.listener import ListenerContainer
-from six.moves.queue import Empty
-from six.moves.urllib.parse import urlparse
+from queue import Empty
+from urllib.parse import urlparse
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -844,7 +844,7 @@ def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
 
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
-    from six.moves.configparser import RawConfigParser, NoOptionError
+    from configparser import RawConfigParser, NoOptionError
 
     config = RawConfigParser()
     config.read(fname)
