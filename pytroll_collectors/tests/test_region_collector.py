@@ -128,6 +128,36 @@ def test_adjust_timeout(europe, caplog):
     assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 22)
 
 
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_silence_timeout(europe, caplog):
+    """Test that the monitor for silence timeout is working."""
+    from pytroll_collectors.region_collector import RegionCollector
+    granule_metadata = {
+            "sensor": "avhrr",
+            "tle_platform_name": "Metop-C",
+            "uri": "file://alt/0"}
+    alt_europe_collector = RegionCollector(
+            europe,
+            timeliness=datetime.timedelta(seconds=60),
+            granule_duration=datetime.timedelta(seconds=180),
+            silence=datetime.timedelta(seconds=300))
+    alt_europe_collector.collect(
+            {**granule_metadata,
+             "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
+    # earliest timeout is due to monitor for silence
+    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 5)
+    alt_europe_collector.collect(
+            {**granule_metadata,
+             "start_time": datetime.datetime(2021, 4, 11, 10, 3)})
+    # earliest timeout is due to monitor for silence
+    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 8)
+    alt_europe_collector.collect(
+            {**granule_metadata,
+             "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
+    # earliest timeout is due to duration + timelines
+    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+
+
 @pytest.mark.skip(reason="test never finishes")
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_faulty_end_time(europe_collector, caplog):
