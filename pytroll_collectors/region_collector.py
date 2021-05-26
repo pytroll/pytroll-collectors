@@ -48,8 +48,22 @@ class RegionCollector(object):
 
     def __init__(self, region,
                  timeliness=None,
-                 granule_duration=None):
-        """Initialize the region collector."""
+                 granule_duration=None,
+                 silence=timedelta(days=9999)):
+        """Initialize the region collector.
+
+        Args:
+            region (AreaDefinition): Area for which to collect granules.
+            timeliness (datetime.timedelta): Timeout after latest expected
+                granule.  This timeout will be reached if the clock time
+                exceeds the time for the latest expected granule +
+                granule_duration + timeliness.
+            granule_duration (datetime.timedelta): Duration for a granule.
+                This will be used to calculate expected granules and to
+                estimate the timeliness-timeout (see above).
+            silence (datetime.timedelta): Regardless of what we expect, abort
+                collection if nothing has been received for this duration.
+        """
         self.region = region  # area def
         self.granule_times = set()
         self.granules = []
@@ -58,6 +72,7 @@ class RegionCollector(object):
         self.timeout = None
         self.granule_duration = granule_duration
         self.last_file_added = False
+        self.silence = silence
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
@@ -146,6 +161,7 @@ class RegionCollector(object):
                                self.granule_times) +
                            self.granule_duration +
                            self.timeliness)
+            silence_timeout = datetime.now() + self.silence
         except ValueError:
             logger.error("Calculation of new timeout failed, "
                          "keeping previous timeout.")
@@ -155,6 +171,10 @@ class RegionCollector(object):
         if new_timeout < self.timeout:
             self.timeout = new_timeout
             logger.info("Adjusted timeout: %s", self.timeout.isoformat())
+        elif silence_timeout > self.timeout:
+            self.timeout = min(new_timeout, silence_timeout)
+            if silence_timeout > new_timeout:
+                logger.debug(f"Silence timeout: {self.timeout:%Y-%m-%d %H:%M:%S}")
 
     def cleanup(self):
         """Clear members."""
@@ -200,9 +220,11 @@ class RegionCollector(object):
                         _get_platform_name(granule_metadata),
                         self.region.description,
                         str(sorted(self.planned_granule_times)))
-            self.timeout = (max(self.planned_granule_times) +
-                            self.granule_duration +
-                            self.timeliness)
+            self.timeout = min(
+                    datetime.now() + self.silence,
+                    (max(self.planned_granule_times) +
+                        self.granule_duration +
+                        self.timeliness))
             logger.info("Planned timeout for %s: %s", self.region.description,
                         self.timeout.isoformat())
         else:

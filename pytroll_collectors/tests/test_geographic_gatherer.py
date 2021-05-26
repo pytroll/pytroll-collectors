@@ -79,6 +79,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'publish_topic': '/topic',
             'watcher': 'Observer',
         }
+        self.config["silence_section"] = {**self.config["minimal_config"],
+                                          "silence": 300}
 
         self.RegionCollector = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.RegionCollector')
@@ -185,6 +187,17 @@ class TestGeographicGatherer(unittest.TestCase):
         self._watchdog_test(
             sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
+    def test_init_silence(self):
+        """Test initialisation of GeographicGatherer with silence.
+
+        Test that the GeographicGatherer is correctly initiated when monitoring
+        for silence is included in the configuration.
+        """
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        sections = ["silence_section"]
+        opts = FakeOpts(sections)
+        GeographicGatherer(self.config, opts)
+
     def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
         # There's one trigger
         assert len(gatherer.triggers) == 1
@@ -229,7 +242,7 @@ class TestGeographicGatherer(unittest.TestCase):
         assert len(gatherer.triggers) == num_sections
 
         # See that the trigger classes have been accessed the correct times
-        assert self.PostTrollTrigger.call_count == 2
+        assert self.PostTrollTrigger.call_count == 3
         assert self.WatchDogTrigger.call_count == 2
 
         # N regions for each section

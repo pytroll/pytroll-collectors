@@ -133,12 +133,14 @@ def test_adjust_timeout(europe, caplog):
             "uri": "file://alt/0"}
     alt_europe_collector = RegionCollector(
             europe,
+            timeliness=datetime.timedelta(seconds=600),
             granule_duration=datetime.timedelta(seconds=180))
 
     with caplog.at_level(logging.DEBUG):
         alt_europe_collector.collect(
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 28)
         alt_europe_collector.collect(
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
@@ -146,6 +148,43 @@ def test_adjust_timeout(europe, caplog):
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 12)})
     assert "Adjusted timeout" in caplog.text
+    assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 22)
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_silence_timeout(europe, caplog):
+    """Test that the monitor for silence timeout is working."""
+    from pytroll_collectors.region_collector import RegionCollector
+    granule_metadata = {
+            "sensor": "avhrr",
+            "tle_platform_name": "Metop-C",
+            "uri": "file://alt/0"}
+    alt_europe_collector = RegionCollector(
+            europe,
+            timeliness=datetime.timedelta(seconds=60),
+            granule_duration=datetime.timedelta(seconds=180),
+            silence=datetime.timedelta(seconds=900))
+    caplog.set_level(logging.DEBUG)
+    with unittest.mock.patch("pytroll_collectors.region_collector.datetime") as prd:
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 1)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 0)})
+        # earliest timeout is due to monitor for silence
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 4)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 3)})
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 19)
+        assert "Planned timeout for euro_ma: 2021-04-11T10:19" in caplog.text
+        prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 16)
+        alt_europe_collector.collect(
+                {**granule_metadata,
+                 "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
+        # earliest timeout is due to duration + timeliness
+        assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+        assert "Silence timeout: 2021-04-11 10:16" not in caplog.text
 
 
 @pytest.mark.skip(reason="test never finishes")
