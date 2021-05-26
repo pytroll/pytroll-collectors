@@ -177,12 +177,14 @@ def test_silence_timeout(europe, caplog):
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 3)})
         assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 19)
+        assert "Planned timeout for euro_ma: 2021-04-11T10:19" in caplog.text
         prd.now.return_value = datetime.datetime(2021, 4, 11, 10, 16)
         alt_europe_collector.collect(
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 15)})
-        # earliest timeout is due to duration + timelines
+        # earliest timeout is due to duration + timeliness
         assert alt_europe_collector.timeout == datetime.datetime(2021, 4, 11, 10, 16)
+        assert "Silence timeout: 2021-04-11 10:16" not in caplog.text
 
 
 @pytest.mark.skip(reason="test never finishes")
