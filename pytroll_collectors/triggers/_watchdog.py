@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014-2021, Pytroll developers
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
 # Author(s):
 #

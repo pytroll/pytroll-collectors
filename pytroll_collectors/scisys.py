@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012-2020 Pytroll Developers
+# Copyright (c) 2012 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -42,7 +42,7 @@ import socket
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 from time import sleep
-from six.moves.urllib.parse import SplitResult, urlsplit, urlunsplit
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from posttroll.message import Message
 from posttroll.publisher import Publish
