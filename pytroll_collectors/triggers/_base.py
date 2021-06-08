@@ -100,10 +100,10 @@ class Trigger(object):
 
     def _get_topic(self, mda):
         if self.publish_topic is not None:
-            logger.info("Composing topic.")
+            logger.debug("Composing topic.")
             subject = compose(self.publish_topic, mda)
         else:
-            logger.info("Using default topic.")
+            logger.debug("Using default topic.")
             subject = "/".join(("", mda["format"], mda["data_processing_level"], ''))
         return subject
 
@@ -202,7 +202,7 @@ class FileTrigger(Trigger, Thread):
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
                 if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
-                    logger.warning("Timeout detected, terminating collector")
+                    logger.debug("Timeout detected, terminating collector")
                     logger.debug("Area: %s, timeout: %s",
                                  next_timeout[0].region,
                                  str(next_timeout[1]))

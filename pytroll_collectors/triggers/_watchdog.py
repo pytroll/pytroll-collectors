@@ -50,7 +50,7 @@ class AbstractWatchDogProcessor(FileSystemEventHandler):
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))
-            logger.debug("watching " + str(os.path.dirname(pattern)))
+            logger.debug("watching %s", str(os.path.dirname(pattern)))
         self.patterns = patterns
 
         self.new_file = Event()
@@ -69,7 +69,7 @@ class AbstractWatchDogProcessor(FileSystemEventHandler):
         try:
             for pattern in self.patterns:
                 if fnmatch(pathname, pattern):
-                    logger.debug("New file detected : " + pathname)
+                    logger.debug("New file detected: %s", pathname)
                     self.process(pathname)
                     logger.debug("Done processing file")
                     return
