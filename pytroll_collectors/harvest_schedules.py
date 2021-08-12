@@ -49,7 +49,7 @@ sensor_translate = {'avhrr/3': 'avhrr',
                     'mersi2': 'mersi'}
 
 
-def _parse_schedules(params, passes):#   Adam.Dybbroe <a000680@c14526.ad.smhi.se>
+def _parse_schedules(params, passes):  # Adam.Dybbroe <a000680@c14526.ad.smhi.se>
     planned_pass_start_time = min(params['planned_granule_times'])
     planned_pass_end_time = max(params['planned_granule_times'])
     planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
