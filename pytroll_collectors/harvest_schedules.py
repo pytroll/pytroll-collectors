@@ -99,7 +99,7 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     return eum_url, save_file
 
 
-def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):  # noqa
+def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
     logger.debug("params: %s", params)
 
     eum_url, save_file = _generate_pass_list_file_name(params, save_basename, eum_base_url)
@@ -112,7 +112,7 @@ def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL): 
     else:
         try:
             logger.debug("EUM_URL, %s", eum_url)
-            filedata = urlopen(eum_url)  # noqa
+            filedata = urlopen(eum_url)
             passes = filedata.readlines()
         except HTTPError as httpe:
             logger.error("Failed to download file: ", eum_url, httpe)
