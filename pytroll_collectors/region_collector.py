@@ -269,11 +269,11 @@ class RegionCollector(object):
                 logger.info("function : {} loaded from module: {}".format([name], method_file_name))
             except ImportError:
                 logger.debug("Failed to import schedule_cut for %s from %s. Will not perform schedule cut.",
-                            str(name),
-                            str(method_file_name))
+                             str(name),
+                             str(method_file_name))
             else:
                 params = {'planned_granule_times': self.planned_granule_times,
-                            'granule_metadata': granule_metadata}
+                          'granule_metadata': granule_metadata}
                 logger.debug("Start harvest of cut schedules")
                 logger.debug("method: %s, with type %s", method, type(method))
 
