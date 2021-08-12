@@ -85,7 +85,7 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     start_time = params['granule_metadata']['start_time']
     if 'sensor' in params['granule_metadata']:
         sensor = params['granule_metadata']['sensor']
-        if type(params['granule_metadata']['sensor']) is list:
+        if isinstance(params['granule_metadata']['sensor'], list):
             sensor = params['granule_metadata']['sensor'][0]
 
         pass_list_file = download_file.format(
@@ -99,7 +99,7 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     return eum_url, save_file
 
 
-def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
+def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):  # noqa
     logger.debug("params: %s", params)
 
     eum_url, save_file = _generate_pass_list_file_name(params, save_basename, eum_base_url)
@@ -112,7 +112,7 @@ def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
     else:
         try:
             logger.debug("EUM_URL, %s", eum_url)
-            filedata = urlopen(eum_url)
+            filedata = urlopen(eum_url)  # noqa
             passes = filedata.readlines()
         except HTTPError as httpe:
             logger.error("Failed to download file: ", eum_url, httpe)
