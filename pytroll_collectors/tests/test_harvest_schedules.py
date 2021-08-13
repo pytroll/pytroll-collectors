@@ -203,9 +203,6 @@ class TestHarvestSchedules(unittest.TestCase):
 
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
     def test_harvest_schedule_HTTPError(self, mock_harvest_schedules):
-        import sys
-        from contextlib import contextmanager
-        from io import StringIO
         from urllib.error import HTTPError
         mock_harvest_schedules.side_effect = HTTPError('This failed', 0, '', '', None)
         # self.cloud_image.fetch()
@@ -230,7 +227,7 @@ class TestHarvestSchedules(unittest.TestCase):
 
         self._caplog.propagate = True
         with self._caplog.at_level(logging.ERROR):
-            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)        
+            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
             logs = str([rec.message for rec in self._caplog.records])
             self.assertIsNone(min_time)
             self.assertIsNone(max_time)
