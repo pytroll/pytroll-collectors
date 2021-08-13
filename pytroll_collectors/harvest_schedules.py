@@ -107,7 +107,8 @@ def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
     if os.path.exists(save_file):
         with open(save_file, "r") as fd_:
             logger.debug("Reading from cached files")
-            for line in fd_:
+            lines = fd_.readlines()
+            for line in lines:
                 passes.append(line)
     else:
         try:
