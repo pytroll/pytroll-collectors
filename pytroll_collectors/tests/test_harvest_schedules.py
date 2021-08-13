@@ -115,6 +115,30 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertEqual('https://uns.eumetsat.int/downloads/ears/ears_viirs_pass_prediction_19-12-16.txt', eum)
         self.assertEqual(os.path.join(self.basedir, 'ears_viirs_pass_prediction_19-12-16.txt'), save_file)
 
+    def test_pass_list_no_sensor(self):
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'end_decimal': 3,
+            'stream': 'eumetcast', 'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS',
+            'orbit_number': 42154, 'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears',
+            'data_processing_level': '1B', 'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5',
+            'collection_area_id': 'eurol'}
+
+        planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
+                                     datetime.datetime(2019, 12, 13, 13, 38),
+                                     datetime.datetime(2019, 12, 13, 13, 27)])
+
+        params = {'granule_metadata': granule_metadata,
+                  'planned_granule_times': planned_granule_times}
+        eum, save_file = _generate_pass_list_file_name(params, self.basedir, 'https://uns.eumetsat.int/downloads/ears/')
+        self.assertIsNone(eum)
+        self.assertIsNone(save_file)
+
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
     def test_harvest_schedule_2(self, mock_harvest_schedules_urlopen):
         granule_metadata = {
@@ -163,6 +187,54 @@ class TestHarvestSchedules(unittest.TestCase):
 
         harvest_schedules(params, save_basename=self.basedir)
         self.assertEqual(mock_harvest_schedules.call_count, 1)
+
+        # Do a second call, should reread the file instead of download.
+        min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
+        self.assertIsNone(min_time)
+        self.assertIsNone(max_time)
+
+    @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
+    def test_harvest_schedule_HTTPError(self, mock_harvest_schedules):
+        import sys
+        from contextlib import contextmanager
+        from io import StringIO
+        from urllib.error import HTTPError
+        mock_harvest_schedules.side_effect = HTTPError('This failed', 0, '', '', None)
+        # self.cloud_image.fetch()
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
+            'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
+            'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
+            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+
+        planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
+                                     datetime.datetime(2019, 12, 13, 13, 38),
+                                     datetime.datetime(2019, 12, 13, 13, 27)])
+
+        params = {'granule_metadata': granule_metadata,
+                  'planned_granule_times': planned_granule_times}
+
+        @contextmanager
+        def captured_output():
+            new_out, new_err = StringIO(), StringIO()
+            old_out, old_err = sys.stdout, sys.stderr
+            try:
+                sys.stdout, sys.stderr = new_out, new_err
+                yield sys.stdout, sys.stderr
+            finally:
+                sys.stdout, sys.stderr = old_out, old_err
+        
+        with captured_output() as (out, err):
+            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
+        self.assertIsNone(min_time)
+        self.assertIsNone(max_time)
+        self.assertIn("Failed to download file:", err.getvalue().strip())
 
     def test_parse_schedules(self):
         granule_metadata = {
