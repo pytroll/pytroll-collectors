@@ -142,64 +142,44 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertIsNone(eum)
         self.assertIsNone(save_file)
 
-    @mock.patch('pytroll_collectors.harvest_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
-    def test_harvest_schedule_2(self, mock_harvest_schedules_urlopen):
-        granule_metadata = {
-            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
-            'format': 'SDR_compact', 'orig_platform_name': 'npp',
-            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
-            'dataset':
-            [{'uri':
-              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
-              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
-            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
-            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
-            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
-
-        planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
-                                     datetime.datetime(2019, 12, 13, 13, 38),
-                                     datetime.datetime(2019, 12, 13, 13, 27)])
-        params = {'granule_metadata': granule_metadata,
-                  'planned_granule_times': planned_granule_times}
-
-        harvest_schedules(params, save_basename=self.basedir)
-        self.assertEqual(mock_harvest_schedules_urlopen.call_count, 1)
-
-    @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
-    def test_harvest_schedule(self, mock_harvest_schedules):
-        mock_harvest_schedules.readline.side_effect = 'test2'
-        # self.cloud_image.fetch()
-        granule_metadata = {
-            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
-            'format': 'SDR_compact', 'orig_platform_name': 'npp',
-            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
-            'dataset':
-            [{'uri':
-              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
-              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
-            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
-            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
-            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
-
-        planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
-                                     datetime.datetime(2019, 12, 13, 13, 38),
-                                     datetime.datetime(2019, 12, 13, 13, 27)])
-
-        params = {'granule_metadata': granule_metadata,
-                  'planned_granule_times': planned_granule_times}
-
-        harvest_schedules(params, save_basename=self.basedir)
-        self.assertEqual(mock_harvest_schedules.call_count, 1)
-
-        # Do a second call, should reread the file instead of download.
-        min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
-        self.assertIsNone(min_time)
-        self.assertIsNone(max_time)
-
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
         """Inject fixtures."""
         self._caplog = caplog
+
+    @mock.patch('pytroll_collectors.harvest_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
+    def test_harvest_schedule(self, mock_harvest_schedules_urlopen):
+        granule_metadata = {
+            'origin': '157.249.16.188:9063', 'sensor': ['viirs'], 'end_decimal': 3, 'stream': 'eumetcast',
+            'format': 'SDR_compact', 'orig_platform_name': 'npp',
+            'start_time': datetime.datetime(2019, 12, 16, 13, 44, 9), 'variant': 'EARS', 'orbit_number': 42154,
+            'dataset':
+            [{'uri':
+              '/data/pytroll/VIIRS-EARS/SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5',
+              'uid': 'SVMC_npp_d20191216_t1344091_e1345333_b42154_c20191216135112000242_eum_ops.h5'}],
+            'start_decimal': 1, 'proctime': '20191216135112000242', 'antenna': 'ears', 'data_processing_level': '1B',
+            'tle_platform_name': 'SUOMI NPP', 'platform_name': 'npp',
+            'end_time': datetime.datetime(2019, 12, 16, 13, 45, 33), 'type': 'HDF5', 'collection_area_id': 'eurol'}
+
+        planned_granule_times = set([datetime.datetime(2019, 12, 13, 13, 19),
+                                     datetime.datetime(2019, 12, 13, 13, 38),
+                                     datetime.datetime(2019, 12, 13, 13, 27)])
+
+        params = {'granule_metadata': granule_metadata,
+                  'planned_granule_times': planned_granule_times}
+
+        with self._caplog.at_level(logging.DEBUG):
+            harvest_schedules(params, save_basename=self.basedir)
+            logs = [rec.message for rec in self._caplog.records]
+            self.assertEqual(mock_harvest_schedules_urlopen.call_count, 1)
+            self.assertIn("Saving to file", str(logs))
+        with self._caplog.at_level(logging.DEBUG):
+            # Do a second call, should reread the file instead of download.
+            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
+            logs = [rec.message for rec in self._caplog.records]
+            self.assertIsNone(min_time)
+            self.assertIsNone(max_time)
+            self.assertIn("Reading from cached files", str(logs))
 
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
     def test_harvest_schedule_HTTPError(self, mock_harvest_schedules):
@@ -225,7 +205,6 @@ class TestHarvestSchedules(unittest.TestCase):
         params = {'granule_metadata': granule_metadata,
                   'planned_granule_times': planned_granule_times}
 
-        self._caplog.propagate = True
         with self._caplog.at_level(logging.ERROR):
             min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
             logs = str([rec.message for rec in self._caplog.records])
