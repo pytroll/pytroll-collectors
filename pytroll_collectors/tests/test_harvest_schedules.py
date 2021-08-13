@@ -31,6 +31,9 @@ from pytroll_collectors.harvest_schedules import harvest_schedules, _generate_pa
 import os
 import shutil
 
+import pytest
+import logging
+
 
 class FakeResponse:
     def __init__(self, data):
@@ -193,6 +196,11 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertIsNone(min_time)
         self.assertIsNone(max_time)
 
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        """Inject fixtures."""
+        self._caplog = caplog
+
     @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
     def test_harvest_schedule_HTTPError(self, mock_harvest_schedules):
         import sys
@@ -220,21 +228,13 @@ class TestHarvestSchedules(unittest.TestCase):
         params = {'granule_metadata': granule_metadata,
                   'planned_granule_times': planned_granule_times}
 
-        @contextmanager
-        def captured_output():
-            new_out, new_err = StringIO(), StringIO()
-            old_out, old_err = sys.stdout, sys.stderr
-            try:
-                sys.stdout, sys.stderr = new_out, new_err
-                yield sys.stdout, sys.stderr
-            finally:
-                sys.stdout, sys.stderr = old_out, old_err
-
-        with captured_output() as (out, err):
-            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)
-        self.assertIsNone(min_time)
-        self.assertIsNone(max_time)
-        self.assertIn("Failed to download file:", err.getvalue().strip())
+        self._caplog.propagate = True
+        with self._caplog.at_level(logging.ERROR):
+            min_time, max_time = harvest_schedules(params, save_basename=self.basedir)        
+            logs = str([rec.message for rec in self._caplog.records])
+            self.assertIsNone(min_time)
+            self.assertIsNone(max_time)
+            self.assertIn("Failed to download file:", logs)
 
     def test_parse_schedules(self):
         granule_metadata = {

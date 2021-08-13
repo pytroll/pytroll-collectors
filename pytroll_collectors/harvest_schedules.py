@@ -115,7 +115,7 @@ def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
             filedata = urlopen(eum_url)
             passes = filedata.readlines()
         except HTTPError as httpe:
-            logger.error("Failed to download file: ", eum_url, httpe)
+            logger.error("Failed to download file: %s %s", eum_url, httpe)
             return (None, None)
         else:
             with open(save_file, 'w') as saving_file:
