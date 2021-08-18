@@ -25,6 +25,7 @@
 
 import re
 import os
+import tempfile
 from datetime import datetime, timedelta
 from urllib.request import urlopen
 from urllib.error import HTTPError
