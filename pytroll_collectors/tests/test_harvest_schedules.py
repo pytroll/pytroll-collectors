@@ -27,7 +27,7 @@ import unittest
 from unittest import mock
 from tempfile import mkdtemp
 import datetime
-from pytroll_collectors.harvest_schedules import harvest_schedules, _generate_pass_list_file_name, _parse_schedules
+from pytroll_collectors.harvest_EUM_schedules import harvest_schedules, _generate_pass_list_file_name, _parse_schedules
 import os
 import shutil
 
