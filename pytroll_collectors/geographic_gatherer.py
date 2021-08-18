@@ -188,8 +188,8 @@ class GeographicGatherer(object):
                         raise RuntimeError
         except KeyboardInterrupt:
             logger.info("Shutting down...")
-        except (RuntimeError, OSError) as err:
-            logger.critical('Something went wrong: %s', err)
+        except (RuntimeError, OSError):
+            logger.exception('Something went wrong')
         finally:
             logger.info('Ending publication the gathering of granules...')
             for trigger in self.triggers:
