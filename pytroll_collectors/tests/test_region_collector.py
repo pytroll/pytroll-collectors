@@ -37,6 +37,7 @@ METOP-C
 2 43689  98.6928 163.0161 0002296 181.8672 178.2497 14.21491657125954
 """
 
+
 def harvest_schedules(params, save_basename=None, eum_base_url=None):
     return None, None
 
@@ -53,11 +54,13 @@ def europe_collector(europe):
     from pytroll_collectors.region_collector import RegionCollector
     return RegionCollector(europe)
 
+
 @pytest.fixture
 def europe_collector_schedule_cut(europe, schedule_cut=True):
     """Construct RegionCollector for Central Europe with schedule cut."""
     from pytroll_collectors.region_collector import RegionCollector
     return RegionCollector(europe, schedule_cut=schedule_cut)
+
 
 @pytest.fixture
 def europe_collector_schedule_cut_custom_method(europe, schedule_cut=True,
@@ -65,6 +68,7 @@ def europe_collector_schedule_cut_custom_method(europe, schedule_cut=True,
     """Construct RegionCollector for Central Europe with schedule cut."""
     from pytroll_collectors.region_collector import RegionCollector
     return RegionCollector(europe, schedule_cut=schedule_cut, schedule_cut_method=schedule_cut_method)
+
 
 @pytest.fixture
 def europe_collector_schedule_cut_custom_method_failed(europe, schedule_cut=True,
@@ -137,7 +141,8 @@ def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
                         "uri": f"file://{s_min:d}"}})
 
     assert "Try import ['harvest_schedules'] module: pytroll_collectors.harvest_EUM_schedules" in caplog.text
-    assert "function : ['harvest_schedules'] loaded from module: pytroll_collectors.harvest_EUM_schedules" in caplog.text
+    assert ("function : ['harvest_schedules'] loaded from module: "
+            "pytroll_collectors.harvest_EUM_schedules") in caplog.text
     assert "Start harvest of cut schedules" in caplog.text
     assert "method: <module 'pytroll_collectors.harvest_EUM_schedules' from" in caplog.text
     assert "harvest_EUM_schedules.py'>, with type <class 'module'>" in caplog.text
@@ -166,6 +171,7 @@ def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_cus
     assert "method: <module 'pytroll_collectors.tests.test_region_collector' from" in caplog.text
     assert "test_region_collector.py'>, with type <class 'module'>" in caplog.text
 
+
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_cut_custom_method_failed, caplog):
     """Test custom schedule cut method failed import."""
@@ -181,7 +187,9 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
                         "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
                         "uri": f"file://{s_min:d}"}})
 
-    assert "Failed to import schedule_cut for harvest_schedules from failed_not_existing_module. Will not perform schedule cut." in caplog.text
+    test_string = ("Failed to import schedule_cut for harvest_schedules from failed_not_existing_module. "
+                   "Will not perform schedule cut.")
+    assert test_string in caplog.text
 
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_adjust_timeout(europe, caplog):
