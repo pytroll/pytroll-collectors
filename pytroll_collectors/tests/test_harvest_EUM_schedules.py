@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit testing some general purpose helper functions."""
+"""Unit testing harvest_EUM_schedules module."""
 
 import unittest
 from unittest import mock
@@ -117,7 +117,9 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertEqual(os.path.join(self.basedir, 'ears_viirs_pass_prediction_19-12-16.txt'), save_file)
 
     def test_pass_list_no_sensor(self):
-        params = {'granule_metadata': self.granule_metadata,
+        granule_metadata = self.granule_metadata.copy()
+        granule_metadata.pop('sensor')
+        params = {'granule_metadata': granule_metadata,
                   'planned_granule_times': self.planned_granule_times}
         eum, save_file = _generate_pass_list_file_name(params, self.basedir, 'https://uns.eumetsat.int/downloads/ears/')
         self.assertIsNone(eum)
@@ -128,7 +130,7 @@ class TestHarvestSchedules(unittest.TestCase):
         """Inject fixtures."""
         self._caplog = caplog
 
-    @mock.patch('pytroll_collectors.harvest_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
+    @mock.patch('pytroll_collectors.harvest_EUM_schedules.urlopen', return_value=FakeResponse(data=fake_test_pass_file))
     def test_harvest_schedule(self, mock_harvest_schedules_urlopen):
         params = {'granule_metadata': self.granule_metadata,
                   'planned_granule_times': self.planned_granule_times}
@@ -146,7 +148,7 @@ class TestHarvestSchedules(unittest.TestCase):
             self.assertIsNone(max_time)
             self.assertIn("Reading from cached files", str(logs))
 
-    @mock.patch('pytroll_collectors.harvest_schedules.urlopen')
+    @mock.patch('pytroll_collectors.harvest_EUM_schedules.urlopen')
     def test_harvest_schedule_HTTPError(self, mock_harvest_schedules):
         from urllib.error import HTTPError
         mock_harvest_schedules.side_effect = HTTPError('This failed', 0, '', '', None)
@@ -173,7 +175,9 @@ class TestHarvestSchedules(unittest.TestCase):
                                      datetime.datetime(2019, 12, 16, 13, 54, 6, 800000),
                                      datetime.datetime(2019, 12, 16, 13, 55, 32, 200000),
                                      datetime.datetime(2019, 12, 16, 13, 56, 57, 600000)])
-        params = {'granule_metadata': self.granule_metadata,
+        granule_metadata = self.granule_metadata.copy()
+        granule_metadata['platform_name'] = 'suomi npp'
+        params = {'granule_metadata': granule_metadata,
                   'planned_granule_times': planned_granule_times}
         min_times, max_times = _parse_schedules(params, fake_test_pass_file.split("\n"))
         self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37))
