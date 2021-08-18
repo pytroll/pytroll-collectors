@@ -60,7 +60,7 @@ def _parse_schedules(params, passes):  # Adam.Dybbroe <a000680@c14526.ad.smhi.se
     min_time = None
     max_time = None
     for pass_ in passes:
-        al = aos_los.match(pass_)
+        al = aos_los.match(pass_.decode('utf-8'))
         if al:
             eum_aos = datetime(int(al.group(1)), int(al.group(2)), int(al.group(3)),
                                int(al.group(4)), int(al.group(5)))
@@ -108,7 +108,7 @@ def harvest_schedules(params, save_basename=None, eum_base_url=EUM_BASE_URL):
     eum_url, save_file = _generate_pass_list_file_name(params, save_basename, eum_base_url)
     passes = []
     if os.path.exists(save_file):
-        with open(save_file, "r") as fd_:
+        with open(save_file, "rb") as fd_:
             logger.debug("Reading from cached files")
             lines = fd_.readlines()
             for line in lines:
@@ -122,7 +122,7 @@ def harvest_schedules(params, save_basename=None, eum_base_url=EUM_BASE_URL):
             logger.error("Failed to download file: %s %s", eum_url, httpe)
             return (None, None)
         else:
-            with open(save_file, 'w') as saving_file:
+            with open(save_file, 'wb') as saving_file:
                 logger.debug("Saving to file")
                 for pass_ in passes:
                     saving_file.write(pass_)

@@ -37,7 +37,7 @@ import logging
 
 class FakeResponse:
     def __init__(self, data):
-        self.data = data.split("\n")
+        self.data = data.split(b'\n')
 
     def readlines(self):
         self.status = 200 if self.data is not None else 404
@@ -47,39 +47,37 @@ class FakeResponse:
         pass
 
 
-fake_test_pass_file = """
-EARS-VIIRS Pass Predictions
-2019/12/16 05:08:01
-scheduleBeginEumetsat,scheduleEndEumetsat,Satellite
-2019-12-16 00:24,2019-12-16 00:51,npp
-2019-12-16 01:14,2019-12-16 01:44,noaa20
-2019-12-16 02:05,2019-12-16 02:35,npp
-2019-12-16 02:55,2019-12-16 03:25,noaa20
-2019-12-16 03:46,2019-12-16 04:13,npp
-2019-12-16 04:36,2019-12-16 04:56,noaa20
-2019-12-16 05:26,2019-12-16 05:47,npp
-2019-12-16 06:16,2019-12-16 06:37,noaa20
-2019-12-16 07:05,2019-12-16 07:27,npp
-2019-12-16 07:55,2019-12-16 08:16,noaa20
-2019-12-16 08:46,2019-12-16 09:06,npp
-2019-12-16 09:29,2019-12-16 09:55,noaa20
-2019-12-16 10:17,2019-12-16 10:44,npp
-2019-12-16 11:06,2019-12-16 11:34,noaa20
-2019-12-16 11:57,2019-12-16 12:24,npp
-2019-12-16 12:48,2019-12-16 13:15,noaa20
-2019-12-16 13:37,2019-12-16 14:05,npp
-2019-12-16 14:26,2019-12-16 14:56,noaa20
-2019-12-16 15:18,2019-12-16 15:47,npp
-2019-12-16 16:19,2019-12-16 16:37,noaa20
-2019-12-16 17:10,2019-12-16 17:30,npp
-2019-12-16 18:01,2019-12-16 18:20,noaa20
-2019-12-16 18:55,2019-12-16 19:12,npp
-2019-12-16 19:51,2019-12-16 20:03,noaa20
-2019-12-16 20:42,2019-12-16 20:56,npp
-2019-12-16 21:33,2019-12-16 21:47,noaa20
-2019-12-16 22:24,2019-12-16 22:50,npp
-2019-12-16 23:14,2019-12-16 23:41,noaa20
-"""
+fake_test_pass_file = (b"EARS-VIIRS Pass Predictions\n"
+                       b"2019/12/16 05:08:01\n"
+                       b"scheduleBeginEumetsat,scheduleEndEumetsat,Satellite\n"
+                       b"2019-12-16 00:24,2019-12-16 00:51,npp\n"
+                       b"2019-12-16 01:14,2019-12-16 01:44,noaa20\n"
+                       b"2019-12-16 02:05,2019-12-16 02:35,npp\n"
+                       b"2019-12-16 02:55,2019-12-16 03:25,noaa20\n"
+                       b"2019-12-16 03:46,2019-12-16 04:13,npp\n"
+                       b"2019-12-16 04:36,2019-12-16 04:56,noaa20\n"
+                       b"2019-12-16 05:26,2019-12-16 05:47,npp\n"
+                       b"2019-12-16 06:16,2019-12-16 06:37,noaa20\n"
+                       b"2019-12-16 07:05,2019-12-16 07:27,npp\n"
+                       b"2019-12-16 07:55,2019-12-16 08:16,noaa20\n"
+                       b"2019-12-16 08:46,2019-12-16 09:06,npp\n"
+                       b"2019-12-16 09:29,2019-12-16 09:55,noaa20\n"
+                       b"2019-12-16 10:17,2019-12-16 10:44,npp\n"
+                       b"2019-12-16 11:06,2019-12-16 11:34,noaa20\n"
+                       b"2019-12-16 11:57,2019-12-16 12:24,npp\n"
+                       b"2019-12-16 12:48,2019-12-16 13:15,noaa20\n"
+                       b"2019-12-16 13:37,2019-12-16 14:05,npp\n"
+                       b"2019-12-16 14:26,2019-12-16 14:56,noaa20\n"
+                       b"2019-12-16 15:18,2019-12-16 15:47,npp\n"
+                       b"2019-12-16 16:19,2019-12-16 16:37,noaa20\n"
+                       b"2019-12-16 17:10,2019-12-16 17:30,npp\n"
+                       b"2019-12-16 18:01,2019-12-16 18:20,noaa20\n"
+                       b"2019-12-16 18:55,2019-12-16 19:12,npp\n"
+                       b"2019-12-16 19:51,2019-12-16 20:03,noaa20\n"
+                       b"2019-12-16 20:42,2019-12-16 20:56,npp\n"
+                       b"2019-12-16 21:33,2019-12-16 21:47,noaa20\n"
+                       b"2019-12-16 22:24,2019-12-16 22:50,npp\n"
+                       b"2019-12-16 23:14,2019-12-16 23:41,noaa20\n")
 
 
 class TestHarvestSchedules(unittest.TestCase):
@@ -179,6 +177,6 @@ class TestHarvestSchedules(unittest.TestCase):
         granule_metadata['platform_name'] = 'suomi npp'
         params = {'granule_metadata': granule_metadata,
                   'planned_granule_times': planned_granule_times}
-        min_times, max_times = _parse_schedules(params, fake_test_pass_file.split("\n"))
+        min_times, max_times = _parse_schedules(params, fake_test_pass_file.split(b'\n'))
         self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37))
         self.assertEqual(max_times, datetime.datetime(2019, 12, 16, 14, 5))
