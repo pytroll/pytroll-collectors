@@ -260,7 +260,7 @@ class RegionCollector(object):
             method_file_name = "pytroll_collectors.harvest_schedules"
             name = "harvest_schedules"
             if self.schedule_cut_method:
-                logger.debug("Use custom schedule cut method provided i config file...")
+                logger.debug("Use custom schedule cut method provided in config file...")
                 logger.debug("method_name = %s", str(self.schedule_cut_method))
                 method_file_name = self.schedule_cut_method
             try:
