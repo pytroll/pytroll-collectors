@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Harvest schedules. Download schedules from EUM and parse to limit gatherer"""
+"""Harvest EUM schedules. Download schedules from EUM and parse to limit gatherer"""
 
 import re
 import os
