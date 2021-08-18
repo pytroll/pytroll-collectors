@@ -99,7 +99,9 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     return eum_url, save_file
 
 
-def harvest_schedules(params, save_basename='/tmp', eum_base_url=EUM_BASE_URL):
+def harvest_schedules(params, save_basename=None, eum_base_url=EUM_BASE_URL):
+    if save_basename is None:
+        save_basename = tempfile.gettempdir()
     logger.debug("params: %s", params)
 
     eum_url, save_file = _generate_pass_list_file_name(params, save_basename, eum_base_url)
