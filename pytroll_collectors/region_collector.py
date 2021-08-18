@@ -257,7 +257,7 @@ class RegionCollector(object):
         will then be modified accordingly.
         """
         if self.schedule_cut:
-            method_file_name = "pytroll_collectors.harvest_schedules"
+            method_file_name = "pytroll_collectors.harvest_EUM_schedules"
             name = "harvest_schedules"
             if self.schedule_cut_method:
                 logger.debug("Use custom schedule cut method provided in config file...")
