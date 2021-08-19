@@ -115,9 +115,8 @@ class TestHarvestSchedules(unittest.TestCase):
         self.assertEqual(os.path.join(self.basedir, 'ears_viirs_pass_prediction_19-12-16.txt'), save_file)
 
     def test_pass_list_no_sensor(self):
-        granule_metadata = self.granule_metadata.copy()
-        granule_metadata.pop('sensor')
-        params = {'granule_metadata': granule_metadata,
+        self.granule_metadata.pop('sensor')
+        params = {'granule_metadata': self.granule_metadata,
                   'planned_granule_times': self.planned_granule_times}
         eum, save_file = _generate_pass_list_file_name(params, self.basedir, 'https://uns.eumetsat.int/downloads/ears/')
         self.assertIsNone(eum)
@@ -173,9 +172,8 @@ class TestHarvestSchedules(unittest.TestCase):
                                      datetime.datetime(2019, 12, 16, 13, 54, 6, 800000),
                                      datetime.datetime(2019, 12, 16, 13, 55, 32, 200000),
                                      datetime.datetime(2019, 12, 16, 13, 56, 57, 600000)])
-        granule_metadata = self.granule_metadata.copy()
-        granule_metadata['platform_name'] = 'suomi npp'
-        params = {'granule_metadata': granule_metadata,
+        self.granule_metadata['platform_name'] = 'suomi npp'
+        params = {'granule_metadata': self.granule_metadata,
                   'planned_granule_times': planned_granule_times}
         min_times, max_times = _parse_schedules(params, fake_test_pass_file.split(b'\n'))
         self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37))
