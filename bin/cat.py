@@ -33,6 +33,7 @@ import os
 import tempfile
 from bz2 import BZ2File
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 
 from trollsift.parser import compose
 from posttroll.publisher import Publish
@@ -131,7 +132,7 @@ def get_aliases(raw_config_str):
 def process_message(msg, config):
     """Process the message."""
     pattern = config["output_file_pattern"]
-    input_files = [item["uri"] for item in msg.data["collection"]]
+    input_files = [urlsplit(item["uri"]).path for item in msg.data["collection"]]
 
     data = msg.data.copy()
     data["proc_time"] = datetime.utcnow()
