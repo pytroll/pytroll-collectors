@@ -103,7 +103,20 @@ class GeographicGatherer(object):
             duration = dt.timedelta(seconds=self._config.getfloat(section, "duration"))
         except NoOptionError:
             duration = None
-        return [RegionCollector(region, timeliness, duration) for region in regions]
+        # Parse schedule cut if configured. Mainly for EARS data.
+        try:
+            schedule_cut = self._config.get(section, 'schedule_cut')
+        except NoOptionError:
+            schedule_cut = None
+        # If you want to provide your own method to provide the schedule cut data
+        try:
+            schedule_cut_method = self._config.get(section, 'schedule_cut_method')
+        except NoOptionError:
+            schedule_cut_method = None
+
+        return [RegionCollector(
+            region, timeliness, duration, schedule_cut, schedule_cut_method)
+            for region in regions]
 
     def _get_granule_trigger(self, section, collectors):
         try:
