@@ -41,15 +41,18 @@ METOP-C
 _granule_metadata = {"platform_name": "Metop-C",
                      "sensor": "avhrr"}
 
+
 def granule_metadata(s_min):
     """Return common granule_metadata dictionary"""
-    return {**_granule_metadata, 
+    return {**_granule_metadata,
             "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
             "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
             "uri": f"file://{s_min:d}"}
 
+
 def harvest_schedules(params, save_basename=None, eum_base_url=None):
     return None, None
+
 
 @pytest.fixture
 def europe():
