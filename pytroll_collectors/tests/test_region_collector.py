@@ -38,6 +38,16 @@ METOP-C
 """
 
 
+_granule_metadata = {"platform_name": "Metop-C",
+                     "sensor": "avhrr"}
+
+def granule_metadata(s_min):
+    """Return common granule_metadata dictionary"""
+    return {**_granule_metadata, 
+            "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
+            "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
+            "uri": f"file://{s_min:d}"}
+
 def harvest_schedules(params, save_basename=None, eum_base_url=None):
     return None, None
 
@@ -80,7 +90,6 @@ def europe_collector_schedule_cut_custom_method_failed(europe, schedule_cut=True
 def _fakeopen(url):
     return io.BytesIO(tles)
 
-
 def test_init(europe):
     """Test that initialisation appears to work."""
     from pytroll_collectors.region_collector import RegionCollector
@@ -90,17 +99,10 @@ def test_init(europe):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect(europe_collector, caplog):
     """Test that granules can be collected."""
-    granule_metadata = {
-            "platform_name": "Metop-C",
-            "sensor": "avhrr"}
 
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
-            europe_collector.collect(
-                    {**granule_metadata,
-                     **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                        "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                        "uri": f"file://{s_min:d}"}})
+            europe_collector.collect({**granule_metadata(s_min)})
 
     assert "Granule file://0 is overlapping region euro_ma by fraction 0.03685" in caplog.text
     assert "Added new overlapping granule Metop-C (2021-04-11 10:00:00) to area euro_ma" in caplog.text
@@ -128,17 +130,10 @@ def test_collect_duration(europe):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
     """Test default schedule cut method."""
-    granule_metadata = {
-            "platform_name": "Metop-C",
-            "sensor": "avhrr"}
 
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
-            europe_collector_schedule_cut.collect(
-                    {**granule_metadata,
-                     **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                        "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                        "uri": f"file://{s_min:d}"}})
+            europe_collector_schedule_cut.collect({**granule_metadata(s_min)})
 
     assert "Try import ['harvest_schedules'] module: pytroll_collectors.harvest_EUM_schedules" in caplog.text
     assert ("function : ['harvest_schedules'] loaded from module: "
@@ -151,17 +146,10 @@ def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_custom_method, caplog):
     """Test custom schedule cut method."""
-    granule_metadata = {
-            "platform_name": "Metop-C",
-            "sensor": "avhrr"}
 
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
-            europe_collector_schedule_cut_custom_method.collect(
-                    {**granule_metadata,
-                     **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                        "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                        "uri": f"file://{s_min:d}"}})
+            europe_collector_schedule_cut_custom_method.collect({**granule_metadata(s_min)})
 
     assert "Use custom schedule cut method provided in config file..." in caplog.text
     assert "method_name = pytroll_collectors.tests.test_region_collector" in caplog.text
@@ -175,17 +163,10 @@ def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_cus
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_cut_custom_method_failed, caplog):
     """Test custom schedule cut method failed import."""
-    granule_metadata = {
-            "platform_name": "Metop-C",
-            "sensor": "avhrr"}
 
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
-            europe_collector_schedule_cut_custom_method_failed.collect(
-                    {**granule_metadata,
-                     **{"start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
-                        "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
-                        "uri": f"file://{s_min:d}"}})
+            europe_collector_schedule_cut_custom_method_failed.collect({**granule_metadata(s_min)})
 
     test_string = ("Failed to import schedule_cut for harvest_schedules from failed_not_existing_module. "
                    "Will not perform schedule cut.")
@@ -195,10 +176,8 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
 def test_adjust_timeout(europe, caplog):
     """Test timeout adjustment."""
     from pytroll_collectors.region_collector import RegionCollector
-    granule_metadata = {
-            "sensor": "avhrr",
-            "tle_platform_name": "Metop-C",
-            "uri": "file://alt/0"}
+    granule_metadata = {**_granule_metadata,
+                        "uri": "file://alt/0"}
     alt_europe_collector = RegionCollector(
             europe,
             granule_duration=datetime.timedelta(seconds=180))
@@ -221,8 +200,7 @@ def test_adjust_timeout(europe, caplog):
 def test_faulty_end_time(europe_collector, caplog):
     """Test adapting if end_time before start_time."""
     granule_metadata = {
-        "platform_name": "Metop-C",
-        "sensor": "avhrr",
+        **_granule_metadata,
         "start_time": datetime.datetime(2021, 4, 11, 0, 0),
         "end_time": datetime.datetime(2021, 4, 10, 23, 58)}
     with caplog.at_level(logging.DEBUG):
