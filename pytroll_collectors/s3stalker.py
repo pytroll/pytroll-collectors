@@ -21,17 +21,37 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Module to file new files on an s3 bucket."""
 
-import datetime
 import json
-
+import logging
+import posixpath
+from datetime import datetime, timedelta
+import time
+from contextlib import contextmanager
 import fsspec.implementations.zip
 import s3fs
 from dateutil import tz
 from posttroll.message import Message
+from posttroll.publisher import Publish
 from trollsift import Parser
-import posixpath
 
-last_fetch = datetime.datetime.now(tz.UTC) - datetime.timedelta(hours=12)
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def sleeper(duration):
+    """Make sure the block takes at least *duration* seconds."""
+    start_time = datetime.utcnow()
+    yield
+    end_time = datetime.utcnow()
+    waiting_time = duration - (end_time - start_time).total_seconds()
+    time.sleep(max(waiting_time, 0))
+
+
+class DatetimeHolder:
+    """Holder for the last_fetch datetime."""
+
+    last_fetch = datetime.now(tz.UTC) - timedelta(hours=12)
 
 
 def get_last_files(path, *args, pattern=None, **kwargs):
@@ -51,7 +71,7 @@ def _reset_last_fetch_from_file_list(files):
 
 def _get_files_since_last_fetch(fs, path):
     files = fs.ls(path, detail=True)
-    files = list(filter((lambda x: x['LastModified'] > last_fetch), files))
+    files = list(filter((lambda x: x['LastModified'] > DatetimeHolder.last_fetch), files))
     return files
 
 
@@ -72,8 +92,7 @@ def _match_files_to_pattern(files, path, pattern):
 
 def set_last_fetch(timestamp):
     """Set the last fetch time."""
-    global last_fetch
-    last_fetch = timestamp
+    DatetimeHolder.last_fetch = timestamp
 
 
 def create_message(fs, file, subject, metadata=None):
@@ -134,3 +153,20 @@ def filelist_unzip_to_messages(fs, files, subject):
         else:
             messages.append(create_message(fs.to_json(), file, subject))
     return messages
+
+
+def publish_new_files(bucket, config):
+    """Publish files newly arrived in bucket."""
+    with Publish("s3_stalker") as pub:
+        time_back = config['timedelta']
+        subject = config['subject']
+        pattern = config.get('file_pattern')
+        with sleeper(2.5):
+            set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+            s3_kwargs = config['s3_kwargs']
+            fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
+            messages = filelist_unzip_to_messages(fs, files, subject)
+
+        for message in messages:
+            logger.info("Publishing %s", str(message))
+            pub.send(str(message))

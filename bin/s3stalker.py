@@ -19,31 +19,21 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""S3 stalker."""
+"""S3 stalker.
+
+This script fetches filenames newer than a given timedelta and publishes the url
+of the corresponding file. It exits after that.
+So for now, this script is meant to be run at regular intervals, for example
+with a cronjob.
+"""
 
 import argparse
 import logging.config
-import time
-from contextlib import contextmanager
-from datetime import datetime, timedelta
 
 import yaml
-from dateutil import tz
 
-from pytroll_collectors import s3stalker
 from pytroll_collectors.helper_functions import read_yaml
-
-LOGGER = logging.getLogger(__name__)
-
-
-@contextmanager
-def sleeper(duration):
-    """Make sure the block takes at least *duration* seconds."""
-    start_time = datetime.utcnow()
-    yield
-    end_time = datetime.utcnow()
-    waiting_time = duration - (end_time - start_time).total_seconds()
-    time.sleep(max(waiting_time, 0))
+from pytroll_collectors.s3stalker import publish_new_files
 
 
 def arg_parse():
@@ -58,7 +48,8 @@ def arg_parse():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
+def main():
+    """Stalk an s3 bucket."""
     args = arg_parse()
 
     bucket = args.bucket
@@ -69,24 +60,11 @@ if __name__ == '__main__':
             log_dict = yaml.safe_load(fd.read())
             logging.config.dictConfig(log_dict)
 
-    LOGGER = logging.getLogger('s3stalker')
-
-    time_back = config['timedelta']
-    subject = config['subject']
-    pattern = config['file_pattern']
-
-    from posttroll.publisher import Publish
     try:
-        with Publish("s3_stalker") as pub:
-            with sleeper(2.5):
-                s3stalker.set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
-                s3_kwargs = config['s3_kwargs']
-                fs, files = s3stalker.get_last_files(bucket, pattern=pattern, **s3_kwargs)
-                messages = s3stalker.filelist_unzip_to_messages(fs, files, subject)
-
-            for message in messages:
-                LOGGER.info("Publishing %s", str(message))
-                pub.send(str(message))
-
+        publish_new_files(bucket, config)
     except KeyboardInterrupt:
         print("terminating publisher...")
+
+
+if __name__ == '__main__':
+    main()
