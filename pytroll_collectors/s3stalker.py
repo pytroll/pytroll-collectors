@@ -19,7 +19,7 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Module to file new files on an s3 bucket."""
+"""Module to find new files on an s3 bucket."""
 
 import json
 import logging
