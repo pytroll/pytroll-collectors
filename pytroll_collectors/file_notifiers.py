@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2014 Martin Raspaud
-
+#
+# Copyright (c) 2014 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -28,7 +28,7 @@ from fnmatch import fnmatch
 
 import pyinotify
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class EventHandler(pyinotify.ProcessEvent):
@@ -77,7 +77,7 @@ class ConfigWatcher(object):
         self.config_item = config_item
         self.watchman = pyinotify.WatchManager()
 
-        LOGGER.debug("Setting up watcher for %s", config_file)
+        logger.debug("Setting up watcher for %s", config_file)
 
         self.notifier = \
             pyinotify.ThreadedNotifier(self.watchman,
@@ -91,10 +91,10 @@ class ConfigWatcher(object):
 
     def start(self):
         """Start the config watcher."""
-        LOGGER.info("Start watching %s", self.config_file)
+        logger.info("Start watching %s", self.config_file)
         self.notifier.start()
 
     def stop(self):
         """Stop the config watcher."""
-        LOGGER.info("Stop watching %s", self.config_file)
+        logger.info("Stop watching %s", self.config_file)
         self.notifier.stop()

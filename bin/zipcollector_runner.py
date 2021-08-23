@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2017 Adam.Dybbroe
-
+#
+# Copyright (c) 2017 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Adam.Dybbroe <adam.dybbroe@smhi.se>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -35,13 +35,13 @@ import tarfile
 from datetime import timedelta
 
 import yaml
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 import posttroll.subscriber
 from posttroll.publisher import Publish
 from trollsift.parser import compose
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 #: Default time format
 _DEFAULT_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -129,15 +129,15 @@ def start_zipcollector(registry, message, options, **kwargs):
     outdir_local = options['local_output_dir']
     requested_tslots = options['requested_timeslots']
 
-    LOG.info("")
-    LOG.info("registry dict: " + str(registry))
-    LOG.info("\tMessage:")
-    LOG.info(message)
+    logger.info("")
+    logger.info("registry dict: " + str(registry))
+    logger.info("\tMessage:")
+    logger.info(message)
 
     if message is None:
         return registry
     elif (message.type != 'dataset'):
-        LOG.warning(
+        logger.warning(
             "Message type is not a collection! Type=%s", str(message.type))
         return registry
 
@@ -145,32 +145,32 @@ def start_zipcollector(registry, message, options, **kwargs):
         start_time = message.data['start_time']
         scene_id = start_time.strftime('%Y%m%d%H%M')
     else:
-        LOG.error("No start time in message!")
+        logger.error("No start time in message!")
         start_time = None
         return registry
 
     if 'end_time' in message.data:
         end_time = message.data['end_time']
     else:
-        LOG.warning("No end time in message!")
+        logger.warning("No end time in message!")
         end_time = start_time + timedelta(seconds=60 * 12)  # noqa
 
     if 'seviri' not in message.data['sensor']:
-        LOG.debug("Scene is not supported")
-        LOG.warning(
+        logger.debug("Scene is not supported")
+        logger.warning(
             "Sensor {0} is not SEVIRI! Continue".format(str(message.data['sensor'])))
         return registry
     else:
         registry[scene_id] = len(message.data['dataset'])
 
     # Now check that the time slot is among those requested
-    LOG.debug("Wanted time slots: %s", str(requested_tslots))
+    logger.debug("Wanted time slots: %s", str(requested_tslots))
     wanted_timeslot = False
     if '%.2d' % start_time.minute in requested_tslots:
         wanted_timeslot = True
 
     if wanted_timeslot:
-        LOG.info("Time slot {0} is requested".format(start_time))
+        logger.info("Time slot {0} is requested".format(start_time))
 
         # Example filename:
         # (service=0deg-lvl1)
@@ -185,7 +185,7 @@ def start_zipcollector(registry, message, options, **kwargs):
             outdir_destination, filename + '_original')
 
         # Create the tar archive:
-        LOG.debug("Create gzipped tar archive: %s", local_filepath)
+        logger.debug("Create gzipped tar archive: %s", local_filepath)
         status = True
         try:
             with tarfile.open(local_filepath, "w|gz") as archive:
@@ -202,10 +202,10 @@ def start_zipcollector(registry, message, options, **kwargs):
         if 'monitoring_hook' in options:
             options['monitoring_hook'](status, monitor_msg)
         else:
-            LOG.error("Configuration lacking a monitoring_hook entry!")
+            logger.error("Configuration lacking a monitoring_hook entry!")
 
     else:
-        LOG.info("Time slot {0} NOT requested. Do nothing".format(start_time))
+        logger.info("Time slot {0} NOT requested. Do nothing".format(start_time))
 
     return registry
 
@@ -228,8 +228,8 @@ def copy_file_to_destination(inpath, outpath):
 
 def zipcollector_live_runner(options):
     """Listen and trigger processing."""
-    LOG.info("*** Start the zipcollector runner:")
-    LOG.debug("Listens for messages of type: %s", options['message_type'])
+    logger.info("*** Start the zipcollector runner:")
+    logger.debug("Listens for messages of type: %s", options['message_type'])
     with posttroll.subscriber.Subscribe('', [options['message_type'], ], True) as subscr:
         with Publish('zipcollector_runner', 0) as publisher:
             file_reg = {}
@@ -279,6 +279,6 @@ if __name__ == "__main__":
     smtp_handler.setLevel(logging.CRITICAL)
     logging.getLogger('').addHandler(smtp_handler)
 
-    LOG = logging.getLogger('zipcollector_runner')
+    logger = logging.getLogger('zipcollector_runner')
 
     zipcollector_live_runner(OPTIONS)

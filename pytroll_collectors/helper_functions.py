@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014-2018
+# Copyright (c) 2014 - 2021 Pytroll developers
 #
 # Author(s):
 #
@@ -28,13 +28,13 @@ import os
 import datetime as dt
 import re
 import logging
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 import netifaces
 import socket
 
 from trollsift import compose
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def create_aligned_datetime_var(var_pattern, info_dict):
@@ -110,12 +110,7 @@ def align_time(input_val, steps=None,
     offset = offset or dt.timedelta(minutes=0)
     steps = steps or dt.timedelta(minutes=5)
 
-    try:
-        stepss = steps.total_seconds()
-    # Python 2.6 compatibility hack
-    except AttributeError:
-        stepss = steps.days * 86400. + \
-            steps.seconds + steps.microseconds * 1e-6
+    stepss = steps.total_seconds()
     val = input_val - offset
     vals = (val - val.min).seconds
     result = val - dt.timedelta(seconds=(vals - (vals // stepss) * stepss))
@@ -172,10 +167,10 @@ def is_uri_on_server(uri, strict=False):
     for the path to be considered valid.
     """
     url = urlparse(uri)
-    LOG.debug("URL: %s", str(url))
+    logger.debug("URL: %s", str(url))
     try:
         url_ip = socket.gethostbyname(url.hostname)
-        LOG.debug("url_ip: %s", url_ip)
+        logger.debug("url_ip: %s", url_ip)
     except (socket.gaierror, TypeError):
         if strict:
             return False

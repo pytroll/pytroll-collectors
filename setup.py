@@ -1,23 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2013 - 2019 PyTroll Community
-
+#
+# Copyright (c) 2014 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Martin Raspaud <martin.raspaud@smhi.se>
 #   Adam Dybbroe <adam.dybbroe@smhi.se>
-
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -29,6 +30,13 @@ import os
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 # Set PPP_CONFIG_DIR for tests
 os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors', 'tests', 'data')
+
+extras_require = {'geographic_gatherer': ['satpy']}
+
+all_extras = []
+for extra_deps in extras_require.values():
+    all_extras.extend(extra_deps)
+extras_require['all'] = list(set(all_extras))
 
 
 setup(name="pytroll_collectors",
@@ -46,10 +54,12 @@ setup(name="pytroll_collectors",
                    "Topic :: Scientific/Engineering"],
       url="https://github.com/pytroll/pytroll-collectors",
       packages=['pytroll_collectors',
-                'pytroll_collectors.tests', ],
+                'pytroll_collectors.tests',
+                "pytroll_collectors.triggers"],
       scripts=['bin/trollstalker.py',
                'bin/trollstalker2.py',
                'bin/gatherer.py',
+               'bin/geographic_gatherer.py',
                'bin/segment_gatherer.py',
                'bin/cat.py',
                'bin/catter.py',
@@ -59,9 +69,11 @@ setup(name="pytroll_collectors",
                ],
       data_files=[],
       zip_safe=False,
-      install_requires=['pykdtree', 'pyinotify', 'posttroll>=1.3.0',
+      install_requires=['pyinotify', 'posttroll>=1.3.0',
                         'trollsift', 'netifaces', 'watchdog',
-                        'pytroll-schedule', 'pyresample',
-                        'pillow', 'pycoast', 'six', 's3fs', 'python-dateutil'],
-      tests_require=['mock', 'scipy', 'trollsift', 'pillow', 'six', 's3fs', 'dateutil', 'posttroll'],
+                        'pytroll-schedule',
+                        'pyyaml', 's3fs', 'python-dateutil'],
+      tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify', 's3fs', 'dateutil', 'posttroll'],
+      extras_require=extras_require,
+      python_requires='>=3.7',
       )

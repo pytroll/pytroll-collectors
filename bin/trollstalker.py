@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2013, 2014, 2015
-
+#
+# Copyright (c) 2013 - 2021 Pytroll developers
+#
 # Author(s):
-
+#
 #   Joonas Karjalainen <joonas.karjalainen@fmi.fi>
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #   Martin Raspaud <martin.raspaud@smhi.se>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -30,12 +30,11 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent
 import pyinotify
 import sys
 import time
-from six.moves.configparser import RawConfigParser
+from configparser import RawConfigParser
 import logging
 import logging.config
 import os
 import os.path
-import re
 import datetime as dt
 from collections import deque, OrderedDict
 
@@ -44,7 +43,7 @@ from posttroll.message import Message
 from trollsift import Parser, compose
 from pytroll_collectors import helper_functions
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class EventHandler(ProcessEvent):
@@ -91,55 +90,53 @@ class EventHandler(ProcessEvent):
     def process_IN_CLOSE_WRITE(self, event):
         """When a file is closed, process the associated event.
         """
-        LOGGER.debug("trigger: IN_CLOSE_WRITE")
+        logger.debug("trigger: IN_CLOSE_WRITE")
         self.process(event)
 
     def process_IN_CLOSE_NOWRITE(self, event):
         """When a nonwritable file is closed, process the associated event.
         """
-        LOGGER.debug("trigger: IN_CREATE")
+        logger.debug("trigger: IN_CREATE")
         self.process(event)
 
     def process_IN_MOVED_TO(self, event):
         """When a file is closed, process the associated event.
         """
-        LOGGER.debug("trigger: IN_MOVED_TO")
+        logger.debug("trigger: IN_MOVED_TO")
         self.process(event)
 
     def process_IN_CREATE(self, event):
         """When a file is created, process the associated event.
         """
-        LOGGER.debug("trigger: IN_CREATE")
+        logger.debug("trigger: IN_CREATE")
         self.process(event)
 
     def process_IN_CLOSE_MODIFY(self, event):
         """When a file is modified and closed, process the associated event.
         """
-        LOGGER.debug("trigger: IN_MODIFY")
+        logger.debug("trigger: IN_MODIFY")
         self.process(event)
 
     def process_IN_DELETE(self, event):
         """On delete."""
-        if (event.mask & pyinotify.IN_ISDIR ):
+        if (event.mask & pyinotify.IN_ISDIR):
             try:
                 try:
                     self._watchManager.rm_watch(self._watched_dirs[event.pathname], quiet=False)
                 except pyinotify.WatchManagerError:
-                    #As the directory is deleted prior removing the watch will cause a error message
-                    #from pyinotify. This is ok, so just pass the exception.
-                    LOGGER.debug("Removed watch: {}".format(event.pathname))
-                    pass
+                    # As the directory is deleted prior removing the watch will cause a error message
+                    # from pyinotify. This is ok, so just pass the exception.
+                    logger.debug("Removed watch: {}".format(event.pathname))
                 finally:
                     del self._watched_dirs[event.pathname]
             except KeyError:
-                LOGGER.warning("Dir {} not watched by inotify. Can not delete watch.".format(event.pathname))
-        return
+                logger.warning("Dir {} not watched by inotify. Can not delete watch.".format(event.pathname))
 
     def process(self, event):
         '''Process the event'''
         # New file created and closed
         if not event.dir:
-            LOGGER.debug("processing %s", event.pathname)
+            logger.debug("processing %s", event.pathname)
             # parse information and create self.info OrderedDict{}
             self.parse_file_info(event)
             if len(self.info) > 0:
@@ -147,20 +144,19 @@ class EventHandler(ProcessEvent):
                 if event.pathname not in self._deque:
                     self._deque.append(event.pathname)
                     message = self.create_message()
-                    LOGGER.info("Publishing message %s", str(message))
+                    logger.info("Publishing message %s", str(message))
                     self.pub.send(str(message))
                 else:
-                    LOGGER.info("Data has been published recently, skipping.")
+                    logger.info("Data has been published recently, skipping.")
             self.__clean__()
         elif (event.mask & pyinotify.IN_ISDIR):
             tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
                      pyinotify.IN_CREATE | pyinotify.IN_DELETE)
             try:
                 self._watched_dirs.update(self._watchManager.add_watch(event.pathname, tmask))
-                LOGGER.debug("Added watch on dir: {}".format(event.pathname))
+                logger.debug("Added watch on dir: {}".format(event.pathname))
             except AttributeError:
-                LOGGER.error("No watchmanager given. Can not add watch on {}".format(event.pathname))
-                pass
+                logger.error("No watchmanager given. Can not add watch on {}".format(event.pathname))
 
     def create_message(self):
         """Create broadcasted message
@@ -172,31 +168,31 @@ class EventHandler(ProcessEvent):
         Message is sent, if a matching filepattern is found.
         '''
         try:
-            LOGGER.debug("filter: %s\t event: %s",
+            logger.debug("filter: %s\t event: %s",
                          self.file_parser.fmt, event.pathname)
             pathname_join = os.path.basename(event.pathname)
             if 'origin_inotify_base_dir_skip_levels' in self.custom_vars:
                 pathname_list = event.pathname.split('/')
                 pathname_join = "/".join(pathname_list[int(self.custom_vars['origin_inotify_base_dir_skip_levels']):])
             else:
-                LOGGER.debug("No origin_inotify_base_dir_skip_levels in self.custom_vars")
+                logger.debug("No origin_inotify_base_dir_skip_levels in self.custom_vars")
 
             self.info = OrderedDict()
             self.info.update(self.file_parser.parse(
                     pathname_join))
-            LOGGER.debug("Extracted: %s", str(self.info))
+            logger.debug("Extracted: %s", str(self.info))
         except ValueError:
             # Filename didn't match pattern, so empty the info dict
-            LOGGER.info("Couldn't extract any usefull information")
+            logger.info("Couldn't extract any useful information")
             self.info = OrderedDict()
         else:
             self.info['uri'] = event.pathname
             self.info['uid'] = os.path.basename(event.pathname)
             self.info['sensor'] = self.instrument.split(',')
-            LOGGER.debug("self.info['sensor']: " + str(self.info['sensor']))
+            logger.debug("self.info['sensor']: " + str(self.info['sensor']))
 
             if self.tbus_orbit and "orbit_number" in self.info:
-                LOGGER.info("Changing orbit number by -1!")
+                logger.info("Changing orbit number by -1!")
                 self.info["orbit_number"] -= 1
 
             # replace values with corresponding aliases, if any are given
@@ -269,14 +265,14 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
     manager = WatchManager()
 
     # Collect mask for events that are monitored
-    if type(event_names) is not list:
+    if not isinstance(event_names, list):
         event_names = event_names.split(',')
     event_mask = 0
     for event in event_names:
         try:
             event_mask |= getattr(pyinotify, event)
         except AttributeError:
-            LOGGER.warning('Event ' + event + ' not found in pyinotify')
+            logger.warning('Event ' + event + ' not found in pyinotify')
 
     event_handler = EventHandler(topic, instrument,
                                  config_item,
@@ -310,14 +306,14 @@ def parse_vars(config):
     added to metadata. <value> is a trollsift pattern.
 
     '''
-    vars = OrderedDict()
+    variables = OrderedDict()
 
     for key in config:
         if 'var_' in key:
             new_key = key.replace('var_', '')
             var = config[key]
-            vars[new_key] = var
-    return vars
+            variables[new_key] = var
+    return variables
 
 
 def main():
@@ -447,7 +443,7 @@ def main():
                     raise AttributeError
             except AttributeError:
                 loglevel = logging.DEBUG
-            LOGGER.setLevel(loglevel)
+            logger.setLevel(loglevel)
 
             strhndl = logging.StreamHandler()
             strhndl.setLevel(loglevel)
@@ -455,15 +451,15 @@ def main():
             formatter = logging.Formatter(log_format)
 
             strhndl.setFormatter(formatter)
-            LOGGER.addHandler(strhndl)
+            logger.addHandler(strhndl)
         else:
             logging.config.fileConfig(log_config)
 
     event_names = event_names or 'IN_CLOSE_WRITE,IN_MOVED_TO'
 
-    LOGGER.debug("Logger started")
+    logger.debug("Logger started")
 
-    if type(monitored_dirs) is not list:
+    if not isinstance(monitored_dirs, list):
         monitored_dirs = [monitored_dirs]
 
     if nameservers:
@@ -484,10 +480,11 @@ def main():
         while True:
             time.sleep(6000000)
     except KeyboardInterrupt:
-        LOGGER.info("Interupting TrollStalker")
+        logger.info("Interupting TrollStalker")
     finally:
         notifier.stop()
 
+
 if __name__ == "__main__":
-    LOGGER = logging.getLogger("trollstalker")
+    logger = logging.getLogger("trollstalker")
     main()

@@ -1,29 +1,38 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright (c) 2015, 2016 Panu Lahtinen
-
+#
+# Copyright (c) 2015 - 2021 Pytroll developers
+#
 # Author(s): Panu Lahtinen
-
+#
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Gather segments.
 
-Gather GEO stationary segments, or polar satellite granules for one timestep,
-and send them in a bunch as a dataset.
+Gather posttroll messages corresponding to individual files that belong
+to the same measurement start time.  This may be different instruments
+on polar satellite granules, different channels, or geostationary image
+segments.
+
+When all are present, send a single posttroll message containing all
+the segments in a bunch.
+
+To gather multiple files with different start times, the gatherer
+module/script should be used.  This is the case if a polar satellite
+reception system produces multiple files for the same overpass.
 """
 
 import datetime as dt
@@ -31,12 +40,14 @@ import logging.handlers
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
+import glob
+import os
 
 import trollsift
 from posttroll import message as pmessage, publisher
 from posttroll.listener import ListenerContainer
-from six.moves.queue import Empty
-from six.moves.urllib.parse import urlparse
+from queue import Empty
+from urllib.parse import urlparse
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -557,6 +568,7 @@ class SegmentGatherer(object):
 
         self._loop = False
         self._providing_server = self._config.get('providing_server')
+        self._is_first_message_after_start = True
 
     def _create_patterns(self):
         return {key: Pattern(key, pattern_config, self._config)
@@ -725,6 +737,7 @@ class SegmentGatherer(object):
             slot = self.slots[slot_time]
 
         slot.add_file(message)
+        self.check_and_add_existing_files(slot, message)
 
     def message_from_posttroll(self, msg):
         """Create a message object from a posttroll message instance."""
@@ -777,6 +790,46 @@ class SegmentGatherer(object):
 
         return time_ok
 
+    def check_and_add_existing_files(self, slot, message):
+        """Check for existing files in the uri basedir and add them to the slot."""
+        if self._should_check_for_existing_files(message):
+            # Disable debug logging temporarily
+            logging.disable(logging.DEBUG)
+            fnames = _get_existing_files_from_message(message)
+            logger.info("Checking %d pre-existing files after restart.", len(fnames))
+            self._add_existing_files_to_slot(slot, fnames, message)
+            # Restore the original logging level
+            logging.disable(logging.NOTSET)
+
+    def _should_check_for_existing_files(self, message):
+        if not self._config.get("check_existing_files_after_start", False):
+            return False
+        if not self._is_first_message_after_start:
+            return False
+        if message.type != "file":
+            logger.error("Only 'file' messages are supported.")
+            return False
+        self._is_first_message_after_start = False
+        return True
+
+    def _add_existing_files_to_slot(self, slot, fnames, message):
+        for fname in fnames:
+            meta = {
+                "uid": os.path.basename(fname),
+                "uri": fname,
+                "sensor": message._posttroll_message.data["sensor"]
+                }
+            msg = self.message_from_posttroll(pmessage.Message(message._posttroll_message.subject, "file", meta))
+            slot.add_file(msg)
+
+
+def _get_existing_files_from_message(message):
+    mask = message.pattern.parser.globify({})
+    path = urlparse(message.message_data["uri"]).path
+    base_dir = os.path.dirname(path)
+
+    return glob.glob(os.path.join(base_dir, mask))
+
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
     """Get a copy of *the_dict* without entries having substring 'ignore' in key."""
@@ -791,7 +844,7 @@ def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
 
 def ini_to_dict(fname, section):
     """Convert *section* of .ini *config* to dictionary."""
-    from six.moves.configparser import RawConfigParser, NoOptionError
+    from configparser import RawConfigParser, NoOptionError
 
     config = RawConfigParser()
     config.read(fname)
@@ -873,6 +926,16 @@ def ini_to_dict(fname, section):
         conf['providing_server'] = config.get(section, "providing_server")
     except (NoOptionError, ValueError):
         conf['providing_server'] = None
+
+    try:
+        conf['time_name'] = config.get(section, "time_name")
+    except (NoOptionError, ValueError):
+        conf['time_name'] = 'start_time'
+
+    try:
+        conf['check_existing_files_after_start'] = config.getboolean(section, "check_existing_files_after_start")
+    except (NoOptionError, ValueError):
+        conf['check_existing_files_after_start'] = False
 
     return conf
 
