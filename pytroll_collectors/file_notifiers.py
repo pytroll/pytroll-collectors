@@ -91,10 +91,10 @@ class ConfigWatcher(object):
 
     def start(self):
         """Start the config watcher."""
-        logger.info("Start watching %s", self.config_file)
+        logger.debug("Start watching config file %s", self.config_file)
         self.notifier.start()
 
     def stop(self):
         """Stop the config watcher."""
-        logger.info("Stop watching %s", self.config_file)
+        logger.debug("Stop watching config file %s", self.config_file)
         self.notifier.stop()

@@ -147,7 +147,7 @@ class EventHandler(ProcessEvent):
                     logger.info("Publishing message %s", str(message))
                     self.pub.send(str(message))
                 else:
-                    logger.info("Data has been published recently, skipping.")
+                    logger.debug("Data has been published recently, skipping.")
             self.__clean__()
         elif (event.mask & pyinotify.IN_ISDIR):
             tmask = (pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO |
@@ -183,7 +183,7 @@ class EventHandler(ProcessEvent):
             logger.debug("Extracted: %s", str(self.info))
         except ValueError:
             # Filename didn't match pattern, so empty the info dict
-            logger.info("Couldn't extract any useful information")
+            logger.debug("Couldn't extract any useful information from filename")
             self.info = OrderedDict()
         else:
             self.info['uri'] = event.pathname
@@ -192,7 +192,7 @@ class EventHandler(ProcessEvent):
             logger.debug("self.info['sensor']: " + str(self.info['sensor']))
 
             if self.tbus_orbit and "orbit_number" in self.info:
-                logger.info("Changing orbit number by -1!")
+                logger.debug("Changing orbit number by -1!")
                 self.info["orbit_number"] -= 1
 
             # replace values with corresponding aliases, if any are given
@@ -272,7 +272,7 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
         try:
             event_mask |= getattr(pyinotify, event)
         except AttributeError:
-            logger.warning('Event ' + event + ' not found in pyinotify')
+            logger.warning('Event %s not found in pyinotify', str(event))
 
     event_handler = EventHandler(topic, instrument,
                                  config_item,
@@ -480,7 +480,7 @@ def main():
         while True:
             time.sleep(6000000)
     except KeyboardInterrupt:
-        logger.info("Interupting TrollStalker")
+        logger.info("Stopping TrollStalker")
     finally:
         notifier.stop()
 

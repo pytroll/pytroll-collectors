@@ -97,10 +97,10 @@ class RegionCollector(object):
         start_time = granule_metadata["start_time"]
         end_time = granule_metadata["end_time"]
         self._set_granule_duration(start_time, end_time)
-        logger.info("Platform name %s and sensor %s: Start and end times = %s %s",
-                    str(_get_platform_name(granule_metadata)),
-                    str(_get_sensor(granule_metadata)),
-                    start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
+        logger.debug("Platform name %s and sensor %s: Start and end times = %s %s",
+                     str(_get_platform_name(granule_metadata)),
+                     str(_get_sensor(granule_metadata)),
+                     start_time.strftime('%Y%m%d %H:%M:%S'), end_time.strftime('%Y%m%d %H:%M:%S'))
 
         if _granule_covers_region(granule_metadata, self.region):
             self._predict_pass_granules(granule_metadata)
@@ -153,8 +153,8 @@ class RegionCollector(object):
         except ValueError:
             logger.error("Calculation of new timeout failed, "
                          "keeping previous timeout.")
-            logger.error("Planned: %s", self.planned_granule_times)
-            logger.error("Received: %s", self.granule_times)
+            logger.debug("Planned: %s", self.planned_granule_times)
+            logger.debug("Received: %s", self.granule_times)
             return
         if new_timeout < self.timeout:
             self.timeout = new_timeout
@@ -202,10 +202,10 @@ class RegionCollector(object):
             # Check whether schedule should be used
             self._check_schedule(granule_metadata)
 
-            logger.info("Planned granules for %s over %s: %s",
-                        _get_platform_name(granule_metadata),
-                        self.region.description,
-                        str(sorted(self.planned_granule_times)))
+            logger.debug("Planned granules for %s over %s: %s",
+                         _get_platform_name(granule_metadata),
+                         self.region.description,
+                         str(sorted(self.planned_granule_times)))
             self.timeout = (max(self.planned_granule_times) +
                             self.granule_duration +
                             self.timeliness)

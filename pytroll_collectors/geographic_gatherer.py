@@ -69,7 +69,7 @@ class GeographicGatherer(object):
             for section in self._config.sections():
                 if section not in self._opts.config_item:
                     self._config.remove_section(section)
-                    logger.info("Removed unused section '%s'", section)
+                    logger.debug("Removed unused section '%s'", section)
             if len(self._config.sections()) == 0:
                 logger.error("No valid config item provided")
                 raise NoOptionError
@@ -201,12 +201,10 @@ class GeographicGatherer(object):
                         raise RuntimeError
         except KeyboardInterrupt:
             logger.info("Shutting down...")
-        except RuntimeError:
-            logger.critical('Something went wrong!')
-        except OSError:
-            logger.critical('Something went wrong!')
+        except (RuntimeError, OSError):
+            logger.exception('Something went wrong')
         finally:
-            logger.warning('Ending publication the gathering of granules...')
+            logger.info('Ending publication the gathering of granules...')
             for trigger in self.triggers:
                 trigger.stop()
             self.publisher.stop()
