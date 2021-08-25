@@ -1,3 +1,42 @@
+## Version 0.11.0 (2021/08/25)
+
+### Issues Closed
+
+* [Issue 91](https://github.com/pytroll/pytroll-collectors/issues/91) - Starting the geographic gatherer fails with ModuleNotFoundError
+* [Issue 87](https://github.com/pytroll/pytroll-collectors/issues/87) - Remove usage of six ([PR 88](https://github.com/pytroll/pytroll-collectors/pull/88) by [@pnuu](https://github.com/pnuu))
+* [Issue 80](https://github.com/pytroll/pytroll-collectors/issues/80) - SegmentGatherer: configuration of time_name via ini not possible
+* [Issue 73](https://github.com/pytroll/pytroll-collectors/issues/73) - gatherer fails with KeyError: 'format' when fallback to default format and no format in metadata
+* [Issue 70](https://github.com/pytroll/pytroll-collectors/issues/70) - ValueError: can't have unbuffered text I/O with python-dæmon 2.2.4
+* [Issue 65](https://github.com/pytroll/pytroll-collectors/issues/65) - Go through Gatherer and Segment Gatherer log messages ([PR 93](https://github.com/pytroll/pytroll-collectors/pull/93) by [@pnuu](https://github.com/pnuu))
+* [Issue 52](https://github.com/pytroll/pytroll-collectors/issues/52) - Add option to adjust start and/or end time after pass calculation is made in gatherer ([PR 90](https://github.com/pytroll/pytroll-collectors/pull/90) by [@pnuu](https://github.com/pnuu))
+* [Issue 14](https://github.com/pytroll/pytroll-collectors/issues/14) - Documentation is missing! ([PR 68](https://github.com/pytroll/pytroll-collectors/pull/68) by [@gerritholl](https://github.com/gerritholl))
+
+In this release 8 issues were closed.
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 95](https://github.com/pytroll/pytroll-collectors/pull/95) - Use only 'path' portion of the URI in `cat.py`
+
+#### Features added
+
+* [PR 93](https://github.com/pytroll/pytroll-collectors/pull/93) - Adjust logging levels ([65](https://github.com/pytroll/pytroll-collectors/issues/65))
+* [PR 90](https://github.com/pytroll/pytroll-collectors/pull/90) - Limit geographic gathering using overpass schedules ([52](https://github.com/pytroll/pytroll-collectors/issues/52))
+* [PR 88](https://github.com/pytroll/pytroll-collectors/pull/88) - Remove 'six' as requirement ([87](https://github.com/pytroll/pytroll-collectors/issues/87))
+* [PR 85](https://github.com/pytroll/pytroll-collectors/pull/85) - Refactor geographic gathering
+* [PR 84](https://github.com/pytroll/pytroll-collectors/pull/84) - Add a way to populate segment gatherer with pre-existing files
+* [PR 81](https://github.com/pytroll/pytroll-collectors/pull/81) - Add Github Action to run unit tests
+* [PR 68](https://github.com/pytroll/pytroll-collectors/pull/68) - First begin with documentation ([14](https://github.com/pytroll/pytroll-collectors/issues/14))
+* [PR 67](https://github.com/pytroll/pytroll-collectors/pull/67) - Add s3stalker.py
+
+#### Documentation changes
+
+* [PR 68](https://github.com/pytroll/pytroll-collectors/pull/68) - First begin with documentation ([14](https://github.com/pytroll/pytroll-collectors/issues/14))
+
+In this release 10 pull requests were closed.
+
+
 ## Version 0.10.0 (2020/11/11)
 
 
