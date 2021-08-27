@@ -232,3 +232,61 @@ def test_faulty_end_time(europe_collector, caplog):
     with caplog.at_level(logging.DEBUG):
         europe_collector(granule_metadata)
     assert "Adjusted end time" in caplog.text
+
+
+def test_log_overlaps_or_not_file_covers(europe, caplog):
+    """Test logging a file covering the target area."""
+    from pytroll_collectors.region_collector import _log_overlaps_or_not
+
+    granule_metadata = {'uri': 'filename'}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlaps_or_not(granule_metadata, europe, 42.111111)
+    expected = "Granule filename is overlapping region euro_ma by fraction 42.11111"
+    assert expected in caplog.text
+
+
+def test_log_overlaps_or_not_file_does_not_cover(europe, caplog):
+    """Test logging a file not covering the target area."""
+    from pytroll_collectors.region_collector import _log_overlaps_or_not
+
+    granule_metadata = {'uri': 'filename'}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlaps_or_not(granule_metadata, europe, 0)
+    expected = "Granule filename is not overlapping region euro_ma"
+    assert expected in caplog.text
+
+
+def test_log_overlaps_or_not_dataset_covers(europe, caplog):
+    """Test logging a dataset covering the target area."""
+    from pytroll_collectors.region_collector import _log_overlaps_or_not
+
+    granule_metadata = {'dataset': [{'uri': 'filename1'}, {'uri': 'filename2'}],
+                        'start_time': 1, 'end_time': 2}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlaps_or_not(granule_metadata, europe, 42.111111)
+    expected = "Granule with start and end times = 1  2  is overlapping region euro_ma"
+    assert expected in caplog.text
+
+
+def test_log_overlaps_or_not_dataset_does_not_cover(europe, caplog):
+    """Test logging a dataset not covering the target area."""
+    from pytroll_collectors.region_collector import _log_overlaps_or_not
+
+    granule_metadata = {'dataset': [{'uri': 'filename1'}, {'uri': 'filename2'}],
+                        'start_time': 1, 'end_time': 2}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlaps_or_not(granule_metadata, europe, 0)
+    expected = "Granule with start and end times = 1  2  is not overlapping region euro_ma"
+    assert expected in caplog.text
+
+
+def test_log_overlaps_or_not_backup_log_message(europe, caplog):
+    """Test the fallback log messaging."""
+    from pytroll_collectors.region_collector import _log_overlaps_or_not
+
+    granule_metadata = {'key1': 'val1', 'key2': 'val2'}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlaps_or_not(granule_metadata, europe, 42.111111)
+    assert "Failed printing debug info" in caplog.text
+    assert "Keys in granule_metadata" in caplog.text
+    assert "['key1', 'key2']" in caplog.text
