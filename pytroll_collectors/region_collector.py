@@ -212,7 +212,8 @@ class RegionCollector(object):
             logger.info("Planned timeout for %s: %s", self.region.description,
                         self.timeout.isoformat())
         else:
-            _log_overlaps_or_not(granule_metadata, self.region, 0)
+            coverage_str = f"is not overlapping region {self.region.description:s}"
+            _log_overlap_message(granule_metadata, coverage_str)
 
     def _set_granule_duration(self, start_time, end_time):
         if self.granule_duration is None:
@@ -308,32 +309,21 @@ def _granule_covers_region(granule_metadata, region):
                         instrument=_get_sensor(granule_metadata))
     coverage = granule_pass.area_coverage(region)
     if coverage > 0:
-        _log_overlaps_or_not(granule_metadata, region, coverage)
+        coverage_str = f"is overlapping region {region.description:s} by fraction {coverage:.5f}"
+        _log_overlap_message(granule_metadata, coverage_str)
         return True
     return False
 
 
-def _log_overlaps_or_not(granule_metadata, region, coverage):
-    if coverage > 0:
-        coverage_str = f"is overlapping region {region.description:s} by fraction {coverage:.5f}"
-    else:
-        coverage_str = f"is not overlapping region {region.description:s}"
-
+def _log_overlap_message(granule_metadata, coverage_str):
     try:
         logger.debug(f"Granule {granule_metadata['uri']:s} {coverage_str:s}")
     except KeyError:
         try:
-            if coverage > 0:
-                negation = ""
-            else:
-                negation = "not "
-
-            logger.debug("Granule with start and end times = %s  %s  "
-                         "is %soverlapping region %s",
+            logger.debug("Granule with start and end times = %s  %s  %s ",
                          str(granule_metadata["start_time"]),
                          str(granule_metadata["end_time"]),
-                         negation,
-                         str(region.description))
+                         coverage_str)
         except KeyError:
             logger.debug("Failed printing debug info...")
             logger.debug("Keys in granule_metadata = %s", str(granule_metadata.keys()))
