@@ -113,8 +113,10 @@ def europe_collector_schedule_cut_custom_method_failed(europe, schedule_cut=True
     from pytroll_collectors.region_collector import RegionCollector
     return RegionCollector(europe, schedule_cut=schedule_cut, schedule_cut_method=schedule_cut_method)
 
+
 def _fakeopen(url):
     return io.BytesIO(tles)
+
 
 def test_init(europe):
     """Test that initialisation appears to work."""
@@ -197,6 +199,7 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
     test_string = ("Failed to import schedule_cut for harvest_schedules from failed_not_existing_module. "
                    "Will not perform schedule cut.")
     assert test_string in caplog.text
+
 
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_adjust_timeout(europe, caplog):
