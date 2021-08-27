@@ -113,8 +113,10 @@ def europe_collector_schedule_cut_custom_method_failed(europe, schedule_cut=True
     from pytroll_collectors.region_collector import RegionCollector
     return RegionCollector(europe, schedule_cut=schedule_cut, schedule_cut_method=schedule_cut_method)
 
+
 def _fakeopen(url):
     return io.BytesIO(tles)
+
 
 def test_init(europe):
     """Test that initialisation appears to work."""
@@ -198,6 +200,7 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
                    "Will not perform schedule cut.")
     assert test_string in caplog.text
 
+
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_adjust_timeout(europe, caplog):
     """Test timeout adjustment."""
@@ -232,3 +235,38 @@ def test_faulty_end_time(europe_collector, caplog):
     with caplog.at_level(logging.DEBUG):
         europe_collector(granule_metadata)
     assert "Adjusted end time" in caplog.text
+
+
+def test_log_overlap_message_file_message(caplog):
+    """Test logging a file message."""
+    from pytroll_collectors.region_collector import _log_overlap_message
+
+    granule_metadata = {'uri': 'filename'}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlap_message(granule_metadata, "foobar")
+    expected = "Granule filename foobar"
+    assert expected in caplog.text
+
+
+def test_log_overlap_message_dataset_message(caplog):
+    """Test logging a dataset message."""
+    from pytroll_collectors.region_collector import _log_overlap_message
+
+    granule_metadata = {'dataset': [{'uri': 'filename1'}, {'uri': 'filename2'}],
+                        'start_time': 1, 'end_time': 2}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlap_message(granule_metadata, "foobar")
+    expected = "Granule with start and end times = 1  2  foobar"
+    assert expected in caplog.text
+
+
+def test_log_overlap_message_backup_log_message(caplog):
+    """Test the fallback log messaging."""
+    from pytroll_collectors.region_collector import _log_overlap_message
+
+    granule_metadata = {'key1': 'val1', 'key2': 'val2'}
+    with caplog.at_level(logging.DEBUG):
+        _log_overlap_message(granule_metadata, "foobar")
+    assert "Failed printing debug info" in caplog.text
+    assert "Keys in granule_metadata" in caplog.text
+    assert "['key1', 'key2']" in caplog.text
