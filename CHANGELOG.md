@@ -1,3 +1,13 @@
+## Version 0.11.1 (2021/08/27)
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 96](https://github.com/pytroll/pytroll-collectors/pull/96) - Fix coverage logging for non-file messages in region collector
+
+In this release 1 pull request was closed.
+
 ## Version 0.11.0 (2021/08/25)
 
 ### Issues Closed
