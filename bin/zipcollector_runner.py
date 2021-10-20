@@ -105,7 +105,7 @@ def get_arguments():
 def get_config(configfile, service, procenv):
     """Get the configuration from file."""
     with open(configfile, 'r') as fp_:
-        config = yaml.load(fp_)
+        config = yaml.safe_load(fp_)
 
     options = {}
     for item in config:
