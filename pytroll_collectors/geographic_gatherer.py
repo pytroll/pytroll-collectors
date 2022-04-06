@@ -30,11 +30,7 @@ import datetime as dt
 
 from configparser import NoOptionError
 from posttroll import publisher
-# Workaround for unit tests that don't need Pyresample
-try:
-    from pyresample import parse_area_file
-except ImportError:
-    parse_area_file = None
+from pyresample import parse_area_file
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
