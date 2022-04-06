@@ -36,9 +36,17 @@ extras_require = {
         'pyresample',
         'pytroll-schedule',
         'watchdog',
+        'pyinotify',
     ],
     's3stalker': [
         's3fs',
+        'python-dateutil',
+    ],
+    'scisys_receiver': [
+        'netifaces',
+    ],
+    'trollstalker': [
+        'pyinotify',
     ]
 }
 
@@ -78,9 +86,9 @@ setup(name="pytroll_collectors",
                ],
       data_files=[],
       zip_safe=False,
-      install_requires=['pyinotify', 'posttroll>=1.3.0',
-                        'trollsift', 'netifaces',
-                        'pyyaml', 'python-dateutil'],
+      install_requires=['posttroll>=1.3.0',
+                        'trollsift',
+                        'pyyaml'],
       tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify', 's3fs',
                      'pyresample', 'python-dateutil', 'posttroll', 'pytest'],
       extras_require=extras_require,
