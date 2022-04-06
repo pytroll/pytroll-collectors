@@ -22,3 +22,17 @@ EPSG4326:
   area_extent:
     lower_left_xy: [-180.0, -90.0]
     upper_right_xy: [180.0, 90.0]
+euro4:
+  description: Euro 4km area - Europe
+  projection:
+    proj: stere
+    ellps: bessel
+    lat_0: 90.0
+    lon_0: 14.0
+    lat_ts: 60.0
+  shape:
+    height: 1024
+    width: 1024
+  area_extent:
+    lower_left_xy: [-2717181.7304994687, -5571048.14031214]
+    upper_right_xy: [1378818.2695005313, -1475048.1403121399]

@@ -27,6 +27,9 @@ import unittest
 from unittest.mock import patch, call, DEFAULT
 from configparser import RawConfigParser
 import datetime as dt
+import os
+
+AREA_DEFINITION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'areas.yaml')
 
 
 class FakeOpts(object):
@@ -39,11 +42,6 @@ class FakeOpts(object):
         self.nameservers = nameservers
 
 
-def fake_parse_area_file(area_definition_file, region):
-    """Return the input."""
-    return [region]
-
-
 class TestGeographicGatherer(unittest.TestCase):
     """Test the posttroll the top-level geographic gathering."""
 
@@ -52,7 +50,7 @@ class TestGeographicGatherer(unittest.TestCase):
         self.config = RawConfigParser()
         self.config['DEFAULT'] = {
             'regions': "euro4 euron1",
-            'area_definition_file': '/path/to/areas.yaml'}
+            'area_definition_file': AREA_DEFINITION_FILE}
         self.config['minimal_config'] = {
             'timeliness': '30',
             'service': 'service_a',
@@ -96,10 +94,10 @@ class TestGeographicGatherer(unittest.TestCase):
         self.addCleanup(patcher.stop)
         return patched
 
-    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        from pyresample import parse_area_file
 
         sections = ['minimal_config']
         opts = FakeOpts(sections)
@@ -117,17 +115,18 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and no duration
         for region in self.config.get(sections[0], 'regions').split():
-            assert call(region, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
+            assert call(region_def, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
         self.publisher.NoisyPublisher.assert_called_once_with(
             'gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        from pyresample import parse_area_file
 
         sections = ['posttroll_section']
         opts = FakeOpts(sections)
@@ -156,8 +155,9 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and a duration
         for region in self.config.get(sections[0], 'regions').split():
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
             assert call(
-                region,
+                region_def,
                 dt.timedelta(seconds=1200),
                 dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
@@ -165,7 +165,6 @@ class TestGeographicGatherer(unittest.TestCase):
         self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -177,7 +176,6 @@ class TestGeographicGatherer(unittest.TestCase):
         self._watchdog_test(
             sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
-    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -190,6 +188,8 @@ class TestGeographicGatherer(unittest.TestCase):
             sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
     def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+        from pyresample import parse_area_file
+
         # There's one trigger
         assert len(gatherer.triggers) == 1
 
@@ -211,8 +211,9 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and a duration
         for region in self.config.get(sections[0], 'regions').split():
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
             assert call(
-                region,
+                region_def,
                 dt.timedelta(minutes=self.config.getint(sections[0], "timeliness")),
                 None, None, None) in RegionCollector.mock_calls
 
@@ -220,7 +221,6 @@ class TestGeographicGatherer(unittest.TestCase):
         publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
         publisher.NoisyPublisher.return_value.start.assert_called_once()
 
-    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
