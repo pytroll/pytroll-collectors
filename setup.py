@@ -31,7 +31,16 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 # Set PPP_CONFIG_DIR for tests
 os.environ['PPP_CONFIG_DIR'] = os.path.join(THIS_DIR, 'pytroll_collectors', 'tests', 'data')
 
-extras_require = {'geographic_gatherer': ['satpy']}
+extras_require = {
+    'geographic_gatherer': [
+        'pyresample',
+        'pytroll-schedule',
+        'watchdog',
+    ],
+    's3stalker': [
+        's3fs',
+    ]
+}
 
 all_extras = []
 for extra_deps in extras_require.values():
@@ -70,9 +79,8 @@ setup(name="pytroll_collectors",
       data_files=[],
       zip_safe=False,
       install_requires=['pyinotify', 'posttroll>=1.3.0',
-                        'trollsift', 'netifaces', 'watchdog',
-                        'pytroll-schedule',
-                        'pyyaml', 's3fs', 'python-dateutil'],
+                        'trollsift', 'netifaces',
+                        'pyyaml', 'python-dateutil'],
       tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify', 's3fs',
                      'python-dateutil', 'posttroll'],
       extras_require=extras_require,
