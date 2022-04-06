@@ -39,9 +39,9 @@ class FakeOpts(object):
         self.nameservers = nameservers
 
 
-def fake_get_area_def(region):
+def fake_parse_area_file(area_definition_file, region):
     """Return the input."""
-    return region
+    return [region]
 
 
 class TestGeographicGatherer(unittest.TestCase):
@@ -51,7 +51,8 @@ class TestGeographicGatherer(unittest.TestCase):
         """Setup things."""
         self.config = RawConfigParser()
         self.config['DEFAULT'] = {
-            'regions': "euro4 euron1"}
+            'regions': "euro4 euron1",
+            'area_definition_file': '/path/to/areas.yaml'}
         self.config['minimal_config'] = {
             'timeliness': '30',
             'service': 'service_a',
@@ -86,8 +87,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.get_area_def = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
+        self.parse_area_file = self._patch_and_add_cleanup(
+            'pytroll_collectors.geographic_gatherer.parse_area_file, new=fake_parse_area_file')
         self.publisher = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.publisher')
 

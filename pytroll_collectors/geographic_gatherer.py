@@ -30,11 +30,11 @@ import datetime as dt
 
 from configparser import NoOptionError
 from posttroll import publisher
-# Workaround for unit tests that don't need Satpy + Pyresample
+# Workaround for unit tests that don't need Pyresample
 try:
-    from satpy.resample import get_area_def
+    from pyresample import parse_area_file
 except ImportError:
-    get_area_def = None
+    parse_area_file = None
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
@@ -90,7 +90,7 @@ class GeographicGatherer(object):
     def _setup_triggers(self):
         """Set up the granule triggers."""
         for section in self._config.sections():
-            regions = [get_area_def(region)
+            regions = [parse_area_file(self._config.get(section, 'area_definition_file'), region)[0]
                        for region in self._config.get(section, "regions").split()]
             collectors = self._get_collectors(section, regions)
             trigger = self._get_granule_trigger(section, collectors)
