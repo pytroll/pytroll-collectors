@@ -82,7 +82,7 @@ setup(name="pytroll_collectors",
                         'trollsift', 'netifaces',
                         'pyyaml', 'python-dateutil'],
       tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify', 's3fs',
-                     'python-dateutil', 'posttroll'],
+                     'pyresample', 'python-dateutil', 'posttroll'],
       extras_require=extras_require,
       python_requires='>=3.7',
       )
