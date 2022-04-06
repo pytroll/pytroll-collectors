@@ -86,8 +86,17 @@ class GeographicGatherer(object):
 
     def _setup_triggers(self):
         """Set up the granule triggers."""
+        import os
+
+        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
         for section in self._config.sections():
-            regions = [parse_area_file(self._config.get(section, 'area_definition_file'), region)[0]
+            try:
+                area_def_file = self._config.get(section, 'area_definition_file')
+            except NoOptionError:
+                if satpy_config_path is None:
+                    raise
+                area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
+            regions = [parse_area_file(area_def_file, region)[0]
                        for region in self._config.get(section, "regions").split()]
             collectors = self._get_collectors(section, regions)
             trigger = self._get_granule_trigger(section, collectors)

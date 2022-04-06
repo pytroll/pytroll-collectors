@@ -29,7 +29,8 @@ from configparser import RawConfigParser
 import datetime as dt
 import os
 
-AREA_DEFINITION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'areas.yaml')
+AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
 
 
 class FakeOpts(object):
@@ -135,6 +136,18 @@ class TestGeographicGatherer(unittest.TestCase):
         with pytest.raises(NoOptionError) as err:
             _ = GeographicGatherer(self.config, opts)
         assert "No option 'area_definition_file' in section" in str(err.value)
+
+    def test_init_satpy_config_path(self):
+        """Test that SATPY_CONFIG_PATH environment variable is used as defaulta value if defined."""
+        import os
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        self.config.remove_option("DEFAULT", "area_definition_file")
+        sections = ['minimal_config']
+        opts = FakeOpts(sections)
+        os.environ["SATPY_CONFIG_PATH"] = AREA_CONFIG_PATH
+
+        # This shouldn't raise anything
+        _ = GeographicGatherer(self.config, opts)
 
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
