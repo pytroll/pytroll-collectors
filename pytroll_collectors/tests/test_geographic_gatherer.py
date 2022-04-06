@@ -87,8 +87,6 @@ class TestGeographicGatherer(unittest.TestCase):
             'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.parse_area_file = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.parse_area_file, new=fake_parse_area_file')
         self.publisher = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.publisher')
 
@@ -98,6 +96,7 @@ class TestGeographicGatherer(unittest.TestCase):
         self.addCleanup(patcher.stop)
         return patched
 
+    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -125,6 +124,7 @@ class TestGeographicGatherer(unittest.TestCase):
             'gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
+    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -165,6 +165,7 @@ class TestGeographicGatherer(unittest.TestCase):
         self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
 
+    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -176,6 +177,7 @@ class TestGeographicGatherer(unittest.TestCase):
         self._watchdog_test(
             sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
 
+    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
@@ -218,6 +220,7 @@ class TestGeographicGatherer(unittest.TestCase):
         publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
         publisher.NoisyPublisher.return_value.start.assert_called_once()
 
+    @patch('pytroll_collectors.geographic_gatherer.parse_area_file', new=fake_parse_area_file)
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
