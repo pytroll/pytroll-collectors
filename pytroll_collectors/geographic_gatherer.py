@@ -57,8 +57,9 @@ class GeographicGatherer(object):
         self._setup_publisher()
         try:
             self._setup_triggers()
-        except TypeError:
-            raise ImportError("Satpy is required to run GeographicGatherer")
+        except NoOptionError:
+            self.publisher.stop()
+            raise
 
     def _clean_config(self):
         if self._opts.config_item:

@@ -46,7 +46,7 @@ class TestGeographicGatherer(unittest.TestCase):
     """Test the posttroll the top-level geographic gathering."""
 
     def setUp(self):
-        """Setup things."""
+        """Set up things."""
         self.config = RawConfigParser()
         self.config['DEFAULT'] = {
             'regions': "euro4 euron1",
@@ -122,6 +122,19 @@ class TestGeographicGatherer(unittest.TestCase):
         self.publisher.NoisyPublisher.assert_called_once_with(
             'gatherer_'+'_'.join(sections), port=0, nameservers=None)
         self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+
+    def test_init_no_area_def_file(self):
+        """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
+        import pytest
+        from configparser import NoOptionError
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        self.config.remove_option("DEFAULT", "area_definition_file")
+        sections = ['minimal_config']
+        opts = FakeOpts(sections)
+
+        with pytest.raises(NoOptionError) as err:
+            _ = GeographicGatherer(self.config, opts)
+        assert "No option 'area_definition_file' in section" in str(err.value)
 
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
