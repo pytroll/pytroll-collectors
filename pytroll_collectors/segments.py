@@ -653,7 +653,7 @@ class SegmentGatherer(object):
     def _collect_publisher_config(self):
         publish_port = self._config['posttroll'].get('publish_port', 0)
         nameservers = self._config['posttroll'].get('nameservers', [])
-        if 'false' in nameservers:
+        if nameservers is not None and 'false' in nameservers:
             nameservers = False
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.

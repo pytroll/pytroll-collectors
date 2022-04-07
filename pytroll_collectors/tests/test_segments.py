@@ -605,6 +605,30 @@ class TestSegmentGatherer(unittest.TestCase):
             assert "Only 'file' messages are supported." in logs
         assert logging.disable.call_count == 2
 
+    def test_messaging(self):
+        """Test that messaging is initialized correctly."""
+        with patch('pytroll_collectors.segments.publisher') as publisher:
+            self.msg_ini._setup_messaging()
+        expected = {
+            'name': 'segment_gatherer_msg',
+            'nameservers': None,
+            'port': 0,
+        }
+        publisher.dict_config.assert_called_with(expected)
+        publisher.dict_config.return_value.start.assert_called_once()
+
+    def test_messaging_disable_nameserver(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.segments.publisher') as publisher:
+            self.goes_ini._setup_messaging()
+        expected = {
+            'name': 'segment_gatherer_goes16',
+            'nameservers': False,
+            'port': '12345',
+        }
+        publisher.dict_config.assert_called_with(expected)
+        publisher.dict_config.return_value.start.assert_called_once()
+
 
 viirs_message = (
     'pytroll://foo/viirs/segment/SDR/1B/polar/direct_readout dataset safusr.u@lxserv1043.smhi.se '
