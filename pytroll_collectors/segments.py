@@ -635,20 +635,35 @@ class SegmentGatherer(object):
 
     def _setup_messaging(self):
         """Set up messaging."""
+        self._setup_listener()
+        self._setup_publisher()
+
+    def _setup_listener(self):
         self._subject = self._config['posttroll']['publish_topic']
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
-        publish_port = self._config['posttroll'].get('publish_port', 0)
-        nameservers = self._config['posttroll'].get('nameservers', [])
         services = self._config['posttroll'].get('services', "")
         self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
+
+    def _setup_publisher(self):
+        publisher_config = self._collect_publisher_config()
+        self._publisher = publisher.dict_config(publisher_config)
+        self._publisher.start()
+
+    def _collect_publisher_config(self):
+        publish_port = self._config['posttroll'].get('publish_port', 0)
+        nameservers = self._config['posttroll'].get('nameservers', [])
+        if 'false' in nameservers:
+            nameservers = False
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
         publish_service_name = self._generate_publish_service_name()
-        self._publisher = publisher.NoisyPublisher(publish_service_name,
-                                                   port=publish_port,
-                                                   nameservers=nameservers)
-        self._publisher.start()
+        publisher_config = {
+            'name': publish_service_name,
+            'nameservers': nameservers,
+            'port': publish_port,
+        }
+        return publisher_config
 
     def run(self):
         """Run SegmentGatherer."""

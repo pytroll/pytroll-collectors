@@ -48,7 +48,7 @@ class TestGeographicGatherer(unittest.TestCase):
     """Test the posttroll the top-level geographic gathering."""
 
     def setUp(self):
-        """Setup things."""
+        """Set up things."""
         self.config = RawConfigParser()
         self.config['DEFAULT'] = {
             'regions': "euro4 euron1"}
@@ -120,9 +120,29 @@ class TestGeographicGatherer(unittest.TestCase):
             assert call(region, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer_'+'_'.join(sections),
+            'port': 0,
+            'nameservers': None,
+        }
+        self.publisher.dict_config.assert_called_once_with(expected)
+        self.publisher.dict_config.return_value.start.assert_called_once()
+
+    def test_init_minimal_no_nameservers(self):
+        """Test initialization of GeographicGatherer with minimal config."""
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+        sections = ['minimal_config']
+        opts = FakeOpts(sections, nameservers=['false'], publish_port=12345)
+        _ = GeographicGatherer(self.config, opts)
+        # A publisher is created with composed name and started
+        expected = {
+            'name': 'gatherer_'+'_'.join(sections),
+            'port': 12345,
+            'nameservers': False,
+        }
+        self.publisher.dict_config.assert_called_once_with(expected)
+        self.publisher.dict_config.return_value.start.assert_called_once()
 
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
@@ -144,7 +164,7 @@ class TestGeographicGatherer(unittest.TestCase):
             [self.RegionCollector.return_value, self.RegionCollector.return_value],
             self.config.get(sections[0], 'service').split(','),
             self.config.get(sections[0], 'topics').split(','),
-            self.publisher.NoisyPublisher.return_value,
+            self.publisher.dict_config.return_value,
             duration=self.config.getfloat(sections[0], 'duration'),
             publish_topic=self.config.get(sections[0], 'publish_topic'),
             nameserver=self.config.get(sections[0], 'nameserver'),
@@ -161,8 +181,13 @@ class TestGeographicGatherer(unittest.TestCase):
                 dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer_'+'_'.join(sections),
+            'port': 0,
+            'nameservers': None,
+        }
+        self.publisher.dict_config.assert_called_once_with(expected)
+        self.publisher.dict_config.return_value.start.assert_called_once()
 
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
@@ -200,7 +225,7 @@ class TestGeographicGatherer(unittest.TestCase):
             self.config,
             ['pattern'],
             self.config.get(sections[0], 'watcher'),
-            publisher.NoisyPublisher.return_value,
+            publisher.dict_config.return_value,
             publish_topic=self.config.get(sections[0], 'publish_topic'))
         assert pt_call in WatchDogTrigger.mock_calls
         WatchDogTrigger.return_value.start.assert_called_once()
@@ -214,8 +239,13 @@ class TestGeographicGatherer(unittest.TestCase):
                 None, None, None) in RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer_'+'_'.join(sections),
+            'port': 0,
+            'nameservers': None,
+        }
+        publisher.dict_config.assert_called_once_with(expected)
+        publisher.dict_config.return_value.start.assert_called_once()
 
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -235,8 +265,10 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # N regions for each section
         assert self.RegionCollector.call_count == num_sections * len(self.config.get("DEFAULT", "regions").split())
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer',
-            port=9999,
-            nameservers=['nameserver_a', 'nameserver_b'])
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer',
+            'port': 9999,
+            'nameservers': ['nameserver_a', 'nameserver_b'],
+        }
+        self.publisher.dict_config.assert_called_once_with(expected)
+        self.publisher.dict_config.return_value.start.assert_called_once()

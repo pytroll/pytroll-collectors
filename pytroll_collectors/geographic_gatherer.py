@@ -75,6 +75,11 @@ class GeographicGatherer(object):
                 raise NoOptionError
 
     def _setup_publisher(self):
+        publisher_config = self._collect_publisher_config()
+        self.publisher = publisher.dict_config(publisher_config)
+        self.publisher.start()
+
+    def _collect_publisher_config(self):
         if self._opts.config_item:
             publisher_name = "gatherer_" + "_".join(self._opts.config_item)
         else:
@@ -82,10 +87,14 @@ class GeographicGatherer(object):
 
         publish_port = self._opts.publish_port
         publisher_nameservers = self._opts.nameservers
-
-        self.publisher = publisher.NoisyPublisher(publisher_name, port=publish_port,
-                                                  nameservers=publisher_nameservers)
-        self.publisher.start()
+        if publisher_nameservers is not None:
+            publisher_nameservers = False if 'false' in publisher_nameservers else publisher_nameservers
+        publisher_config = {
+            'name': publisher_name,
+            'port': publish_port,
+            'nameservers': publisher_nameservers,
+        }
+        return publisher_config
 
     def _setup_triggers(self):
         """Set up the granule triggers."""

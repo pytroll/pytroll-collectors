@@ -51,7 +51,9 @@ def arg_parse():
                         help="Port to publish the messages on. Default: automatic")
     parser.add_argument("-n", "--nameservers",
                         help=("Connect publisher to given nameservers: "
-                              "'-n localhost -n 123.456.789.0'. Default: localhost"),
+                              "'-n localhost -n 123.456.789.0'. Use '-n false' to disable. "
+                              "Default: localhost."
+                              ),
                         action="append")
     parser.add_argument("config", help="config file to be used")
 
@@ -59,7 +61,7 @@ def arg_parse():
 
 
 def setup_logging(opts):
-    """Setup logging."""
+    """Set up logging."""
     handlers = []
     if opts.log:
         handlers.append(logging.handlers.TimedRotatingFileHandler(opts.log,
