@@ -608,26 +608,40 @@ class TestSegmentGatherer(unittest.TestCase):
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
         with patch('pytroll_collectors.segments.publisher') as publisher:
-            self.msg_ini._setup_messaging()
-        expected = {
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.msg_ini._setup_messaging()
+        expected_publisher = {
             'name': 'segment_gatherer_msg',
             'nameservers': None,
             'port': 0,
         }
-        publisher.dict_config.assert_called_with(expected)
+        publisher.dict_config.assert_called_with(expected_publisher)
         publisher.dict_config.return_value.start.assert_called_once()
+        ListenerContainer.assert_called_once_with(
+            topics=['/foo/bar'],
+            addresses=None,
+            nameserver=None,
+            services='',
+        )
 
-    def test_messaging_disable_nameserver(self):
+    def test_messaging_disable_publisher_nameserver(self):
         """Test that messaging is initialized correctly when nameserver connections are disabled."""
         with patch('pytroll_collectors.segments.publisher') as publisher:
-            self.goes_ini._setup_messaging()
-        expected = {
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.goes_ini._setup_messaging()
+        expected_publisher = {
             'name': 'segment_gatherer_goes16',
             'nameservers': False,
             'port': '12345',
         }
-        publisher.dict_config.assert_called_with(expected)
+        publisher.dict_config.assert_called_with(expected_publisher)
         publisher.dict_config.return_value.start.assert_called_once()
+        ListenerContainer.assert_called_once_with(
+            topics=['/foo/bar'],
+            addresses=None,
+            nameserver=False,
+            services='',
+        )
 
 
 viirs_message = (

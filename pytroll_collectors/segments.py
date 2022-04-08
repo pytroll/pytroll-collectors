@@ -643,7 +643,18 @@ class SegmentGatherer(object):
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
         services = self._config['posttroll'].get('services', "")
-        self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
+        nameserver = self._config['posttroll'].get('nameservers')
+        if nameserver is not None:
+            if 'false' in nameserver:
+                nameserver = False
+            else:
+                nameserver = nameserver[0]
+        self._listener = ListenerContainer(
+            topics=topics,
+            addresses=addresses,
+            nameserver=nameserver,
+            services=services
+        )
 
     def _setup_publisher(self):
         publisher_config = self._collect_publisher_config()
