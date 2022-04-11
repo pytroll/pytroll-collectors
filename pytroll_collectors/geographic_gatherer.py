@@ -29,7 +29,7 @@ import time
 import datetime as dt
 
 from configparser import NoOptionError
-from posttroll import publisher
+from posttroll.publisher import create_publisher_from_dict_config
 # Workaround for unit tests that don't need Satpy + Pyresample
 try:
     from satpy.resample import get_area_def
@@ -76,7 +76,7 @@ class GeographicGatherer(object):
 
     def _setup_publisher(self):
         publisher_config = self._collect_publisher_config()
-        self.publisher = publisher.dict_config(publisher_config)
+        self.publisher = create_publisher_from_dict_config(publisher_config)
         self.publisher.start()
 
     def _collect_publisher_config(self):

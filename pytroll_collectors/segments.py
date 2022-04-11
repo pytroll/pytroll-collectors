@@ -44,7 +44,8 @@ import glob
 import os
 
 import trollsift
-from posttroll import message as pmessage, publisher
+from posttroll import message as pmessage
+from posttroll.publisher import create_publisher_from_dict_config
 from posttroll.listener import ListenerContainer
 from queue import Empty
 from urllib.parse import urlparse
@@ -658,7 +659,7 @@ class SegmentGatherer(object):
 
     def _setup_publisher(self):
         publisher_config = self._collect_publisher_config()
-        self._publisher = publisher.dict_config(publisher_config)
+        self._publisher = create_publisher_from_dict_config(publisher_config)
         self._publisher.start()
 
     def _collect_publisher_config(self):

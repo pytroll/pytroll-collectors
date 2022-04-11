@@ -615,8 +615,8 @@ class TestSegmentGatherer(unittest.TestCase):
             'nameservers': None,
             'port': 0,
         }
-        publisher.dict_config.assert_called_with(expected_publisher)
-        publisher.dict_config.return_value.start.assert_called_once()
+        publisher.create_publisher_from_dict_config.assert_called_with(expected_publisher)
+        publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
         ListenerContainer.assert_called_once_with(
             topics=['/foo/bar'],
             addresses=None,
@@ -634,8 +634,8 @@ class TestSegmentGatherer(unittest.TestCase):
             'nameservers': False,
             'port': '12345',
         }
-        publisher.dict_config.assert_called_with(expected_publisher)
-        publisher.dict_config.return_value.start.assert_called_once()
+        publisher.create_publisher_from_dict_config.assert_called_with(expected_publisher)
+        publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
         ListenerContainer.assert_called_once_with(
             topics=['/foo/bar'],
             addresses=None,

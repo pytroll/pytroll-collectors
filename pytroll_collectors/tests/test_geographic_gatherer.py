@@ -125,8 +125,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 0,
             'nameservers': None,
         }
-        self.publisher.dict_config.assert_called_once_with(expected)
-        self.publisher.dict_config.return_value.start.assert_called_once()
+        self.publisher.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
 
     def test_init_minimal_no_nameservers(self):
         """Test initialization of GeographicGatherer with minimal config."""
@@ -141,8 +141,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 12345,
             'nameservers': False,
         }
-        self.publisher.dict_config.assert_called_once_with(expected)
-        self.publisher.dict_config.return_value.start.assert_called_once()
+        self.publisher.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
 
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
@@ -164,7 +164,7 @@ class TestGeographicGatherer(unittest.TestCase):
             [self.RegionCollector.return_value, self.RegionCollector.return_value],
             self.config.get(sections[0], 'service').split(','),
             self.config.get(sections[0], 'topics').split(','),
-            self.publisher.dict_config.return_value,
+            self.publisher.create_publisher_from_dict_config.return_value,
             duration=self.config.getfloat(sections[0], 'duration'),
             publish_topic=self.config.get(sections[0], 'publish_topic'),
             nameserver=self.config.get(sections[0], 'nameserver'),
@@ -186,8 +186,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 0,
             'nameservers': None,
         }
-        self.publisher.dict_config.assert_called_once_with(expected)
-        self.publisher.dict_config.return_value.start.assert_called_once()
+        self.publisher.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
 
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
@@ -225,7 +225,7 @@ class TestGeographicGatherer(unittest.TestCase):
             self.config,
             ['pattern'],
             self.config.get(sections[0], 'watcher'),
-            publisher.dict_config.return_value,
+            publisher.create_publisher_from_dict_config.return_value,
             publish_topic=self.config.get(sections[0], 'publish_topic'))
         assert pt_call in WatchDogTrigger.mock_calls
         WatchDogTrigger.return_value.start.assert_called_once()
@@ -244,8 +244,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 0,
             'nameservers': None,
         }
-        publisher.dict_config.assert_called_once_with(expected)
-        publisher.dict_config.return_value.start.assert_called_once()
+        publisher.create_publisher_from_dict_config.assert_called_once_with(expected)
+        publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
 
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -270,5 +270,5 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 9999,
             'nameservers': ['nameserver_a', 'nameserver_b'],
         }
-        self.publisher.dict_config.assert_called_once_with(expected)
-        self.publisher.dict_config.return_value.start.assert_called_once()
+        self.publisher.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
