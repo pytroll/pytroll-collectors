@@ -23,6 +23,7 @@
 
 """Gather messages of granules that cover geographic regions together and send them as a collection."""
 
+import sys
 import time
 import logging
 import logging.handlers
@@ -100,11 +101,14 @@ def main():
         return
 
     granule_triggers = GeographicGatherer(config, opts)
-    granule_triggers.run()
+    status = granule_triggers.run()
 
     logger.info("GeographicGatherer has stopped.")
 
+    return status
 
 if __name__ == '__main__':
 
-    main()
+    status = main()
+    
+    sys.exit(status)
