@@ -28,6 +28,8 @@ from copy import deepcopy
 
 from dateutil.tz import tzutc
 
+import pytroll_collectors.fsspec_to_message
+
 subject = "/my/great/subject/"
 
 zip_pattern = "{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_{collection:3s}.zip"  # noqa
@@ -969,82 +971,6 @@ class TestLastFilesGetter(unittest.TestCase):
         assert files[0]['metadata']['platform_name'] == 'S3A'
 
 
-class TestMessageComposer(unittest.TestCase):
-    """Test case for the message composer."""
-
-    def setUp(self):
-        """Set up message composer tests."""
-        self.ls_output = deepcopy(ls_output)
-
-    def test_message_is_created_with_fs(self):
-        """Test the message is created with a filesystem."""
-        from pytroll_collectors import s3stalker
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject)
-        assert 'filesystem' in message.data
-        assert message.data['filesystem'] == {"cls": "s3fs.core.S3FileSystem",
-                                              "protocol": "s3", "args": [], "anon": True}
-
-    def test_message_is_created_with_uri(self):
-        """Test message has a uri."""
-        from pytroll_collectors import s3stalker
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject)
-        assert 'uri' in message.data
-        assert message.data['uri'] == 's3:///' + self.ls_output[0]['name']
-
-    def test_message_is_created_with_uid(self):
-        """Test message has a uid."""
-        from pytroll_collectors import s3stalker
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject)
-        assert 'uid' in message.data
-
-    def test_message_is_created_with_file(self):
-        """Test message has a type of file."""
-        from pytroll_collectors import s3stalker
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject)
-        assert message.type == 'file'
-
-    def test_message_is_created_with_dataset(self):
-        """Test message is created with dataset."""
-        from pytroll_collectors import s3stalker
-        message = s3stalker.create_message(fs_json, self.ls_output, subject)
-        assert 'dataset' in message.data
-        assert len(message.data['dataset']) > 0
-        filenames = ["s3:///" + item['name'] for item in self.ls_output]
-        for item in message.data['dataset']:
-            assert item['uri'] in filenames
-        assert message.type == 'dataset'
-
-    def test_message_from_zip_is_created_with_uri(self):
-        """Test message has a uri."""
-        from pytroll_collectors import s3stalker
-        zip_output = list(zip_content.values())
-        message = s3stalker.create_message(zip_json, zip_output[0], subject)
-        assert 'uri' in message.data
-        assert message.data['uri'] == 'zip:///' + zip_output[0]['name']
-
-    def test_message_from_zip_with_fo_is_created_with_uri(self):
-        """Test message has a uri."""
-        from pytroll_collectors import s3stalker
-        zip_output = list(zip_content.values())
-        message = s3stalker.create_message(zip_json_fo, zip_output[0], subject)
-        assert 'uri' in message.data
-        assert message.data['uri'] == 'zip:///' + zip_output[0]['name']
-
-    def test_message_include_file_metadata(self):
-        """Test message has metadata."""
-        from pytroll_collectors import s3stalker
-        self.ls_output[0]['metadata'] = dict(platform_name='S3A')
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject)
-        assert message.data['platform_name'] == 'S3A'
-
-    def test_message_include_metadata_parameter(self):
-        """Test message has metadata from parameter."""
-        from pytroll_collectors import s3stalker
-        metadata = dict(platform_name='S3A')
-        message = s3stalker.create_message(fs_json, self.ls_output[0], subject, metadata)
-        assert message.data['platform_name'] == 'S3A'
-
-
 class TestFileListToMessages(unittest.TestCase):
     """Test case for filelist_to_messages."""
 
@@ -1061,7 +987,7 @@ class TestFileListToMessages(unittest.TestCase):
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_to_messages(fs, files, subject)
         assert len(message_list) == len(files)
 
     @mock.patch('s3fs.S3FileSystem')
@@ -1072,7 +998,7 @@ class TestFileListToMessages(unittest.TestCase):
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_to_messages(fs, files, subject)
         assert 'uri' in message_list[0].data
 
 
@@ -1085,7 +1011,7 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_returns_right_number_of_messages(self, zip_fs, s3_fs):
         """Test there are as many messages as files."""
         from pytroll_collectors import s3stalker
@@ -1093,11 +1019,11 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         assert len(message_list) == len(files)
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_returns_messages_with_datasets_when_zip_file_is_source(self, zip_fs, s3_fs):
         """Test messages are of type dataset."""
         from pytroll_collectors import s3stalker
@@ -1105,86 +1031,82 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         assert 'dataset' in message_list[1].data
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_returns_messages_with_right_amount_of_files(self, zip_fs, s3_fs):
         """Test right amount of files is present in messages."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.find.return_value = zip_content
-        zip_fs.return_value.to_json.return_value = zip_json
+        zip_fs.return_value.return_value.find.return_value = zip_content
+        zip_fs.return_value.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         exp_file_list = [file['name'] for file in zip_content.values()]
         file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert len(file_list) == len(exp_file_list)
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uri(self, zip_fs, s3_fs):
         """Test zip content is included in messages."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.find.return_value = zip_content
-        zip_fs.return_value.to_json.return_value = zip_json
+        zip_fs.return_value.return_value.find.return_value = zip_content
+        zip_fs.return_value.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
-        exp_file_list = ['zip:///' + file['name'] for file in zip_content.values()]
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        exp_file_list = ['zip://' + file['name'] for file in zip_content.values()]
         file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uid(self, zip_fs, s3_fs):
         """Test zip content is included in messages."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.find.return_value = zip_content
-        zip_fs.return_value.to_json.return_value = zip_json
+        zip_fs.return_value.return_value.find.return_value = zip_content
+        zip_fs.return_value.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         zip_file = ls_output[1]['name']
-        exp_file_list = ['zip:///' + file['name'] + '::s3:///' + zip_file for file in zip_content.values()]
+        exp_file_list = ['zip://' + file['name'] + '::s3://' + zip_file for file in zip_content.values()]
         file_list = [file['uid'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_has_correct_subject(self, zip_fs, s3_fs):
         """Test filelist_unzip_to_messages has correct subject."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.find.return_value = zip_content
-        zip_fs.return_value.to_json.return_value = zip_json
+        zip_fs.return_value.return_value.find.return_value = zip_content
+        zip_fs.return_value.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         assert message_list[1].subject == subject
 
     @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('fsspec.implementations.zip.ZipFileSystem')
+    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
     def test_file_list_unzip_to_messages_has_metadata(self, zip_fs, s3_fs):
         """Test filelist_unzip_to_messages has correct subject."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
         s3_fs.return_value.ls.return_value = ls_output
         s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.find.return_value = zip_content
-        zip_fs.return_value.to_json.return_value = zip_json
+        zip_fs.return_value.return_value.find.return_value = zip_content
+        zip_fs.return_value.return_value.to_json.return_value = zip_json
         fs, files = s3stalker.get_last_files(path, pattern=zip_pattern, anon=True)
-        message_list = s3stalker.filelist_unzip_to_messages(fs, files, subject)
+        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         assert message_list[0].data['platform_name'] == 'S3A'
-
-
-if __name__ == '__main__':
-    unittest.main()
