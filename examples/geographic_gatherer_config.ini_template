@@ -1,6 +1,7 @@
 [DEFAULT]
 # gather data within those areas
 regions = euron1 afghanistan afhorn
+area_definition_file = /path/to/areas.yaml
 
 [local_viirs]
 # gatherer needs to create the full list of expected files to know what to wait for

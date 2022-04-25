@@ -26,11 +26,15 @@
 
 import logging
 
-from ._inotify import InotifyTrigger  # noqa: F401
 from ._posttroll import PostTrollTrigger  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+try:
+    from ._inotify import InotifyTrigger  # noqa: F401
+except ImportError:
+    logger.exception("Inotify import failed!")
+    InotifyTrigger = None
 try:
     from ._watchdog import WatchDogTrigger
 except ImportError:
