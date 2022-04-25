@@ -48,6 +48,7 @@ class GeographicGatherer(object):
         self._opts = opts
         self.publisher = None
         self.triggers = []
+        self.return_status = 0
 
         self._clean_config()
         self._setup_publisher()
@@ -209,8 +210,11 @@ class GeographicGatherer(object):
             logger.info("Shutting down...")
         except (RuntimeError, OSError):
             logger.exception('Something went wrong')
+            self.return_status = 1
         finally:
             logger.info('Ending publication the gathering of granules...')
             for trigger in self.triggers:
                 trigger.stop()
             self.publisher.stop()
+
+        return self.return_status
