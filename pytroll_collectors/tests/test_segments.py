@@ -607,7 +607,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
-        with patch('pytroll_collectors.segments.publisher') as publisher:
+        with patch('pytroll_collectors.segments.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.msg_ini._setup_messaging()
         expected_publisher = {
@@ -615,8 +615,8 @@ class TestSegmentGatherer(unittest.TestCase):
             'nameservers': None,
             'port': 0,
         }
-        publisher.create_publisher_from_dict_config.assert_called_with(expected_publisher)
-        publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        creator.assert_called_with(expected_publisher)
+        creator.return_value.start.assert_called_once()
         ListenerContainer.assert_called_once_with(
             topics=['/foo/bar'],
             addresses=None,
@@ -626,7 +626,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_messaging_disable_publisher_nameserver(self):
         """Test that messaging is initialized correctly when nameserver connections are disabled."""
-        with patch('pytroll_collectors.segments.publisher') as publisher:
+        with patch('pytroll_collectors.segments.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.goes_ini._setup_messaging()
         expected_publisher = {
@@ -634,8 +634,8 @@ class TestSegmentGatherer(unittest.TestCase):
             'nameservers': False,
             'port': '12345',
         }
-        publisher.create_publisher_from_dict_config.assert_called_with(expected_publisher)
-        publisher.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        creator.assert_called_with(expected_publisher)
+        creator.return_value.start.assert_called_once()
         ListenerContainer.assert_called_once_with(
             topics=['/foo/bar'],
             addresses=None,
