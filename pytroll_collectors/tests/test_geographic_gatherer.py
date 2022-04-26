@@ -147,9 +147,12 @@ class TestGeographicGatherer(unittest.TestCase):
     def test_init_no_area_def_file(self):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
         import pytest
+        import os
         from configparser import NoOptionError
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
+        # Make sure to work also when the environment has SATPY_CONFIG_PATH defined
+        os.environ.pop("SATPY_CONFIG_PATH", None)
         sections = ['minimal_config']
         opts = FakeOpts(sections)
 
@@ -258,6 +261,8 @@ class TestGeographicGatherer(unittest.TestCase):
                        WatchDogTrigger,
                        RegionCollector,
                        ):
+        from pyresample import parse_area_file
+
         # There's one trigger
         assert len(gatherer.triggers) == 1
 
