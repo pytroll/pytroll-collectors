@@ -131,7 +131,7 @@ usage.
 Collects granulated swath data so that the granules cover the configured
 target area(s) in a contiguous manner.  Uses `pytroll-schedule`_ (which
 uses `pyorbital`_) to calculate the required granules using orbital
-parameters (Three Line Elements; TLEs).  `Satpy`_ is required to handle the
+parameters (Three Line Elements; TLEs).  `Pyresample`_ is required to handle the
 area definitions that describe the target area.
 
 Watches files or messages and gathers satellite granules in "collections",
@@ -153,6 +153,7 @@ whatever comes first.  Timeout is configured with the ``timeliness`` option
 
 .. _pytroll-schedule: http://pytroll-schedule.readthedocs.org/
 .. _pyorbital: https://pyorbital.readthedocs.io/en/latest/
+.. _Pyresample: https://pyresample.readthedocs.io/
 
 The configuration file in INI format needs a section called ``[DEFAULT]``
 and one or more sections

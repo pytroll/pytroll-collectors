@@ -30,11 +30,7 @@ import datetime as dt
 
 from configparser import NoOptionError
 from posttroll.publisher import create_publisher_from_dict_config
-# Workaround for unit tests that don't need Satpy + Pyresample
-try:
-    from satpy.resample import get_area_def
-except ImportError:
-    get_area_def = None
+from pyresample import parse_area_file
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
@@ -52,13 +48,15 @@ class GeographicGatherer(object):
         self._opts = opts
         self.publisher = None
         self.triggers = []
+        self.return_status = 0
 
         self._clean_config()
         self._setup_publisher()
         try:
             self._setup_triggers()
-        except TypeError:
-            raise ImportError("Satpy is required to run GeographicGatherer")
+        except NoOptionError:
+            self.publisher.stop()
+            raise
 
     def _clean_config(self):
         if self._opts.config_item:
@@ -98,8 +96,17 @@ class GeographicGatherer(object):
 
     def _setup_triggers(self):
         """Set up the granule triggers."""
+        import os
+
+        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
         for section in self._config.sections():
-            regions = [get_area_def(region)
+            try:
+                area_def_file = self._config.get(section, 'area_definition_file')
+            except NoOptionError:
+                if satpy_config_path is None:
+                    raise
+                area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
+            regions = [parse_area_file(area_def_file, region)[0]
                        for region in self._config.get(section, "regions").split()]
             collectors = self._get_collectors(section, regions)
             trigger = self._get_granule_trigger(section, collectors)
@@ -212,8 +219,11 @@ class GeographicGatherer(object):
             logger.info("Shutting down...")
         except (RuntimeError, OSError):
             logger.exception('Something went wrong')
+            self.return_status = 1
         finally:
             logger.info('Ending publication the gathering of granules...')
             for trigger in self.triggers:
                 trigger.stop()
             self.publisher.stop()
+
+        return self.return_status

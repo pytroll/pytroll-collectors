@@ -29,8 +29,6 @@ import datetime as dt
 import re
 import logging
 from urllib.parse import urlparse
-import netifaces
-import socket
 
 from trollsift import compose
 
@@ -150,6 +148,8 @@ def parse_aliases(config):
 
 def get_local_ips():
     """Get the local ips."""
+    import netifaces
+
     inet_addrs = [netifaces.ifaddresses(iface).get(netifaces.AF_INET)
                   for iface in netifaces.interfaces()]
     ips = []
@@ -166,6 +166,8 @@ def is_uri_on_server(uri, strict=False):
     If *strict* is True, the hostname has to be specified in the *uri*
     for the path to be considered valid.
     """
+    import socket
+
     url = urlparse(uri)
     logger.debug("URL: %s", str(url))
     try:

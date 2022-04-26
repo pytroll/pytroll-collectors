@@ -27,6 +27,10 @@ import unittest
 from unittest.mock import patch, call, DEFAULT
 from configparser import RawConfigParser
 import datetime as dt
+import os
+
+AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
 
 
 class FakeOpts(object):
@@ -39,11 +43,6 @@ class FakeOpts(object):
         self.nameservers = nameservers
 
 
-def fake_get_area_def(region):
-    """Return the input."""
-    return region
-
-
 class TestGeographicGatherer(unittest.TestCase):
     """Test the posttroll the top-level geographic gathering."""
 
@@ -51,7 +50,8 @@ class TestGeographicGatherer(unittest.TestCase):
         """Set up things."""
         self.config = RawConfigParser()
         self.config['DEFAULT'] = {
-            'regions': "euro4 euron1"}
+            'regions': "euro4 euron1",
+            'area_definition_file': AREA_DEFINITION_FILE}
         self.config['minimal_config'] = {
             'timeliness': '30',
             'service': 'service_a',
@@ -86,8 +86,6 @@ class TestGeographicGatherer(unittest.TestCase):
             'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.get_area_def = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.get_area_def', new=fake_get_area_def)
         self.create_publisher_from_dict_config = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.create_publisher_from_dict_config')
 
@@ -100,6 +98,7 @@ class TestGeographicGatherer(unittest.TestCase):
     def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        from pyresample import parse_area_file
 
         sections = ['minimal_config']
         opts = FakeOpts(sections)
@@ -117,7 +116,8 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and no duration
         for region in self.config.get(sections[0], 'regions').split():
-            assert call(region, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
+            assert call(region_def, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
         expected = {
@@ -144,9 +144,35 @@ class TestGeographicGatherer(unittest.TestCase):
         self.create_publisher_from_dict_config.assert_called_once_with(expected)
         self.create_publisher_from_dict_config.return_value.start.assert_called_once()
 
+    def test_init_no_area_def_file(self):
+        """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
+        import pytest
+        from configparser import NoOptionError
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        self.config.remove_option("DEFAULT", "area_definition_file")
+        sections = ['minimal_config']
+        opts = FakeOpts(sections)
+
+        with pytest.raises(NoOptionError) as err:
+            _ = GeographicGatherer(self.config, opts)
+        assert "No option 'area_definition_file' in section" in str(err.value)
+
+    def test_init_satpy_config_path(self):
+        """Test that SATPY_CONFIG_PATH environment variable is used as defaulta value if defined."""
+        import os
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        self.config.remove_option("DEFAULT", "area_definition_file")
+        sections = ['minimal_config']
+        opts = FakeOpts(sections)
+        os.environ["SATPY_CONFIG_PATH"] = AREA_CONFIG_PATH
+
+        # This shouldn't raise anything
+        _ = GeographicGatherer(self.config, opts)
+
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        from pyresample import parse_area_file
 
         sections = ['posttroll_section']
         opts = FakeOpts(sections)
@@ -175,8 +201,9 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and a duration
         for region in self.config.get(sections[0], 'regions').split():
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
             assert call(
-                region,
+                region_def,
                 dt.timedelta(seconds=1200),
                 dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
@@ -252,8 +279,9 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # RegionCollector is called with two areas, the configured timeout and a duration
         for region in self.config.get(sections[0], 'regions').split():
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
             assert call(
-                region,
+                region_def,
                 dt.timedelta(minutes=self.config.getint(sections[0], "timeliness")),
                 None, None, None) in RegionCollector.mock_calls
 
