@@ -1052,7 +1052,7 @@ class TestFileListUnzipToMessages(unittest.TestCase):
 
     @mock.patch('s3fs.S3FileSystem')
     @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uri(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uid(self, zip_fs, s3_fs):
         """Test zip content is included in messages."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
@@ -1063,12 +1063,12 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         fs, files = s3stalker.get_last_files(path, anon=True)
         message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         exp_file_list = ['zip://' + file['name'] for file in zip_content.values()]
-        file_list = [file['uri'] for file in message_list[1].data['dataset']]
+        file_list = [file['uid'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
     @mock.patch('s3fs.S3FileSystem')
     @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uid(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uri(self, zip_fs, s3_fs):
         """Test zip content is included in messages."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
@@ -1080,7 +1080,7 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         zip_file = ls_output[1]['name']
         exp_file_list = ['zip://' + file['name'] + '::s3://' + zip_file for file in zip_content.values()]
-        file_list = [file['uid'] for file in message_list[1].data['dataset']]
+        file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
     @mock.patch('s3fs.S3FileSystem')

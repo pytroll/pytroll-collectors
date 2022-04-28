@@ -1,11 +1,12 @@
 """Tests for the fsspec to message features."""
-
+import socket
 from copy import deepcopy
 import os
 import pytest
 
 import pytroll_collectors.fsspec_to_message
 from pytroll_collectors.tests.test_s3stalker import ls_output, fs_json, subject, zip_content, zip_json, zip_json_fo
+from pytroll_collectors.fsspec_to_message import extract_local_files_to_message_for_remote_use
 
 
 class TestMessageComposer:
@@ -17,30 +18,30 @@ class TestMessageComposer:
 
     def test_message_is_created_with_fs(self):
         """Test the message is created with a filesystem."""
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output[0], subject)
         assert 'filesystem' in message.data
         assert message.data['filesystem'] == {"cls": "s3fs.core.S3FileSystem",
                                               "protocol": "s3", "args": [], "anon": True}
 
     def test_message_is_created_with_uri(self):
         """Test message has a uri."""
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output[0], subject)
         assert 'uri' in message.data
         assert message.data['uri'] == 's3://' + self.ls_output[0]['name']
 
     def test_message_is_created_with_uid(self):
         """Test message has a uid."""
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output[0], subject)
         assert 'uid' in message.data
 
     def test_message_is_created_with_file(self):
         """Test message has a type of file."""
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output[0], subject)
         assert message.type == 'file'
 
     def test_message_is_created_with_dataset(self):
         """Test message is created with dataset."""
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output, subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output, subject)
         assert 'dataset' in message.data
         assert len(message.data['dataset']) > 0
         filenames = ["s3://" + item['name'] for item in self.ls_output]
@@ -48,30 +49,33 @@ class TestMessageComposer:
             assert item['uri'] in filenames
         assert message.type == 'dataset'
 
-    def test_message_from_zip_is_created_with_uri(self):
+    def test_message_from_zip_is_created_with_uid(self):
         """Test message has a uri."""
         zip_output = list(zip_content.values())
-        message = pytroll_collectors.fsspec_to_message.create_message(zip_json, zip_output[0], subject)
-        assert 'uri' in message.data
-        assert message.data['uri'] == 'zip://' + zip_output[0]['name']
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(zip_json, zip_output[0], subject)
+        assert 'uid' in message.data
+        assert message.data['uid'] == 'zip://' + zip_output[0]['name']
 
-    def test_message_from_zip_with_fo_is_created_with_uri(self):
+    def test_message_from_zip_with_fo_is_created_with_uid(self):
         """Test message has a uri."""
         zip_output = list(zip_content.values())
-        message = pytroll_collectors.fsspec_to_message.create_message(zip_json_fo, zip_output[0], subject)
-        assert 'uri' in message.data
-        assert message.data['uri'] == 'zip://' + zip_output[0]['name']
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(zip_json_fo, zip_output[0], subject)
+        assert 'uid' in message.data
+        assert message.data['uid'] == 'zip://' + zip_output[0]['name']
 
     def test_message_include_file_metadata(self):
         """Test message has metadata."""
         self.ls_output[0]['metadata'] = dict(platform_name='S3A')
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json, self.ls_output[0], subject)
         assert message.data['platform_name'] == 'S3A'
 
     def test_message_include_metadata_parameter(self):
         """Test message has metadata from parameter."""
         metadata = dict(platform_name='S3A')
-        message = pytroll_collectors.fsspec_to_message.create_message(fs_json, self.ls_output[0], subject, metadata)
+        message = pytroll_collectors.fsspec_to_message.create_message_with_json_fs(fs_json,
+                                                                                   self.ls_output[0],
+                                                                                   subject,
+                                                                                   metadata)
         assert message.data['platform_name'] == 'S3A'
 
 
@@ -139,8 +143,80 @@ class TestUnpackMessage:
                             "protocol": packing, "args": [],
                             "fo": f"{path}",
                             "target_protocol": "file", "target_options": {}},
-             "uri": f"{packing}:/{filename}",
-             "uid": f"{packing}:/{filename}::file://{path}"} for filename in filenames]}
+             "uid": f"{packing}:/{filename}",
+             "uri": f"{packing}:/{filename}::file://{path}"} for filename in filenames]}
+
+        assert msg.data == expected_data
+        assert msg.subject == topic
+
+    @pytest.mark.parametrize(
+        ("packing", "create_packfile", "filesystem_class"),
+        [
+            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+        ]
+    )
+    def test_pack_local_file_extract(self, packing, create_packfile, filesystem_class, tmp_path):
+        """Test extracting packed files."""
+        filenames = self.create_files_to_pack(tmp_path)
+
+        pack_path = create_pack_path(tmp_path)
+        path = pack_path / ("packfile." + packing)
+        create_packfile(filenames, path)
+
+        packed_file = path
+        topic = "interesting_topic"
+        msg = extract_local_files_to_message_for_remote_use(packed_file, topic, packing=packing)
+        host = socket.gethostname()
+        expected_data = {"dataset": [
+            {"filesystem": {"cls": filesystem_class,
+                            "protocol": packing, "args": [],
+                            "fo": f"{path}",
+                            "target_protocol": "ssh", "target_options": {"protocol": "ssh", "host": host}},
+             "uid": f"{packing}:/{filename}",
+             "uri": f"{packing}:/{filename}::ssh://{host}{path}"} for filename in filenames]}
+        from pprint import pprint
+        pprint(expected_data)
+        assert msg.data == expected_data
+        assert msg.subject == topic
+
+    @pytest.mark.parametrize(
+        ("packing", "create_packfile", "filesystem_class"),
+        [
+            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+        ]
+    )
+    def test_pack_local_file_extract_with_custom_options(self, packing, create_packfile, filesystem_class, tmp_path):
+        """Test extracting packed files using custom options."""
+        filenames = self.create_files_to_pack(tmp_path)
+
+        pack_path = create_pack_path(tmp_path)
+        path = pack_path / ("packfile." + packing)
+        create_packfile(filenames, path)
+
+        packed_file = path
+        topic = "interesting_topic"
+        host = socket.gethostname()
+        username = "me"
+        password = "mysecurepass"
+        protocol = "ssh"
+        port = 22
+        target_options = {"host": socket.gethostname(),
+                          "username": username,
+                          "password": password,
+                          "protocol": protocol,
+                          "port": port}
+        msg = extract_local_files_to_message_for_remote_use(packed_file, topic,
+                                                            target_options=target_options, packing=packing)
+        expected_data = {"dataset": [
+            {"filesystem": {"cls": filesystem_class,
+                            "protocol": packing, "args": [],
+                            "fo": f"{path}",
+                            "target_protocol": protocol, "target_options": target_options},
+             "uid": f"{packing}:/{filename}",
+             "uri": f"{packing}:/{filename}::{protocol}://{username}:{password}@{host}:{port}{path}"}
+            for filename in filenames]}
 
         assert msg.data == expected_data
         assert msg.subject == topic
