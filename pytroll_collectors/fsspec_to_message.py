@@ -27,7 +27,7 @@ def _create_message_metadata(fs, file):
     """Create a message to send."""
     loaded_fs = json.loads(fs)
     uid = _create_uid(file, loaded_fs)
-    uri = _create_uid_from_uri(uid, loaded_fs)
+    uri = _create_uri_from_uid(uid, loaded_fs)
     base_data = {'filesystem': loaded_fs, 'uri': uri, 'uid': uid}
     base_data.update(file.get('metadata', dict()))
     return base_data
@@ -42,7 +42,7 @@ def _create_uid(file, loaded_fs):
     return uid
 
 
-def _create_uid_from_uri(uid, loaded_fs):
+def _create_uri_from_uid(uid, loaded_fs):
     uri = uid
     if 'target_protocol' in loaded_fs:
         netloc = create_netloc(loaded_fs['target_options'])
@@ -57,6 +57,8 @@ def create_netloc(ssh):
         return ""
     username = ssh.get("username")
     password = ssh.get("password")
+    if password is not None:
+        raise RuntimeError("Do not want to send password in clear text.")
     port = ssh.get("port")
     userpass = (
         username + ((":" + password) if password is not None else "") + "@"
@@ -117,12 +119,12 @@ def extract_local_files_to_message_for_remote_use(filename, subject, packing=Non
         cls = get_filesystem_class(target_protocol or "ssh")
         cls = ".".join((cls.__module__, cls.__name__))
         target_options = target_options or dict(host=socket.gethostname())
+        target_options.setdefault("protocol", target_protocol or "ssh")
         fs_dict = dict(cls=cls,
-                       protocol=target_protocol or "ssh",
                        args=[],
                        **target_options
                        )
-        file = dict(name=filename)
+        file = dict(name=os.fspath(filename))
     else:
         fs_class = get_filesystem_class(packing)
         packfs = fs_class(fo=os.fspath(filename))

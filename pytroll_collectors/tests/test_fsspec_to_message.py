@@ -199,12 +199,10 @@ class TestUnpackMessage:
         topic = "interesting_topic"
         host = socket.gethostname()
         username = "me"
-        password = "mysecurepass"
         protocol = "ssh"
         port = 22
-        target_options = {"host": socket.gethostname(),
+        target_options = {"host": host,
                           "username": username,
-                          "password": password,
                           "protocol": protocol,
                           "port": port}
         msg = extract_local_files_to_message_for_remote_use(packed_file, topic,
@@ -215,8 +213,61 @@ class TestUnpackMessage:
                             "fo": f"{path}",
                             "target_protocol": protocol, "target_options": target_options},
              "uid": f"{packing}:/{filename}",
-             "uri": f"{packing}:/{filename}::{protocol}://{username}:{password}@{host}:{port}{path}"}
+             "uri": f"{packing}:/{filename}::{protocol}://{username}@{host}:{port}{path}"}
             for filename in filenames]}
 
         assert msg.data == expected_data
         assert msg.subject == topic
+
+
+class TestSingleFile:
+    """Test creating messages from a single file."""
+
+    def test_local_file_to_remote_message(self, tmp_path):
+        """Test creating a message for a single file with custom options."""
+        filename = tmp_path / "important_file"
+        with open(filename, mode="w") as fd:
+            fd.write("Very important stuff.\n")
+
+        topic = "interesting_topic"
+        host = socket.gethostname()
+        username = "me"
+        protocol = "ssh"
+        port = 22
+        target_options = {"host": host,
+                          "username": username,
+                          "protocol": protocol,
+                          "port": port}
+        msg = extract_local_files_to_message_for_remote_use(filename, topic,
+                                                            target_options=target_options)
+        filesystem_dict = {"cls": "fsspec.implementations.sftp.SFTPFileSystem",
+                           "protocol": "ssh", "args": []}
+        filesystem_dict.update(target_options)
+        expected_data = {
+            "filesystem": filesystem_dict,
+            "uid": f"{protocol}://{username}@{host}:{port}{filename}",
+            "uri": f"{protocol}://{username}@{host}:{port}{filename}"}
+
+        assert msg.data == expected_data
+        assert msg.subject == topic
+
+    def test_remote_message_cannot_contain_password(self, tmp_path):
+        """Test creating a message with a password crashes."""
+        filename = tmp_path / "important_file"
+        with open(filename, mode="w") as fd:
+            fd.write("Very important stuff.\n")
+
+        topic = "interesting_topic"
+        host = socket.gethostname()
+        username = "me"
+        password = "the_password"
+        protocol = "ssh"
+        port = 22
+        target_options = {"host": host,
+                          "username": username,
+                          "password": password,
+                          "protocol": protocol,
+                          "port": port}
+        with pytest.raises(RuntimeError):
+            _ = extract_local_files_to_message_for_remote_use(filename, topic,
+                                                              target_options=target_options)
