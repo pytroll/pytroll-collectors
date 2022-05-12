@@ -35,6 +35,7 @@ from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
+from pytroll_collectors.utils import check_nameserver_options
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,7 @@ class GeographicGatherer(object):
             publisher_name = "gatherer"
 
         publish_port = self._opts.publish_port
-        publisher_nameservers = self._opts.nameservers
-        if publisher_nameservers is not None:
-            publisher_nameservers = False if 'false' in publisher_nameservers else publisher_nameservers
+        publisher_nameservers = check_nameserver_options(self._opts.nameservers)
         publisher_config = {
             'name': publisher_name,
             'port': publish_port,

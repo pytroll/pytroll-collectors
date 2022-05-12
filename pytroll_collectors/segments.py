@@ -50,6 +50,8 @@ from posttroll.listener import ListenerContainer
 from queue import Empty
 from urllib.parse import urlparse
 
+from pytroll_collectors.utils import check_nameserver_options
+
 logger = logging.getLogger("segment_gatherer")
 
 
@@ -664,9 +666,8 @@ class SegmentGatherer(object):
 
     def _collect_publisher_config(self):
         publish_port = self._config['posttroll'].get('publish_port', 0)
-        nameservers = self._config['posttroll'].get('nameservers', [])
-        if nameservers is not None and 'false' in nameservers:
-            nameservers = False
+        nameservers = check_nameserver_options(self._config['posttroll'].get('nameservers', []))
+
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
         publish_service_name = self._generate_publish_service_name()
