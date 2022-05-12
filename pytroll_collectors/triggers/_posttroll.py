@@ -34,12 +34,12 @@ from ._base import FileTrigger, fix_start_end_time
 logger = logging.getLogger(__name__)
 
 
-class AbstractMessageProcessor(Thread):
+class _MessageProcessor(Thread):
     """Process Messages."""
 
     def __init__(self, services, topics, nameserver="localhost"):
         """Init the message processor."""
-        super(AbstractMessageProcessor, self).__init__()
+        super().__init__()
         logger.debug("Nameserver: {}".format(nameserver))
         self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
         self.sub = None
@@ -83,7 +83,7 @@ class PostTrollTrigger(FileTrigger):
                  publish_message_after_each_reception=False):
         """Init the posttroll trigger."""
         self.duration = duration
-        self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
+        self.msgproc = _MessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
         FileTrigger.__init__(self, collectors, None, publisher, publish_topic=publish_topic,
                              publish_message_after_each_reception=publish_message_after_each_reception)
@@ -95,7 +95,6 @@ class PostTrollTrigger(FileTrigger):
 
     def _get_metadata(self, message):
         """Return the message data."""
-
         # Include file duration in message data
         if self.duration:
             message.data["duration"] = self.duration

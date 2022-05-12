@@ -77,7 +77,7 @@ class TestPostTrollTrigger(unittest.TestCase):
         publisher.send.assert_called_once()
 
     def test_duration(self):
-        """Test duration"""
+        """Test duration."""
         from pytroll_collectors.triggers import PostTrollTrigger
         publisher = Mock()
         ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
@@ -88,15 +88,15 @@ class TestPostTrollTrigger(unittest.TestCase):
         self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
 
 
-class TestAbstractMessageProcessor(unittest.TestCase):
+class TestMessageProcessor(unittest.TestCase):
     """Test AbstractMessageProcessor."""
 
-    @patch('pytroll_collectors.triggers._posttroll.AbstractMessageProcessor.process')
+    @patch('pytroll_collectors.triggers._posttroll._MessageProcessor.process')
     @patch('pytroll_collectors.triggers._posttroll.Thread')
     @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
     def test_all(self, NSSubscriber, Thread, process):
         """Test the run() method."""
-        from pytroll_collectors.triggers._posttroll import AbstractMessageProcessor
+        from pytroll_collectors.triggers._posttroll import _MessageProcessor
 
         msg_file = Mock(type='file')
         msg_collection = Mock(type='collection')
@@ -109,7 +109,7 @@ class TestAbstractMessageProcessor(unittest.TestCase):
         sub.recv = recv
         NSSubscriber.return_value.start.return_value = sub
 
-        proc = AbstractMessageProcessor('foo', 'bar', nameserver='baz')
+        proc = _MessageProcessor('foo', 'bar', nameserver='baz')
         NSSubscriber.assert_called_with('foo', 'bar', True,
                                         nameserver='baz')
         proc.start()
@@ -123,16 +123,3 @@ class TestAbstractMessageProcessor(unittest.TestCase):
 
         proc.nssub.stop.assert_called()
         assert proc.loop is False
-
-
-def suite():
-    """Test suite for test_trigger."""
-    loader = unittest.TestLoader()
-    mysuite = unittest.TestSuite()
-    mysuite.addTest(loader.loadTestsFromTestCase(TestPostTrollTrigger))
-
-    return mysuite
-
-
-if __name__ == '__main__':
-    unittest.main()
