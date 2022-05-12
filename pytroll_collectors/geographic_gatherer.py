@@ -29,13 +29,13 @@ import time
 import datetime as dt
 
 from configparser import NoOptionError
-from posttroll.publisher import create_publisher_from_dict_config
 from pyresample import parse_area_file
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 from pytroll_collectors.utils import check_nameserver_options
+from pytroll_collectors.utils import create_started_publisher_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +74,7 @@ class GeographicGatherer(object):
                 raise NoOptionError
 
     def _setup_publisher(self):
-        publisher_config = self._collect_publisher_config()
-        self.publisher = create_publisher_from_dict_config(publisher_config)
-        self.publisher.start()
+        self.publisher = create_started_publisher_from_config(self._collect_publisher_config())
 
     def _collect_publisher_config(self):
         if self._opts.config_item:

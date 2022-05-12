@@ -87,7 +87,7 @@ class TestGeographicGatherer(unittest.TestCase):
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
         self.create_publisher_from_dict_config = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.create_publisher_from_dict_config')
+            'pytroll_collectors.utils.create_publisher_from_dict_config')
 
     def _patch_and_add_cleanup(self, item, new=DEFAULT):
         patcher = patch(item, new=new)

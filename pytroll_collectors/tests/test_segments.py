@@ -607,7 +607,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
-        with patch('pytroll_collectors.segments.create_publisher_from_dict_config') as creator:
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.msg_ini._setup_messaging()
         expected_publisher = {
@@ -626,7 +626,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_messaging_disable_publisher_nameserver(self):
         """Test that messaging is initialized correctly when nameserver connections are disabled."""
-        with patch('pytroll_collectors.segments.create_publisher_from_dict_config') as creator:
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.goes_ini._setup_messaging()
         expected_publisher = {

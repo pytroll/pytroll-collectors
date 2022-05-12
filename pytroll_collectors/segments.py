@@ -45,12 +45,12 @@ import os
 
 import trollsift
 from posttroll import message as pmessage
-from posttroll.publisher import create_publisher_from_dict_config
 from posttroll.listener import ListenerContainer
 from queue import Empty
 from urllib.parse import urlparse
 
 from pytroll_collectors.utils import check_nameserver_options
+from pytroll_collectors.utils import create_started_publisher_from_config
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -660,9 +660,7 @@ class SegmentGatherer(object):
         )
 
     def _setup_publisher(self):
-        publisher_config = self._collect_publisher_config()
-        self._publisher = create_publisher_from_dict_config(publisher_config)
-        self._publisher.start()
+        self._publisher = create_started_publisher_from_config(self._collect_publisher_config())
 
     def _collect_publisher_config(self):
         publish_port = self._config['posttroll'].get('publish_port', 0)

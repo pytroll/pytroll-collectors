@@ -22,9 +22,18 @@
 
 """Utility functions."""
 
+from posttroll.publisher import create_publisher_from_dict_config
+
 
 def check_nameserver_options(nameservers):
     """Check the nameserver options given by user."""
     if nameservers is not None:
         nameservers = False if 'false' in nameservers else nameservers
     return nameservers
+
+
+def create_started_publisher_from_config(publisher_config):
+    """Create a started publisher from a dictionary of configuration items."""
+    publisher = create_publisher_from_dict_config(publisher_config)
+    publisher.start()
+    return publisher
