@@ -610,38 +610,31 @@ class TestSegmentGatherer(unittest.TestCase):
         with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.msg_ini._setup_messaging()
-        expected_publisher = {
-            'name': 'segment_gatherer_msg',
-            'port': 0,
-            'nameservers': None,
-        }
-        creator.assert_called_with(expected_publisher)
-        creator.return_value.start.assert_called_once()
-        ListenerContainer.assert_called_once_with(
-            topics=['/foo/bar'],
-            addresses=None,
-            nameserver=None,
-            services='',
-        )
+        assert_messaging('segment_gatherer_msg', 0, None, None, creator, ListenerContainer)
 
     def test_messaging_disable_publisher_nameserver(self):
         """Test that messaging is initialized correctly when nameserver connections are disabled."""
         with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.goes_ini._setup_messaging()
-        expected_publisher = {
-            'name': 'segment_gatherer_goes16',
-            'port': '12345',
-            'nameservers': False,
-        }
-        creator.assert_called_with(expected_publisher)
-        creator.return_value.start.assert_called_once()
-        ListenerContainer.assert_called_once_with(
-            topics=['/foo/bar'],
-            addresses=None,
-            nameserver=False,
-            services='',
-        )
+        assert_messaging('segment_gatherer_goes16', '12345', False, False, creator, ListenerContainer)
+
+
+def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):
+    """Test messaging settings."""
+    expected_publisher = {
+        'name': name,
+        'port': port,
+        'nameservers': publisher_nameservers,
+    }
+    creator.assert_called_with(expected_publisher)
+    creator.return_value.start.assert_called_once()
+    listener_container.assert_called_once_with(
+        topics=['/foo/bar'],
+        addresses=None,
+        nameserver=listener_nameserver,
+        services='',
+    )
 
 
 viirs_message = (
