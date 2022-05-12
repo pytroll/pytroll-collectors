@@ -85,12 +85,12 @@ class PostTrollTrigger(FileTrigger):
         self.duration = duration
         self.msgproc = _MessageProcessor(services, topics, nameserver=nameserver)
         self.msgproc.process = self.add_file
-        FileTrigger.__init__(self, collectors, None, publisher, publish_topic=publish_topic,
-                             publish_message_after_each_reception=publish_message_after_each_reception)
+        super().__init__(collectors, None, publisher, publish_topic=publish_topic,
+                         publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
         """Start the posttroll trigger."""
-        FileTrigger.start(self)
+        super().start()
         self.msgproc.start()
 
     def _get_metadata(self, message):
@@ -110,4 +110,4 @@ class PostTrollTrigger(FileTrigger):
     def stop(self):
         """Stop the posttroll trigger."""
         self.msgproc.stop()
-        FileTrigger.stop(self)
+        super().stop()

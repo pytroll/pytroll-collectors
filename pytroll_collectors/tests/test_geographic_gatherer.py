@@ -226,7 +226,7 @@ class TestGeographicGatherer(unittest.TestCase):
         WatchDogTrigger.assert_called_once()
         pt_call = call(
             [RegionCollector.return_value, RegionCollector.return_value],
-            self.config,
+            self.config.items(sections[0]),
             ['pattern'],
             self.config.get(sections[0], 'watcher'),
             publisher.NoisyPublisher.return_value,

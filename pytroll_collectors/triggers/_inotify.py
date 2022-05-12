@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 class InotifyTrigger(ProcessEvent, FileTrigger):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, publisher, config, patterns,
+    def __init__(self, collectors, publisher, config_items, patterns,
                  publish_topic=None):
         """Init the inotify trigger."""
         ProcessEvent.__init__(self)
-        FileTrigger.__init__(self, collectors, config, publisher, publish_topic=publish_topic)
+        FileTrigger.__init__(self, collectors, config_items, publisher, publish_topic=publish_topic)
         self.input_dirs = []
         for pattern in patterns:
             self.input_dirs.append(os.path.dirname(pattern))

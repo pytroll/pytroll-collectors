@@ -39,7 +39,7 @@ from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 logger = logging.getLogger(__name__)
 
 
-class GeographicGatherer(object):
+class GeographicGatherer:
     """Container for granule triggers for geographic segment gathering."""
 
     def __init__(self, config, opts):
@@ -126,10 +126,7 @@ class GeographicGatherer(object):
             for region in regions]
 
     def _get_granule_trigger(self, section, collectors):
-        try:
-            observer_class = self._config.get(section, "watcher")
-        except NoOptionError:
-            observer_class = None
+        observer_class = self._config.get(section, "watcher", fallback=None)
 
         if observer_class in ["PollingObserver", "Observer"]:
             granule_trigger = self._get_watchdog_trigger(section, observer_class, collectors)
@@ -147,7 +144,7 @@ class GeographicGatherer(object):
         logger.debug("Using %s for %s", observer_class, section)
         return WatchDogTrigger(
             collectors,
-            self._config,
+            dict(self._config.items(section)),
             [glob],
             observer_class,
             self.publisher,

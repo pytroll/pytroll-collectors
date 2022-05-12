@@ -99,12 +99,12 @@ class AbstractWatchDogProcessor(FileSystemEventHandler):
 class WatchDogTrigger(FileTrigger):
     """File trigger, acting upon filesystem events."""
 
-    def __init__(self, collectors, config, patterns, observer_class_name, publisher,
+    def __init__(self, collectors, config_items, patterns, observer_class_name, publisher,
                  publish_topic=None):
         """Init the trigger."""
         self.wdp = AbstractWatchDogProcessor(patterns, observer_class_name)
-        FileTrigger.__init__(self, collectors, config, publisher,
-                             publish_topic=publish_topic)
+        super().__init__(collectors, config_items, publisher,
+                         publish_topic=publish_topic)
         self.wdp.process = self.add_file
 
     def start(self):
@@ -112,11 +112,11 @@ class WatchDogTrigger(FileTrigger):
         # add watches
         self.wdp.start()
 
-        FileTrigger.start(self)
+        super().start()
         logger.debug("Started polling")
 
     def stop(self):
         """Stop the trigger."""
-        FileTrigger.stop(self)
+        super().stop()
         self.wdp.stop()
         self.join()

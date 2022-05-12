@@ -123,3 +123,55 @@ class TestMessageProcessor(unittest.TestCase):
 
         proc.nssub.stop.assert_called()
         assert proc.loop is False
+
+
+class TestFileTrigger:
+    """Test the FileTrigger class."""
+
+    def test_getting_metadata(self):
+        """Test getting the metadata."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        collectors = []
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
+
+        assert res == {"name": "somefile",
+                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'filename': 'somefile_20220512T1544_20220512T1545.data',
+                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'uri': 'somefile_20220512T1544_20220512T1545.data'
+                       }
+
+    def test_getting_metadata_does_not_involve_multiple_sections(self):
+        """Test that getting metadata does not involve multiple sections."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        collectors = []
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        config.set(section, "key1", "value1")
+        section = "section2"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        config.set(section, "key2", "value2")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
+
+        assert res == {"name": "somefile",
+                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'filename': 'somefile_20220512T1544_20220512T1545.data',
+                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'uri': 'somefile_20220512T1544_20220512T1545.data',
+                       'key1': "value1"
+                       }
