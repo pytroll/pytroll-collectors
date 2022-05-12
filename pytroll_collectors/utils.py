@@ -37,3 +37,12 @@ def create_started_publisher_from_config(publisher_config):
     publisher = create_publisher_from_dict_config(publisher_config)
     publisher.start()
     return publisher
+
+
+def create_publisher_config_dict(name, nameservers, port):
+    """Create pubisher configuration dictionary from the given name, port and nameserver."""
+    return {
+        'name': name,
+        'port': port,
+        'nameservers': nameservers,
+    }

@@ -612,8 +612,8 @@ class TestSegmentGatherer(unittest.TestCase):
                 self.msg_ini._setup_messaging()
         expected_publisher = {
             'name': 'segment_gatherer_msg',
-            'nameservers': None,
             'port': 0,
+            'nameservers': None,
         }
         creator.assert_called_with(expected_publisher)
         creator.return_value.start.assert_called_once()
@@ -631,8 +631,8 @@ class TestSegmentGatherer(unittest.TestCase):
                 self.goes_ini._setup_messaging()
         expected_publisher = {
             'name': 'segment_gatherer_goes16',
-            'nameservers': False,
             'port': '12345',
+            'nameservers': False,
         }
         creator.assert_called_with(expected_publisher)
         creator.return_value.start.assert_called_once()

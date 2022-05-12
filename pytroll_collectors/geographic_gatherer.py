@@ -36,6 +36,7 @@ from pytroll_collectors.region_collector import RegionCollector
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
+from pytroll_collectors.utils import create_publisher_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +85,8 @@ class GeographicGatherer(object):
 
         publish_port = self._opts.publish_port
         publisher_nameservers = check_nameserver_options(self._opts.nameservers)
-        publisher_config = {
-            'name': publisher_name,
-            'port': publish_port,
-            'nameservers': publisher_nameservers,
-        }
-        return publisher_config
+
+        return create_publisher_config_dict(publisher_name, publisher_nameservers, publish_port)
 
     def _setup_triggers(self):
         """Set up the granule triggers."""

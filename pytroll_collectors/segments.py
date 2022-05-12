@@ -51,6 +51,7 @@ from urllib.parse import urlparse
 
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
+from pytroll_collectors.utils import create_publisher_config_dict
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -669,12 +670,7 @@ class SegmentGatherer(object):
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
         publish_service_name = self._generate_publish_service_name()
-        publisher_config = {
-            'name': publish_service_name,
-            'nameservers': nameservers,
-            'port': publish_port,
-        }
-        return publisher_config
+        return create_publisher_config_dict(publish_service_name, nameservers, publish_port)
 
     def run(self):
         """Run SegmentGatherer."""
