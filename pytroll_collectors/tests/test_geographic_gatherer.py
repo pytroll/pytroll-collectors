@@ -120,13 +120,7 @@ class TestGeographicGatherer(unittest.TestCase):
             assert call(region_def, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        expected = {
-            'name': 'gatherer_'+'_'.join(sections),
-            'port': 0,
-            'nameservers': None,
-        }
-        self.create_publisher_from_dict_config.assert_called_once_with(expected)
-        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
 
     def test_init_minimal_no_nameservers(self):
         """Test initialization of GeographicGatherer with minimal config."""
@@ -136,13 +130,7 @@ class TestGeographicGatherer(unittest.TestCase):
         opts = FakeOpts(sections, nameservers=['false'], publish_port=12345)
         _ = GeographicGatherer(self.config, opts)
         # A publisher is created with composed name and started
-        expected = {
-            'name': 'gatherer_'+'_'.join(sections),
-            'port': 12345,
-            'nameservers': False,
-        }
-        self.create_publisher_from_dict_config.assert_called_once_with(expected)
-        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 12345, False, self.create_publisher_from_dict_config)
 
     def test_init_no_area_def_file(self):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
@@ -211,13 +199,7 @@ class TestGeographicGatherer(unittest.TestCase):
                 dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        expected = {
-            'name': 'gatherer_'+'_'.join(sections),
-            'port': 0,
-            'nameservers': None,
-        }
-        self.create_publisher_from_dict_config.assert_called_once_with(expected)
-        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
 
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
@@ -291,13 +273,7 @@ class TestGeographicGatherer(unittest.TestCase):
                 None, None, None) in RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        expected = {
-            'name': 'gatherer_'+'_'.join(sections),
-            'port': 0,
-            'nameservers': None,
-        }
-        create_publisher_from_dict_config.assert_called_once_with(expected)
-        create_publisher_from_dict_config.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, create_publisher_from_dict_config)
 
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -324,3 +300,14 @@ class TestGeographicGatherer(unittest.TestCase):
         }
         self.create_publisher_from_dict_config.assert_called_once_with(expected)
         self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+
+
+def assert_create_publisher_from_dict_config(sections, port, nameservers, func):
+    """Check that publisher creator has been called correctly."""
+    expected = {
+        'name': 'gatherer_'+'_'.join(sections),
+        'port': port,
+        'nameservers': nameservers,
+    }
+    func.assert_called_once_with(expected)
+    func.return_value.start.assert_called_once()
