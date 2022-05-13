@@ -628,9 +628,22 @@ class TestSegmentGatherer(unittest.TestCase):
         assert_messaging('segment_gatherer_himawari-8', 0, ['localhost', 'otherserver'],
                          'localhost', creator, ListenerContainer)
 
+    def test_listener_use_first_nameserver(self):
+        """Test that listener usest the first nameserver when multiple are given."""
+        with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+            self.msg0deg._setup_listener()
+        assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
+
 
 def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):
     """Test messaging settings."""
+    if creator:
+        _assert_creator(name, port, publisher_nameservers, creator)
+    if listener_container:
+        _assert_listener_container(listener_container, listener_nameserver)
+
+
+def _assert_creator(name, port, publisher_nameservers, creator):
     expected_publisher = {
         'name': name,
         'port': port,
@@ -638,6 +651,9 @@ def assert_messaging(name, port, publisher_nameservers, listener_nameserver, cre
     }
     creator.assert_called_with(expected_publisher)
     creator.return_value.start.assert_called_once()
+
+
+def _assert_listener_container(listener_container, listener_nameserver):
     listener_container.assert_called_once_with(
         topics=['/foo/bar'],
         addresses=None,

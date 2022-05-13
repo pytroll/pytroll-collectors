@@ -16,7 +16,7 @@ time_tolerance:
   30
 posttroll:
   topics:
-    - /foo
+    - /foo/bar
   publish_topic:
     /bar
   nameservers:
