@@ -27,3 +27,9 @@ group_by_minutes = 10
 # a space-separated list of keys that are kept from the filename
 # pattern and not replaced with message metadata
 keep_parsed_keys = start_time
+
+# List of nameservers to connect. All are passed to publisher, only the first one is used
+# by the listener. If any of thes is 'false', and 'addresses' are given, all nameserver
+# connections are disabled. Default is to connect to nameserver on localhost.
+nameservers = nameserver_host_1 nameserver_host_2
+# nameservers = false

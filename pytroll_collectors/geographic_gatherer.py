@@ -29,12 +29,14 @@ import time
 import os
 
 from configparser import NoOptionError
-from posttroll import publisher
 from pyresample import parse_area_file
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import RegionCollector
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
+from pytroll_collectors.utils import check_nameserver_options
+from pytroll_collectors.utils import create_started_publisher_from_config
+from pytroll_collectors.utils import create_publisher_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -95,17 +97,18 @@ class GeographicGatherer:
                 raise NoOptionError
 
     def _setup_publisher(self):
+        self.publisher = create_started_publisher_from_config(self._collect_publisher_config())
+
+    def _collect_publisher_config(self):
         if self._opts.config_item:
             publisher_name = "gatherer_" + "_".join(self._opts.config_item)
         else:
             publisher_name = "gatherer"
 
         publish_port = self._opts.publish_port
-        publisher_nameservers = self._opts.nameservers
+        publisher_nameservers = check_nameserver_options(self._opts.nameservers)
 
-        self.publisher = publisher.NoisyPublisher(publisher_name, port=publish_port,
-                                                  nameservers=publisher_nameservers)
-        self.publisher.start()
+        return create_publisher_config_dict(publisher_name, publisher_nameservers, publish_port)
 
     def _setup_triggers(self):
         """Set up the granule triggers."""

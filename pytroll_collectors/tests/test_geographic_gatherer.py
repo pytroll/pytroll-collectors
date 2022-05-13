@@ -111,9 +111,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
-        self.publisher = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.publisher')
-
+        self.create_publisher_from_dict_config = self._patch_and_add_cleanup(
+            'pytroll_collectors.utils.create_publisher_from_dict_config')
         self.NSSubscriber = self._patch_and_add_cleanup(
             'pytroll_collectors.triggers._posttroll.NSSubscriber')
 
@@ -149,11 +148,23 @@ class TestGeographicGatherer(unittest.TestCase):
             assert collector.timeliness == timeliness
             assert collector.granule_duration == duration
 
+    def test_init_minimal_no_nameservers(self):
+        """Test initialization of GeographicGatherer with minimal config."""
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+        sections = ['minimal_config']
+        opts = FakeOpts(sections, nameservers=['false'], publish_port=12345)
+        _ = GeographicGatherer(self.config, opts)
+        # A publisher is created with composed name and started
+        assert_create_publisher_from_dict_config(sections, 12345, False, self.create_publisher_from_dict_config)
+
     def test_init_no_area_def_file(self):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
         import pytest
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
+        # Make sure to work also when the environment has SATPY_CONFIG_PATH defined
+        os.environ.pop("SATPY_CONFIG_PATH", None)
         sections = ['minimal_config']
         opts = FakeOpts(sections)
 
@@ -250,15 +261,12 @@ class TestGeographicGatherer(unittest.TestCase):
         self._check_region_collectors(trigger, section, timeliness, duration)
 
     def _check_trigger_publishing_info(self, trigger, section):
-        assert trigger.publisher == self.publisher.NoisyPublisher.return_value
+        assert trigger.publisher == self.create_publisher_from_dict_config.return_value
         assert trigger.publish_topic == self.config.get(section, 'publish_topic')
         self._check_publisher_no_args([section])
 
     def _check_publisher_no_args(self, sections):
-        # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_' + '_'.join(sections), port=0,
-                                                              nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
 
     def _check_one_trigger(self, gatherer, section):
         # There's one trigger
@@ -288,8 +296,21 @@ class TestGeographicGatherer(unittest.TestCase):
         # N regions for each section
         assert all(len(trigger.collectors) == num_regions for trigger in gatherer.triggers)
 
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer',
-            port=9999,
-            nameservers=['nameserver_a', 'nameserver_b'])
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer',
+            'port': 9999,
+            'nameservers': ['nameserver_a', 'nameserver_b'],
+        }
+        self.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+
+
+def assert_create_publisher_from_dict_config(sections, port, nameservers, func):
+    """Check that publisher creator has been called correctly."""
+    expected = {
+        'name': 'gatherer_'+'_'.join(sections),
+        'port': port,
+        'nameservers': nameservers,
+    }
+    func.assert_called_once_with(expected)
+    func.return_value.start.assert_called_once()
