@@ -628,6 +628,12 @@ class TestSegmentGatherer(unittest.TestCase):
         assert_messaging('segment_gatherer_himawari-8', 0, ['localhost', 'otherserver'],
                          'localhost', creator, ListenerContainer)
 
+    def test_publisher_disable_nameservers_multiple_nameservers(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            self.msg0deg._setup_publisher()
+        assert_messaging('segment_gatherer_msg', 0, False, None, creator, None)
+
     def test_listener_use_first_nameserver(self):
         """Test that listener usest the first nameserver when multiple are given."""
         with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
