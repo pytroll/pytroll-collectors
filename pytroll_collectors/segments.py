@@ -44,10 +44,14 @@ import glob
 import os
 
 import trollsift
-from posttroll import message as pmessage, publisher
+from posttroll import message as pmessage
 from posttroll.listener import ListenerContainer
 from queue import Empty
 from urllib.parse import urlparse
+
+from pytroll_collectors.utils import check_nameserver_options
+from pytroll_collectors.utils import create_started_publisher_from_config
+from pytroll_collectors.utils import create_publisher_config_dict
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -635,20 +639,35 @@ class SegmentGatherer(object):
 
     def _setup_messaging(self):
         """Set up messaging."""
+        self._setup_listener()
+        self._setup_publisher()
+
+    def _setup_listener(self):
         self._subject = self._config['posttroll']['publish_topic']
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
-        publish_port = self._config['posttroll'].get('publish_port', 0)
-        nameservers = self._config['posttroll'].get('nameservers', [])
         services = self._config['posttroll'].get('services', "")
-        self._listener = ListenerContainer(topics=topics, addresses=addresses, services=services)
+        nameserver = check_nameserver_options(self._config['posttroll'].get('nameservers'),
+                                              for_listener=True)
+
+        self._listener = ListenerContainer(
+            topics=topics,
+            addresses=addresses,
+            nameserver=nameserver,
+            services=services
+        )
+
+    def _setup_publisher(self):
+        self._publisher = create_started_publisher_from_config(self._collect_publisher_config())
+
+    def _collect_publisher_config(self):
+        publish_port = self._config['posttroll'].get('publish_port', 0)
+        nameservers = check_nameserver_options(self._config['posttroll'].get('nameservers', []))
+
         # Name each segment_gatherer with the section/patterns name.
         # This way the user can subscribe to a specific segment_gatherer service instead of all.
         publish_service_name = self._generate_publish_service_name()
-        self._publisher = publisher.NoisyPublisher(publish_service_name,
-                                                   port=publish_port,
-                                                   nameservers=nameservers)
-        self._publisher.start()
+        return create_publisher_config_dict(publish_service_name, nameservers, publish_port)
 
     def run(self):
         """Run SegmentGatherer."""

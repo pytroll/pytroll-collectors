@@ -14,3 +14,11 @@ time_name:
   start_time
 time_tolerance:
   30
+posttroll:
+  topics:
+    - /foo/bar
+  publish_topic:
+    /bar
+  nameservers:
+    - localhost
+    - false

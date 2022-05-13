@@ -86,8 +86,8 @@ class TestGeographicGatherer(unittest.TestCase):
             'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
         self.PostTrollTrigger = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
-        self.publisher = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.publisher')
+        self.create_publisher_from_dict_config = self._patch_and_add_cleanup(
+            'pytroll_collectors.utils.create_publisher_from_dict_config')
 
     def _patch_and_add_cleanup(self, item, new=DEFAULT):
         patcher = patch(item, new=new)
@@ -120,16 +120,27 @@ class TestGeographicGatherer(unittest.TestCase):
             assert call(region_def, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
+
+    def test_init_minimal_no_nameservers(self):
+        """Test initialization of GeographicGatherer with minimal config."""
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+        sections = ['minimal_config']
+        opts = FakeOpts(sections, nameservers=['false'], publish_port=12345)
+        _ = GeographicGatherer(self.config, opts)
+        # A publisher is created with composed name and started
+        assert_create_publisher_from_dict_config(sections, 12345, False, self.create_publisher_from_dict_config)
 
     def test_init_no_area_def_file(self):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
         import pytest
+        import os
         from configparser import NoOptionError
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
+        # Make sure to work also when the environment has SATPY_CONFIG_PATH defined
+        os.environ.pop("SATPY_CONFIG_PATH", None)
         sections = ['minimal_config']
         opts = FakeOpts(sections)
 
@@ -170,7 +181,7 @@ class TestGeographicGatherer(unittest.TestCase):
             [self.RegionCollector.return_value, self.RegionCollector.return_value],
             self.config.get(sections[0], 'service').split(','),
             self.config.get(sections[0], 'topics').split(','),
-            self.publisher.NoisyPublisher.return_value,
+            self.create_publisher_from_dict_config.return_value,
             duration=self.config.getfloat(sections[0], 'duration'),
             publish_topic=self.config.get(sections[0], 'publish_topic'),
             nameserver=self.config.get(sections[0], 'nameserver'),
@@ -188,8 +199,7 @@ class TestGeographicGatherer(unittest.TestCase):
                 dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
 
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
@@ -200,7 +210,13 @@ class TestGeographicGatherer(unittest.TestCase):
         gatherer = GeographicGatherer(self.config, opts)
 
         self._watchdog_test(
-            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+            sections,
+            gatherer,
+            self.create_publisher_from_dict_config,
+            self.PostTrollTrigger,
+            self.WatchDogTrigger,
+            self.RegionCollector,
+        )
 
     def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
@@ -211,9 +227,22 @@ class TestGeographicGatherer(unittest.TestCase):
         gatherer = GeographicGatherer(self.config, opts)
 
         self._watchdog_test(
-            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+            sections,
+            gatherer,
+            self.create_publisher_from_dict_config,
+            self.PostTrollTrigger,
+            self.WatchDogTrigger,
+            self.RegionCollector,
+        )
 
-    def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
+    def _watchdog_test(self,
+                       sections,
+                       gatherer,
+                       create_publisher_from_dict_config,
+                       PostTrollTrigger,
+                       WatchDogTrigger,
+                       RegionCollector,
+                       ):
         from pyresample import parse_area_file
 
         # There's one trigger
@@ -229,7 +258,7 @@ class TestGeographicGatherer(unittest.TestCase):
             self.config,
             ['pattern'],
             self.config.get(sections[0], 'watcher'),
-            publisher.NoisyPublisher.return_value,
+            create_publisher_from_dict_config.return_value,
             publish_topic=self.config.get(sections[0], 'publish_topic'))
         assert pt_call in WatchDogTrigger.mock_calls
         WatchDogTrigger.return_value.start.assert_called_once()
@@ -244,8 +273,7 @@ class TestGeographicGatherer(unittest.TestCase):
                 None, None, None) in RegionCollector.mock_calls
 
         # A publisher is created with composed name and started
-        publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        assert_create_publisher_from_dict_config(sections, 0, None, create_publisher_from_dict_config)
 
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -265,8 +293,21 @@ class TestGeographicGatherer(unittest.TestCase):
 
         # N regions for each section
         assert self.RegionCollector.call_count == num_sections * len(self.config.get("DEFAULT", "regions").split())
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer',
-            port=9999,
-            nameservers=['nameserver_a', 'nameserver_b'])
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        expected = {
+            'name': 'gatherer',
+            'port': 9999,
+            'nameservers': ['nameserver_a', 'nameserver_b'],
+        }
+        self.create_publisher_from_dict_config.assert_called_once_with(expected)
+        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+
+
+def assert_create_publisher_from_dict_config(sections, port, nameservers, func):
+    """Check that publisher creator has been called correctly."""
+    expected = {
+        'name': 'gatherer_'+'_'.join(sections),
+        'port': port,
+        'nameservers': nameservers,
+    }
+    func.assert_called_once_with(expected)
+    func.return_value.start.assert_called_once()

@@ -66,7 +66,7 @@ _granule_metadata = {"platform_name": "Metop-C",
 
 
 def granule_metadata(s_min):
-    """Return common granule_metadata dictionary"""
+    """Return common granule_metadata dictionary."""
     return {**_granule_metadata,
             "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
             "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
@@ -74,6 +74,7 @@ def granule_metadata(s_min):
 
 
 def harvest_schedules(params, save_basename=None, eum_base_url=None):
+    """Use this as fake harvester."""
     return None, None
 
 
@@ -127,7 +128,6 @@ def test_init(europe):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect(europe_collector, caplog):
     """Test that granules can be collected."""
-
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
             europe_collector.collect({**granule_metadata(s_min)})
@@ -158,7 +158,6 @@ def test_collect_duration(europe):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
     """Test default schedule cut method."""
-
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
             europe_collector_schedule_cut.collect({**granule_metadata(s_min)})
@@ -174,7 +173,6 @@ def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_custom_method, caplog):
     """Test custom schedule cut method."""
-
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
             europe_collector_schedule_cut_custom_method.collect({**granule_metadata(s_min)})
@@ -191,7 +189,6 @@ def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_cus
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
 def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_cut_custom_method_failed, caplog):
     """Test custom schedule cut method failed import."""
-
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
             europe_collector_schedule_cut_custom_method_failed.collect({**granule_metadata(s_min)})

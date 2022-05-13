@@ -105,6 +105,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
         """Test init."""
@@ -604,6 +605,67 @@ class TestSegmentGatherer(unittest.TestCase):
             logs = [rec.message for rec in self._caplog.records]
             assert "Only 'file' messages are supported." in logs
         assert logging.disable.call_count == 2
+
+    def test_messaging(self):
+        """Test that messaging is initialized correctly."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.msg_ini._setup_messaging()
+        assert_messaging('segment_gatherer_msg', 0, None, None, creator, ListenerContainer)
+
+    def test_messaging_disable_nameservers(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.goes_ini._setup_messaging()
+        assert_messaging('segment_gatherer_goes16', '12345', False, False, creator, ListenerContainer)
+
+    def test_messaging_multiple_nameservers(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.himawari_ini._setup_messaging()
+        assert_messaging('segment_gatherer_himawari-8', 0, ['localhost', 'otherserver'],
+                         'localhost', creator, ListenerContainer)
+
+    def test_publisher_disable_nameservers_multiple_nameservers(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            self.msg0deg._setup_publisher()
+        assert_messaging('segment_gatherer_msg', 0, False, None, creator, None)
+
+    def test_listener_use_first_nameserver(self):
+        """Test that listener usest the first nameserver when multiple are given."""
+        with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+            self.msg0deg._setup_listener()
+        assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
+
+
+def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):
+    """Test messaging settings."""
+    if creator:
+        _assert_creator(name, port, publisher_nameservers, creator)
+    if listener_container:
+        _assert_listener_container(listener_container, listener_nameserver)
+
+
+def _assert_creator(name, port, publisher_nameservers, creator):
+    expected_publisher = {
+        'name': name,
+        'port': port,
+        'nameservers': publisher_nameservers,
+    }
+    creator.assert_called_with(expected_publisher)
+    creator.return_value.start.assert_called_once()
+
+
+def _assert_listener_container(listener_container, listener_nameserver):
+    listener_container.assert_called_once_with(
+        topics=['/foo/bar'],
+        addresses=None,
+        nameserver=listener_nameserver,
+        services='',
+    )
 
 
 viirs_message = (
