@@ -647,7 +647,8 @@ class SegmentGatherer(object):
         topics = self._config['posttroll'].get('topics')
         addresses = self._config['posttroll'].get('addresses')
         services = self._config['posttroll'].get('services', "")
-        nameserver = check_nameserver_options(self._config['posttroll'].get('nameservers'))
+        nameserver = check_nameserver_options(self._config['posttroll'].get('nameservers'),
+                                              for_listener=True)
 
         self._listener = ListenerContainer(
             topics=topics,

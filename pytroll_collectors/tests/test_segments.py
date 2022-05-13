@@ -105,6 +105,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.hrpt_pps = SegmentGatherer(CONFIG_NO_SEG)
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
+        self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
     def test_init(self):
         """Test init."""
@@ -612,12 +613,20 @@ class TestSegmentGatherer(unittest.TestCase):
                 self.msg_ini._setup_messaging()
         assert_messaging('segment_gatherer_msg', 0, None, None, creator, ListenerContainer)
 
-    def test_messaging_disable_publisher_nameserver(self):
+    def test_messaging_disable_nameservers(self):
         """Test that messaging is initialized correctly when nameserver connections are disabled."""
         with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
             with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
                 self.goes_ini._setup_messaging()
         assert_messaging('segment_gatherer_goes16', '12345', False, False, creator, ListenerContainer)
+
+    def test_messaging_multiple_nameservers(self):
+        """Test that messaging is initialized correctly when nameserver connections are disabled."""
+        with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as creator:
+            with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
+                self.himawari_ini._setup_messaging()
+        assert_messaging('segment_gatherer_himawari-8', 0, ['localhost', 'otherserver'],
+                         'localhost', creator, ListenerContainer)
 
 
 def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):

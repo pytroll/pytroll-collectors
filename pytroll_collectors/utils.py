@@ -25,10 +25,12 @@
 from posttroll.publisher import create_publisher_from_dict_config
 
 
-def check_nameserver_options(nameservers):
+def check_nameserver_options(nameservers, for_listener=False):
     """Check the nameserver options given by user."""
     if nameservers is not None:
         nameservers = False if 'false' in nameservers else nameservers
+    if for_listener and isinstance(nameservers, (tuple, list)):
+        return nameservers[0]
     return nameservers
 
 
