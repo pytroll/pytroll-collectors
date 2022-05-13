@@ -22,13 +22,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Unittests for top level geographic segment gathering."""
-
-import unittest
-from unittest.mock import patch, DEFAULT
+from unittest.mock import MagicMock
+import pytest
+from unittest.mock import patch
 from configparser import ConfigParser
 import datetime as dt
 import os
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
+from pytroll_collectors.geographic_gatherer import arg_parse
 
 AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
@@ -68,10 +69,39 @@ class FakeWatchDogTrigger(WatchDogTrigger):
         self.start_called = True
 
 
-class TestGeographicGatherer(unittest.TestCase):
-    """Test the posttroll the top-level geographic gathering."""
+@pytest.fixture
+def create_publisher_from_dict_config():
+    """Return a faked function."""
+    with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as patched_fun:
+        yield patched_fun
 
-    def setUp(self):
+
+@pytest.fixture
+def ns_subscriber():
+    """Return a fake ns subscriber."""
+    with patch('pytroll_collectors.triggers._posttroll.NSSubscriber') as patched_fun:
+        yield patched_fun
+
+
+@pytest.fixture
+def tmp_config_file(tmp_path):
+    """Return the path to the config file."""
+    return tmp_path / "config.ini"
+
+
+fake_create_publisher_from_dict_config = MagicMock()
+fake_ns_subscriber = MagicMock()
+
+
+@patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
+@patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
+@patch('pytroll_collectors.utils.create_publisher_from_dict_config', new=fake_create_publisher_from_dict_config)
+@patch('pytroll_collectors.triggers._posttroll.NSSubscriber', new=fake_ns_subscriber)
+class TestGeographicGatherer:
+    """Test the top-level geographic gathering."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_config_file):
         """Set up things."""
         self.config = ConfigParser(interpolation=None)
         self.config['DEFAULT'] = {
@@ -105,30 +135,19 @@ class TestGeographicGatherer(unittest.TestCase):
             'watcher': 'Observer',
         }
 
-        # self.RegionCollector = self._patch_and_add_cleanup(
-        #     'pytroll_collectors.geographic_gatherer.RegionCollector')
-        self.WatchDogTrigger = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
-        self.PostTrollTrigger = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
-        self.create_publisher_from_dict_config = self._patch_and_add_cleanup(
-            'pytroll_collectors.utils.create_publisher_from_dict_config')
-        self.NSSubscriber = self._patch_and_add_cleanup(
-            'pytroll_collectors.triggers._posttroll.NSSubscriber')
+        fake_create_publisher_from_dict_config.reset_mock()
+        fake_ns_subscriber.reset_mock()
 
-    def _patch_and_add_cleanup(self, item, new=DEFAULT):
-        patcher = patch(item, new=new)
-        patched = patcher.start()
-        self.addCleanup(patcher.stop)
-        return patched
+        with open(tmp_config_file, mode="w") as fp:
+            self.config.write(fp)
 
-    def test_init_minimal(self):
+    def test_init_minimal(self, tmp_config_file):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
         section = 'minimal_config'
-        opts = FakeOpts([section])
-        gatherer = GeographicGatherer(self.config, opts)
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
+        gatherer = GeographicGatherer(opts)
 
         trigger = self._check_one_trigger(gatherer, section)
         assert isinstance(trigger, FakePostTrollTrigger)
@@ -148,49 +167,56 @@ class TestGeographicGatherer(unittest.TestCase):
             assert collector.timeliness == timeliness
             assert collector.granule_duration == duration
 
-    def test_init_minimal_no_nameservers(self):
+    def test_init_minimal_no_nameservers(self, tmp_config_file):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
-        sections = ['minimal_config']
-        opts = FakeOpts(sections, nameservers=['false'], publish_port=12345)
-        _ = GeographicGatherer(self.config, opts)
-        # A publisher is created with composed name and started
-        assert_create_publisher_from_dict_config(sections, 12345, False, self.create_publisher_from_dict_config)
+        section = 'minimal_config'
+        opts = arg_parse(["-c", section, "-n", "false", "-p", "12345", str(tmp_config_file)])
 
-    def test_init_no_area_def_file(self):
+        _ = GeographicGatherer(opts)
+        # A publisher is created with composed name and started
+        assert_create_publisher_from_dict_config([section], 12345, False)
+
+    def test_init_no_area_def_file(self, tmp_config_file):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
         import pytest
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
-        self.config.remove_option("DEFAULT", "area_definition_file")
+        config = ConfigParser(interpolation=None)
+        config.read(tmp_config_file)
+        config.remove_option("DEFAULT", "area_definition_file")
+        with open(tmp_config_file, mode="w") as fp:
+            config.write(fp)
         # Make sure to work also when the environment has SATPY_CONFIG_PATH defined
         os.environ.pop("SATPY_CONFIG_PATH", None)
-        sections = ['minimal_config']
-        opts = FakeOpts(sections)
+        section = 'minimal_config'
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
 
         with pytest.raises(KeyError) as err:
-            _ = GeographicGatherer(self.config, opts)
+            _ = GeographicGatherer(opts)
         assert "'area_definition_file'" in str(err.value)
 
-    def test_init_satpy_config_path(self):
+    def test_init_satpy_config_path(self, tmp_config_file):
         """Test that SATPY_CONFIG_PATH environment variable is used as default value if defined."""
         import os
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
-        sections = ['minimal_config']
-        opts = FakeOpts(sections)
+        section = 'minimal_config'
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
+
         os.environ["SATPY_CONFIG_PATH"] = AREA_CONFIG_PATH
 
         # This shouldn't raise anything
-        _ = GeographicGatherer(self.config, opts)
+        _ = GeographicGatherer(opts)
 
-    def test_init_posttroll(self):
+    def test_init_posttroll(self, tmp_config_file):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
         section = 'posttroll_section'
-        opts = FakeOpts([section])
-        gatherer = GeographicGatherer(self.config, opts)
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
+
+        gatherer = GeographicGatherer(opts)
 
         trigger = self._check_one_trigger(gatherer, section)
 
@@ -202,7 +228,7 @@ class TestGeographicGatherer(unittest.TestCase):
         duration = self.config.getfloat(section, 'duration')
         nameserver = self.config.get(section, 'nameserver')
 
-        self.NSSubscriber.assert_called_once_with(services, topics, True, nameserver=nameserver)
+        fake_ns_subscriber.assert_called_once_with(services, topics, True, nameserver=nameserver)
 
         assert trigger.duration == duration
 
@@ -217,24 +243,23 @@ class TestGeographicGatherer(unittest.TestCase):
         duration = dt.timedelta(seconds=12, microseconds=300000)
         self._check_region_collectors(trigger, section, timeliness, duration)
 
-    def test_init_polling_observer(self):
+    def test_init_polling_observer(self, tmp_config_file):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
         section = 'polling_observer_section'
-        opts = FakeOpts([section])
-        gatherer = GeographicGatherer(self.config, opts)
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
+        gatherer = GeographicGatherer(opts)
 
         self._watchdog_test(section, gatherer)
 
-    def test_init_observer(self):
+    def test_init_observer(self, tmp_config_file):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
         section = 'observer_section'
-        opts = FakeOpts([section])
-        gatherer = GeographicGatherer(self.config, opts)
-
+        opts = arg_parse(["-c", section, str(tmp_config_file)])
+        gatherer = GeographicGatherer(opts)
         self._watchdog_test(section, gatherer)
 
     def _watchdog_test(self, section, gatherer):
@@ -244,7 +269,7 @@ class TestGeographicGatherer(unittest.TestCase):
         assert isinstance(trigger, FakeWatchDogTrigger)
 
         assert trigger.wdp.patterns == ['pattern']
-        watcher = self.config.get(section, 'watcher')
+        watcher = gatherer._config.get(section, 'watcher')
         if watcher == "Observer":
             from watchdog.observers import Observer
             assert isinstance(trigger.wdp.observer, Observer)
@@ -261,27 +286,27 @@ class TestGeographicGatherer(unittest.TestCase):
         self._check_region_collectors(trigger, section, timeliness, duration)
 
     def _check_trigger_publishing_info(self, trigger, section):
-        assert trigger.publisher == self.create_publisher_from_dict_config.return_value
+        assert trigger.publisher == fake_create_publisher_from_dict_config.return_value
         assert trigger.publish_topic == self.config.get(section, 'publish_topic')
         self._check_publisher_no_args([section])
 
     def _check_publisher_no_args(self, sections):
-        assert_create_publisher_from_dict_config(sections, 0, None, self.create_publisher_from_dict_config)
+        assert_create_publisher_from_dict_config(sections, 0, None)
 
     def _check_one_trigger(self, gatherer, section):
         # There's one trigger
         assert len(gatherer.triggers) == 1
         trigger = gatherer.triggers[0]
         # All the other sections should've been removed
-        assert self.config.sections()[0] == section
         return trigger
 
-    def test_init_all_sections(self):
+    def test_init_all_sections(self, tmp_config_file):
         """Test initialization of GeographicGatherer with all defined sections."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
-        opts = FakeOpts(config_item=None, publish_port=9999, nameservers=['nameserver_a', 'nameserver_b'])
-        gatherer = GeographicGatherer(self.config, opts)
+        opts = arg_parse(["-n", "nameserver_a", "-n", "nameserver_b", "-p", "9999", str(tmp_config_file)])
+
+        gatherer = GeographicGatherer(opts)
 
         num_sections = len(self.config.sections())
         num_regions = len(self.config.get("DEFAULT", "regions").split())
@@ -301,16 +326,16 @@ class TestGeographicGatherer(unittest.TestCase):
             'port': 9999,
             'nameservers': ['nameserver_a', 'nameserver_b'],
         }
-        self.create_publisher_from_dict_config.assert_called_once_with(expected)
-        self.create_publisher_from_dict_config.return_value.start.assert_called_once()
+        fake_create_publisher_from_dict_config.assert_called_once_with(expected)
+        fake_create_publisher_from_dict_config.return_value.start.assert_called_once()
 
 
-def assert_create_publisher_from_dict_config(sections, port, nameservers, func):
+def assert_create_publisher_from_dict_config(sections, port, nameservers):
     """Check that publisher creator has been called correctly."""
     expected = {
         'name': 'gatherer_'+'_'.join(sections),
         'port': port,
         'nameservers': nameservers,
     }
-    func.assert_called_once_with(expected)
-    func.return_value.start.assert_called_once()
+    fake_create_publisher_from_dict_config.assert_called_once_with(expected)
+    fake_create_publisher_from_dict_config.return_value.start.assert_called_once()

@@ -27,7 +27,7 @@
 import logging
 import time
 
-from configparser import NoOptionError
+from configparser import NoOptionError, ConfigParser
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import create_collectors_from_config_dict
@@ -42,9 +42,11 @@ logger = logging.getLogger(__name__)
 class GeographicGatherer:
     """Container for granule triggers for geographic segment gathering."""
 
-    def __init__(self, config, opts):
+    def __init__(self, opts):
         """Initialize the class."""
-        self._config = config
+        self._config = ConfigParser(interpolation=None)
+
+        self._config.read(opts.config)
         self._opts = opts
         self.publisher = None
         self.triggers = []
@@ -187,3 +189,29 @@ class TriggerFactory:
         publish_message_after_each_reception = self._config_items.get("publish_message_after_each_reception", False)
         logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
         return publish_message_after_each_reception
+
+
+def arg_parse(args=None):
+    """Handle input arguments."""
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-l", "--log",
+                        help="File to log to (defaults to stdout)",
+                        default=None)
+    parser.add_argument("-v", "--verbose", help="print debug messages too",
+                        action="store_true")
+    parser.add_argument("-c", "--config-item",
+                        help="config item to use (all by default). Can be specified multiply times",
+                        action="append")
+    parser.add_argument("-p", "--publish-port", default=0, type=int,
+                        help="Port to publish the messages on. Default: automatic")
+    parser.add_argument("-n", "--nameservers",
+                        help=("Connect publisher to given nameservers: "
+                              "'-n localhost -n 123.456.789.0'. Use '-n false' to disable. "
+                              "Default: localhost."
+                              ),
+                        action="append")
+    parser.add_argument("config", help="config file to be used")
+
+    return parser.parse_args(args)
