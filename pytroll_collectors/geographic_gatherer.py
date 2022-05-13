@@ -26,41 +26,17 @@
 
 import logging
 import time
-import os
 
 from configparser import NoOptionError
-from pyresample import parse_area_file
 from trollsift import Parser
 
-from pytroll_collectors.region_collector import RegionCollector
+from pytroll_collectors.region_collector import create_collectors_from_config_dict
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
 from pytroll_collectors.utils import create_publisher_config_dict
 
 logger = logging.getLogger(__name__)
-
-
-def get_regions_from_config_dict(config_items):
-    """Get the regions from the configuration dictionary."""
-    try:
-        area_def_file = config_items['area_definition_file']
-    except KeyError:
-        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
-        if satpy_config_path is None:
-            raise
-        area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
-    regions = [parse_area_file(area_def_file, region)[0]
-               for region in config_items["regions"].split()]
-    return regions
-
-
-def create_collectors_from_config_dict(config_items):
-    """Create region collectors for a configuration dictionary."""
-    regions = get_regions_from_config_dict(config_items)
-
-    return [RegionCollector.from_dict_config(region, config_items)
-            for region in regions]
 
 
 class GeographicGatherer:

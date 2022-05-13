@@ -23,8 +23,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Region collector."""
-
+import os
 from datetime import timedelta, datetime
+
+from pyresample import parse_area_file
 
 try:
     from trollsched.satpass import Pass
@@ -343,3 +345,25 @@ def _log_overlap_message(granule_metadata, coverage_str):
         except KeyError:
             logger.debug("Failed printing debug info...")
             logger.debug("Keys in granule_metadata = %s", str(granule_metadata.keys()))
+
+
+def get_regions_from_config_dict(config_items):
+    """Get the regions from the configuration dictionary."""
+    try:
+        area_def_file = config_items['area_definition_file']
+    except KeyError:
+        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
+        if satpy_config_path is None:
+            raise
+        area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
+    regions = [parse_area_file(area_def_file, region)[0]
+               for region in config_items["regions"].split()]
+    return regions
+
+
+def create_collectors_from_config_dict(config_items):
+    """Create region collectors for a configuration dictionary."""
+    regions = get_regions_from_config_dict(config_items)
+
+    return [RegionCollector.from_dict_config(region, config_items)
+            for region in regions]
