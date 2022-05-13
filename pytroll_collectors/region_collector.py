@@ -63,6 +63,22 @@ class RegionCollector(object):
         self.schedule_cut = schedule_cut
         self.schedule_cut_method = schedule_cut_method
 
+    @classmethod
+    def from_dict_config(cls, region, config_items):
+        """Create a instance of the class using a configuration dictionary to get the parameters."""
+        timeliness = timedelta(minutes=int(config_items["timeliness"]))
+
+        try:
+            duration = timedelta(seconds=float(config_items["duration"]))
+        except KeyError:
+            duration = None
+        # Parse schedule cut if configured. Mainly for EARS data.
+        schedule_cut = config_items.get('schedule_cut')
+        # If you want to provide your own method to provide the schedule cut data
+        schedule_cut_method = config_items.get('schedule_cut_method')
+
+        return cls(region, timeliness, duration, schedule_cut, schedule_cut_method)
+
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
         try:

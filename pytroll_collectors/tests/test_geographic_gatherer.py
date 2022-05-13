@@ -24,10 +24,11 @@
 """Unittests for top level geographic segment gathering."""
 
 import unittest
-from unittest.mock import patch, call, DEFAULT
-from configparser import RawConfigParser
+from unittest.mock import patch, DEFAULT
+from configparser import ConfigParser
 import datetime as dt
 import os
+from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 
 AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
@@ -43,12 +44,36 @@ class FakeOpts(object):
         self.nameservers = nameservers
 
 
+class FakePostTrollTrigger(PostTrollTrigger):
+    """Fake PostTrollTrigger."""
+
+    def publish_collection(self, *args, **kwargs):
+        """Publish collection."""
+        del args, kwargs
+
+    def start(self):
+        """Start."""
+        self.start_called = True
+
+
+class FakeWatchDogTrigger(WatchDogTrigger):
+    """Fake WatchDogTrigger."""
+
+    def publish_collection(self, *args, **kwargs):
+        """Publish collection."""
+        del args, kwargs
+
+    def start(self):
+        """Start."""
+        self.start_called = True
+
+
 class TestGeographicGatherer(unittest.TestCase):
     """Test the posttroll the top-level geographic gathering."""
 
     def setUp(self):
         """Set up things."""
-        self.config = RawConfigParser()
+        self.config = ConfigParser(interpolation=None)
         self.config['DEFAULT'] = {
             'regions': "euro4 euron1",
             'area_definition_file': AREA_DEFINITION_FILE}
@@ -80,14 +105,17 @@ class TestGeographicGatherer(unittest.TestCase):
             'watcher': 'Observer',
         }
 
-        self.RegionCollector = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.RegionCollector')
+        # self.RegionCollector = self._patch_and_add_cleanup(
+        #     'pytroll_collectors.geographic_gatherer.RegionCollector')
         self.WatchDogTrigger = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.WatchDogTrigger')
+            'pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
         self.PostTrollTrigger = self._patch_and_add_cleanup(
-            'pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+            'pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
         self.publisher = self._patch_and_add_cleanup(
             'pytroll_collectors.geographic_gatherer.publisher')
+
+        self.NSSubscriber = self._patch_and_add_cleanup(
+            'pytroll_collectors.triggers._posttroll.NSSubscriber')
 
     def _patch_and_add_cleanup(self, item, new=DEFAULT):
         patcher = patch(item, new=new)
@@ -98,47 +126,43 @@ class TestGeographicGatherer(unittest.TestCase):
     def test_init_minimal(self):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
-        from pyresample import parse_area_file
 
-        sections = ['minimal_config']
-        opts = FakeOpts(sections)
+        section = 'minimal_config'
+        opts = FakeOpts([section])
         gatherer = GeographicGatherer(self.config, opts)
 
-        # There's one trigger
-        assert len(gatherer.triggers) == 1
-
-        # All the other sections should've been removed
-        assert self.config.sections() == sections
-
-        # The default is to use PostTrollTrigger, so only that should've been called
-        self.PostTrollTrigger.assert_called_once()
-        self.WatchDogTrigger.assert_not_called()
+        trigger = self._check_one_trigger(gatherer, section)
+        assert isinstance(trigger, FakePostTrollTrigger)
 
         # RegionCollector is called with two areas, the configured timeout and no duration
-        for region in self.config.get(sections[0], 'regions').split():
-            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
-            assert call(region_def, dt.timedelta(seconds=1800), None, None, None) in self.RegionCollector.mock_calls
+        timeliness = dt.timedelta(seconds=1800)
+        duration = None
+        self._check_region_collectors(trigger, section, timeliness, duration)
 
-        # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with(
-            'gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        self._check_publisher_no_args([section])
+
+    def _check_region_collectors(self, trigger, section, timeliness, duration):
+        from pyresample import parse_area_file
+        for region, collector in zip(self.config.get(section, 'regions').split(), trigger.collectors):
+            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
+            assert collector.region == region_def
+            assert collector.timeliness == timeliness
+            assert collector.granule_duration == duration
 
     def test_init_no_area_def_file(self):
         """Test that GeographicGatherer gives a meaningful error message if area_definition_file is not defined."""
         import pytest
-        from configparser import NoOptionError
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
         sections = ['minimal_config']
         opts = FakeOpts(sections)
 
-        with pytest.raises(NoOptionError) as err:
+        with pytest.raises(KeyError) as err:
             _ = GeographicGatherer(self.config, opts)
-        assert "No option 'area_definition_file' in section" in str(err.value)
+        assert "'area_definition_file'" in str(err.value)
 
     def test_init_satpy_config_path(self):
-        """Test that SATPY_CONFIG_PATH environment variable is used as defaulta value if defined."""
+        """Test that SATPY_CONFIG_PATH environment variable is used as default value if defined."""
         import os
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         self.config.remove_option("DEFAULT", "area_definition_file")
@@ -152,100 +176,97 @@ class TestGeographicGatherer(unittest.TestCase):
     def test_init_posttroll(self):
         """Test initialization of GeographicGatherer for posttroll trigger."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
-        from pyresample import parse_area_file
 
-        sections = ['posttroll_section']
-        opts = FakeOpts(sections)
+        section = 'posttroll_section'
+        opts = FakeOpts([section])
         gatherer = GeographicGatherer(self.config, opts)
 
-        # There's one trigger
-        assert len(gatherer.triggers) == 1
-
-        # All the other sections should've been removed
-        assert self.config.sections() == sections
+        trigger = self._check_one_trigger(gatherer, section)
 
         # The PostTrollTrigger is configured, so only that should've been called
-        self.PostTrollTrigger.assert_called_once()
-        pt_call = call(
-            [self.RegionCollector.return_value, self.RegionCollector.return_value],
-            self.config.get(sections[0], 'service').split(','),
-            self.config.get(sections[0], 'topics').split(','),
-            self.publisher.NoisyPublisher.return_value,
-            duration=self.config.getfloat(sections[0], 'duration'),
-            publish_topic=self.config.get(sections[0], 'publish_topic'),
-            nameserver=self.config.get(sections[0], 'nameserver'),
-            publish_message_after_each_reception=self.config.get(sections[0], 'publish_message_after_each_reception'))
-        assert pt_call in self.PostTrollTrigger.mock_calls
-        self.PostTrollTrigger.return_value.start.assert_called_once()
-        self.WatchDogTrigger.assert_not_called()
+        assert isinstance(trigger, FakePostTrollTrigger)
+
+        services = self.config.get(section, 'service').split(',')
+        topics = self.config.get(section, 'topics').split(',')
+        duration = self.config.getfloat(section, 'duration')
+        nameserver = self.config.get(section, 'nameserver')
+
+        self.NSSubscriber.assert_called_once_with(services, topics, True, nameserver=nameserver)
+
+        assert trigger.duration == duration
+
+        self._check_trigger_publishing_info(trigger, section)
+
+        publish_message_after_each_reception = self.config.get(section, 'publish_message_after_each_reception')
+        assert trigger.publish_message_after_each_reception == publish_message_after_each_reception
+        assert trigger.start_called
 
         # RegionCollector is called with two areas, the configured timeout and a duration
-        for region in self.config.get(sections[0], 'regions').split():
-            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
-            assert call(
-                region_def,
-                dt.timedelta(seconds=1200),
-                dt.timedelta(seconds=12, microseconds=300000), None, None) in self.RegionCollector.mock_calls
-
-        # A publisher is created with composed name and started
-        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+        timeliness = dt.timedelta(minutes=self.config.getint(section, "timeliness"))
+        duration = dt.timedelta(seconds=12, microseconds=300000)
+        self._check_region_collectors(trigger, section, timeliness, duration)
 
     def test_init_polling_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'PollingObserver'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
-        sections = ['polling_observer_section']
-        opts = FakeOpts(sections)
+        section = 'polling_observer_section'
+        opts = FakeOpts([section])
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(
-            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+        self._watchdog_test(section, gatherer)
 
     def test_init_observer(self):
         """Test initialization of GeographicGatherer for watchdog trigger as 'Observer'."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
-        sections = ['observer_section']
-        opts = FakeOpts(sections)
+        section = 'observer_section'
+        opts = FakeOpts([section])
         gatherer = GeographicGatherer(self.config, opts)
 
-        self._watchdog_test(
-            sections, gatherer, self.publisher, self.PostTrollTrigger, self.WatchDogTrigger, self.RegionCollector)
+        self._watchdog_test(section, gatherer)
 
-    def _watchdog_test(self, sections, gatherer, publisher, PostTrollTrigger, WatchDogTrigger, RegionCollector):
-        from pyresample import parse_area_file
-
-        # There's one trigger
-        assert len(gatherer.triggers) == 1
-
-        # All the other sections should've been removed
-        assert self.config.sections() == sections
+    def _watchdog_test(self, section, gatherer):
+        trigger = self._check_one_trigger(gatherer, section)
 
         # The PollingObserver is configured, so only WatchDogTrigger should've been called
-        WatchDogTrigger.assert_called_once()
-        pt_call = call(
-            [RegionCollector.return_value, RegionCollector.return_value],
-            dict(self.config.items(sections[0])),
-            ['pattern'],
-            self.config.get(sections[0], 'watcher'),
-            publisher.NoisyPublisher.return_value,
-            publish_topic=self.config.get(sections[0], 'publish_topic'))
-        assert pt_call in WatchDogTrigger.mock_calls
-        WatchDogTrigger.return_value.start.assert_called_once()
-        PostTrollTrigger.assert_not_called()
+        assert isinstance(trigger, FakeWatchDogTrigger)
 
-        # RegionCollector is called with two areas, the configured timeout and a duration
-        for region in self.config.get(sections[0], 'regions').split():
-            region_def = parse_area_file(AREA_DEFINITION_FILE, region)[0]
-            assert call(
-                region_def,
-                dt.timedelta(minutes=self.config.getint(sections[0], "timeliness")),
-                None, None, None) in RegionCollector.mock_calls
+        assert trigger.wdp.patterns == ['pattern']
+        watcher = self.config.get(section, 'watcher')
+        if watcher == "Observer":
+            from watchdog.observers import Observer
+            assert isinstance(trigger.wdp.observer, Observer)
+        else:
+            from watchdog.observers.polling import PollingObserver
+            assert isinstance(trigger.wdp.observer, PollingObserver)
 
+        self._check_trigger_publishing_info(trigger, section)
+
+        assert trigger.start_called
+
+        timeliness = dt.timedelta(minutes=self.config.getint(section, "timeliness"))
+        duration = None
+        self._check_region_collectors(trigger, section, timeliness, duration)
+
+    def _check_trigger_publishing_info(self, trigger, section):
+        assert trigger.publisher == self.publisher.NoisyPublisher.return_value
+        assert trigger.publish_topic == self.config.get(section, 'publish_topic')
+        self._check_publisher_no_args([section])
+
+    def _check_publisher_no_args(self, sections):
         # A publisher is created with composed name and started
-        publisher.NoisyPublisher.assert_called_once_with('gatherer_'+'_'.join(sections), port=0, nameservers=None)
-        publisher.NoisyPublisher.return_value.start.assert_called_once()
+        self.publisher.NoisyPublisher.assert_called_once_with('gatherer_' + '_'.join(sections), port=0,
+                                                              nameservers=None)
+        self.publisher.NoisyPublisher.return_value.start.assert_called_once()
+
+    def _check_one_trigger(self, gatherer, section):
+        # There's one trigger
+        assert len(gatherer.triggers) == 1
+        trigger = gatherer.triggers[0]
+        # All the other sections should've been removed
+        assert self.config.sections()[0] == section
+        return trigger
 
     def test_init_all_sections(self):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -255,16 +276,18 @@ class TestGeographicGatherer(unittest.TestCase):
         gatherer = GeographicGatherer(self.config, opts)
 
         num_sections = len(self.config.sections())
+        num_regions = len(self.config.get("DEFAULT", "regions").split())
 
         # All the sections should've created a trigger
         assert len(gatherer.triggers) == num_sections
-
-        # See that the trigger classes have been accessed the correct times
-        assert self.PostTrollTrigger.call_count == 2
-        assert self.WatchDogTrigger.call_count == 2
+        assert isinstance(gatherer.triggers[0], FakePostTrollTrigger)
+        assert isinstance(gatherer.triggers[1], FakePostTrollTrigger)
+        assert isinstance(gatherer.triggers[2], FakeWatchDogTrigger)
+        assert isinstance(gatherer.triggers[3], FakeWatchDogTrigger)
 
         # N regions for each section
-        assert self.RegionCollector.call_count == num_sections * len(self.config.get("DEFAULT", "regions").split())
+        assert all(len(trigger.collectors) == num_regions for trigger in gatherer.triggers)
+
         self.publisher.NoisyPublisher.assert_called_once_with(
             'gatherer',
             port=9999,

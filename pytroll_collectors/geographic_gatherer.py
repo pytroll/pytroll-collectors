@@ -26,7 +26,7 @@
 
 import logging
 import time
-import datetime as dt
+import os
 
 from configparser import NoOptionError
 from posttroll import publisher
@@ -37,6 +37,28 @@ from pytroll_collectors.region_collector import RegionCollector
 from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 
 logger = logging.getLogger(__name__)
+
+
+def get_regions_from_config_dict(config_items):
+    """Get the regions from the configuration dictionary."""
+    try:
+        area_def_file = config_items['area_definition_file']
+    except KeyError:
+        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
+        if satpy_config_path is None:
+            raise
+        area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
+    regions = [parse_area_file(area_def_file, region)[0]
+               for region in config_items["regions"].split()]
+    return regions
+
+
+def create_collectors_from_config_dict(config_items):
+    """Create region collectors for a configuration dictionary."""
+    regions = get_regions_from_config_dict(config_items)
+
+    return [RegionCollector.from_dict_config(region, config_items)
+            for region in regions]
 
 
 class GeographicGatherer:
@@ -87,113 +109,12 @@ class GeographicGatherer:
 
     def _setup_triggers(self):
         """Set up the granule triggers."""
-        import os
-
-        satpy_config_path = os.environ.get('SATPY_CONFIG_PATH')
         for section in self._config.sections():
-            try:
-                area_def_file = self._config.get(section, 'area_definition_file')
-            except NoOptionError:
-                if satpy_config_path is None:
-                    raise
-                area_def_file = os.path.join(satpy_config_path, 'areas.yaml')
-            regions = [parse_area_file(area_def_file, region)[0]
-                       for region in self._config.get(section, "regions").split()]
-            collectors = self._get_collectors(section, regions)
-            trigger = self._get_granule_trigger(section, collectors)
+            config_items = dict(self._config.items(section))
+            collectors = create_collectors_from_config_dict(config_items)
+            trigger = TriggerFactory(section, config_items, self.publisher).create(collectors)
             trigger.start()
             self.triggers.append(trigger)
-
-    def _get_collectors(self, section, regions):
-        timeliness = dt.timedelta(minutes=self._config.getint(section, "timeliness"))
-        try:
-            duration = dt.timedelta(seconds=self._config.getfloat(section, "duration"))
-        except NoOptionError:
-            duration = None
-        # Parse schedule cut if configured. Mainly for EARS data.
-        try:
-            schedule_cut = self._config.get(section, 'schedule_cut')
-        except NoOptionError:
-            schedule_cut = None
-        # If you want to provide your own method to provide the schedule cut data
-        try:
-            schedule_cut_method = self._config.get(section, 'schedule_cut_method')
-        except NoOptionError:
-            schedule_cut_method = None
-
-        return [RegionCollector(
-            region, timeliness, duration, schedule_cut, schedule_cut_method)
-            for region in regions]
-
-    def _get_granule_trigger(self, section, collectors):
-        observer_class = self._config.get(section, "watcher", fallback=None)
-
-        if observer_class in ["PollingObserver", "Observer"]:
-            granule_trigger = self._get_watchdog_trigger(section, observer_class, collectors)
-        else:
-            granule_trigger = self._get_posttroll_trigger(section, observer_class, collectors)
-
-        return granule_trigger
-
-    def _get_watchdog_trigger(self, section, observer_class, collectors):
-        pattern = self._config.get(section, "pattern")
-        parser = Parser(pattern)
-        glob = parser.globify()
-        publish_topic = self._get_publish_topic(section)
-
-        logger.debug("Using %s for %s", observer_class, section)
-        return WatchDogTrigger(
-            collectors,
-            dict(self._config.items(section)),
-            [glob],
-            observer_class,
-            self.publisher,
-            publish_topic=publish_topic)
-
-    def _get_publish_topic(self, section):
-        try:
-            publish_topic = self._config.get(section, "publish_topic")
-        except NoOptionError:
-            publish_topic = None
-        return publish_topic
-
-    def _get_posttroll_trigger(self, section, observer_class, collectors):
-        logger.debug("Using posttroll for %s", section)
-        nameserver = self._get_nameserver(section)
-        publish_topic = self._get_publish_topic(section)
-        duration = self._get_duration(section)
-        publish_message_after_each_reception = self._get_publish_message_after_each_reception(section)
-
-        return PostTrollTrigger(
-            collectors,
-            self._config.get(section, 'service').split(','),
-            self._config.get(section, 'topics').split(','),
-            self.publisher,
-            duration=duration,
-            publish_topic=publish_topic, nameserver=nameserver,
-            publish_message_after_each_reception=publish_message_after_each_reception)
-
-    def _get_nameserver(self, section):
-        try:
-            nameserver = self._config.get(section, "nameserver")
-        except NoOptionError:
-            nameserver = "localhost"
-        return nameserver
-
-    def _get_duration(self, section):
-        try:
-            duration = self._config.getfloat(section, "duration")
-        except NoOptionError:
-            duration = None
-        return duration
-
-    def _get_publish_message_after_each_reception(self, section):
-        try:
-            publish_message_after_each_reception = self._config.get(section, "publish_message_after_each_reception")
-            logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
-        except NoOptionError:
-            publish_message_after_each_reception = False
-        return publish_message_after_each_reception
 
     def run(self):
         """Run granule triggers."""
@@ -215,3 +136,75 @@ class GeographicGatherer:
             self.publisher.stop()
 
         return self.return_status
+
+
+class TriggerFactory:
+    """Factory for triggers."""
+
+    def __init__(self, section, config_items, trigger_publisher):
+        """Set up the factory."""
+        self.section = section
+        self._config_items = config_items
+        self.publisher = trigger_publisher
+
+    def create(self, collectors):
+        """Create a trigger."""
+        try:
+            granule_trigger = self._get_watchdog_trigger(collectors)
+        except (KeyError, ValueError):
+            granule_trigger = self._get_posttroll_trigger(collectors)
+
+        return granule_trigger
+
+    def _get_watchdog_trigger(self, collectors):
+        observer_class = self._config_items["watcher"]
+        if observer_class not in ["PollingObserver", "Observer"]:
+            raise ValueError
+
+        pattern = self._config_items["pattern"]
+        parser = Parser(pattern)
+        glob = parser.globify()
+        publish_topic = self._get_publish_topic()
+
+        logger.debug("Using %s for %s", observer_class, self.section)
+        return WatchDogTrigger(
+            collectors,
+            self._config_items,
+            [glob],
+            observer_class,
+            self.publisher,
+            publish_topic=publish_topic)
+
+    def _get_publish_topic(self):
+        return self._config_items.get("publish_topic")
+
+    def _get_posttroll_trigger(self, collectors):
+        logger.debug("Using posttroll for %s", self.section)
+        nameserver = self._get_nameserver()
+        publish_topic = self._get_publish_topic()
+        duration = self._get_duration()
+        publish_message_after_each_reception = self._get_publish_message_after_each_reception()
+
+        return PostTrollTrigger(
+            collectors,
+            self._config_items['service'].split(','),
+            self._config_items['topics'].split(','),
+            self.publisher,
+            duration=duration,
+            publish_topic=publish_topic, nameserver=nameserver,
+            publish_message_after_each_reception=publish_message_after_each_reception)
+
+    def _get_nameserver(self):
+        return self._config_items.get("nameserver", "localhost")
+
+    def _get_duration(self):
+        try:
+            duration = float(self._config_items["duration"])
+        except KeyError:
+            duration = None
+        return duration
+
+    def _get_publish_message_after_each_reception(self):
+        publish_message_after_each_reception = self._config_items.get("publish_message_after_each_reception", False)
+        logger.debug("Publish message after each reception config: {}".format(publish_message_after_each_reception))
+        return publish_message_after_each_reception
