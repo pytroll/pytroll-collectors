@@ -45,8 +45,8 @@ class GeographicGatherer:
     def __init__(self, opts):
         """Initialize the class."""
         self._config = ConfigParser(interpolation=None)
-
         self._config.read(opts.config)
+
         self._opts = opts
         self.publisher = None
         self.triggers = []
@@ -56,7 +56,7 @@ class GeographicGatherer:
         self._setup_publisher()
         try:
             self._setup_triggers()
-        except NoOptionError:
+        except KeyError:
             self.publisher.stop()
             raise
 
