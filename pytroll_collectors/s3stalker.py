@@ -21,19 +21,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Module to find new files on an s3 bucket."""
 
-import json
 import logging
 import posixpath
 from datetime import datetime, timedelta
 import time
 from contextlib import contextmanager
-import fsspec.implementations.zip
 import s3fs
 from dateutil import tz
-from posttroll.message import Message
 from posttroll.publisher import Publish
 from trollsift import Parser
 
+from pytroll_collectors.fsspec_to_message import filelist_unzip_to_messages
 
 logger = logging.getLogger(__name__)
 
@@ -93,66 +91,6 @@ def _match_files_to_pattern(files, path, pattern):
 def set_last_fetch(timestamp):
     """Set the last fetch time."""
     DatetimeHolder.last_fetch = timestamp
-
-
-def create_message(fs, file, subject, metadata=None):
-    """Create a message to send."""
-    if isinstance(file, (list, tuple)):
-        file_data = {'dataset': []}
-        for file_item in file:
-            file_data['dataset'].append(_create_message_metadata(fs, file_item))
-        message_type = 'dataset'
-    else:
-        file_data = _create_message_metadata(fs, file)
-        message_type = 'file'
-    if metadata:
-        file_data.update(metadata)
-    return Message(subject, message_type, file_data)
-
-
-def _create_message_metadata(fs, file):
-    """Create a message to send."""
-    loaded_fs = json.loads(fs)
-    uri = _create_uri(file, loaded_fs)
-    uid = _create_uid_from_uri(uri, loaded_fs)
-    base_data = {'filesystem': loaded_fs, 'uri': uri, 'uid': uid}
-    base_data.update(file.get('metadata', dict()))
-    return base_data
-
-
-def _create_uri(file, loaded_fs):
-    protocol = loaded_fs["protocol"]
-    if protocol == 'abstract' and 'zip' in loaded_fs['cls']:
-        protocol = 'zip'
-    uri = protocol + ':///' + file['name']
-    return uri
-
-
-def _create_uid_from_uri(uri, loaded_fs):
-    uid = uri
-    if 'target_protocol' in loaded_fs:
-        uid += '::' + loaded_fs['target_protocol'] + ':///' + (loaded_fs.get('fo') or loaded_fs['args'][0])
-    return uid
-
-
-def filelist_to_messages(fs, files, subject):
-    """Convert filelist to a list of posttroll messages."""
-    return [create_message(fs.to_json(), file, subject) for file in files]
-
-
-def filelist_unzip_to_messages(fs, files, subject):
-    """Unzip files in filelist if necessary, create posttroll messages."""
-    messages = []
-    for file in files:
-        if file['name'].endswith('.zip'):
-            zipfs = fsspec.implementations.zip.ZipFileSystem(fo=file['name'],
-                                                             target_protocol=fs.protocol[0],
-                                                             target_options=fs.storage_options)
-            file_list = list(zipfs.find('/', detail=True).values())
-            messages.append(create_message(zipfs.to_json(), file_list, subject, file.get('metadata')))
-        else:
-            messages.append(create_message(fs.to_json(), file, subject))
-    return messages
 
 
 def publish_new_files(bucket, config):
