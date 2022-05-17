@@ -216,8 +216,10 @@ orbit_type
     What type of orbit?  Some downstream scripts may expect to receive this
     information through posttroll messages.
 
-nameserver
-    Nameserver to use to publish posttroll messages.
+inbound_connection
+    The list of addresses to get the messages from when using posttroll. Addresses are given as `host:port`format.
+    One of the addresses can be given as just `host`, in which case it is interpreted as a nameserver to query addresses
+    from. If omitted, the default behaviour is to use `localhost` as a nameserver.
 
 .. literalinclude:: ../../examples/gatherer_config.ini_template
    :language: ini
@@ -359,7 +361,7 @@ trollflow2
 Trollflow2 is the successor of the now-retired trollduction package.
 Some of the scripts in pytroll-collectors, such as trollstalker,
 segment_gatherer, and gatherer, were previously part of trollduction,
-but are now here rather than in trollflow2.  Today trollflow2 may be 
+but are now here rather than in trollflow2.  Today trollflow2 may be
 listening to messages sent by scripts from pytroll-collectors.
 
 trollsift
