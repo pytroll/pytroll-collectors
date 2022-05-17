@@ -66,7 +66,7 @@ def fix_start_end_time(mda):
     return mda
 
 
-class Trigger(object):
+class Trigger:
     """Abstract trigger class."""
 
     def __init__(self, collectors, publisher, publish_topic=None):

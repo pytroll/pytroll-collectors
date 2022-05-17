@@ -93,7 +93,7 @@ class GeographicGatherer:
         for section in self._config.sections():
             config_items = dict(self._config.items(section))
             collectors = create_collectors_from_config_dict(config_items)
-            trigger = TriggerFactory(section, config_items, self.publisher).create(collectors)
+            trigger = TriggerFactory(section, config_items, self._opts, self.publisher).create(collectors)
             trigger.start()
             self.triggers.append(trigger)
 
@@ -122,10 +122,11 @@ class GeographicGatherer:
 class TriggerFactory:
     """Factory for triggers."""
 
-    def __init__(self, section, config_items, trigger_publisher):
+    def __init__(self, section, config_items, opts, trigger_publisher):
         """Set up the factory."""
         self.section = section
         self._config_items = config_items
+        self._opts = opts
         self.publisher = trigger_publisher
 
     def create(self, collectors):
@@ -161,22 +162,31 @@ class TriggerFactory:
 
     def _get_posttroll_trigger(self, collectors):
         logger.debug("Using posttroll for %s", self.section)
-        nameserver = self._get_nameserver()
+        subscribe_nameserver = self._get_subscribe_nameserver()
         publish_topic = self._get_publish_topic()
         duration = self._get_duration()
         publish_message_after_each_reception = self._get_publish_message_after_each_reception()
+        if self._opts.inbound_connection:
+            self._config_items["inbound_connection"] = self._opts.inbound_connection
+        else:
+            inbound_connection = self._config_items.get("inbound_connection", None)
+            if inbound_connection:
+                inbound_connection = [element.strip() for element in inbound_connection.split(",")]
+            self._config_items["inbound_connection"] = inbound_connection
 
         return PostTrollTrigger(
-            collectors,
-            self._config_items['service'].split(','),
-            self._config_items['topics'].split(','),
-            self.publisher,
+            collectors=collectors,
+            services=self._config_items['service'].split(','),
+            topics=self._config_items['topics'].split(','),
+            publisher=self.publisher,
             duration=duration,
-            publish_topic=publish_topic, nameserver=nameserver,
+            publish_topic=publish_topic,
+            nameserver=subscribe_nameserver,
+            inbound_connection=self._config_items["inbound_connection"],
             publish_message_after_each_reception=publish_message_after_each_reception)
 
-    def _get_nameserver(self):
-        return self._config_items.get("nameserver", "localhost")
+    def _get_subscribe_nameserver(self):
+        return self._config_items.get("nameserver")
 
     def _get_duration(self):
         try:
@@ -211,6 +221,9 @@ def arg_parse(args=None):
                               "'-n localhost -n 123.456.789.0'. Use '-n false' to disable. "
                               "Default: localhost."
                               ),
+                        action="append")
+    parser.add_argument("-i", "--inbound-connection",
+                        help="config item to use (all by default). Can be specified multiply times",
                         action="append")
     parser.add_argument("config", help="config file to be used")
 

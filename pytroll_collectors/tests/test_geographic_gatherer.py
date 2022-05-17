@@ -90,53 +90,60 @@ def tmp_config_file(tmp_path):
 
 
 fake_create_publisher_from_dict_config = MagicMock()
-fake_ns_subscriber = MagicMock()
+fake_sub_factory = MagicMock()
+
+
+@pytest.fixture
+def tmp_config_parser():
+    """Create a config parser for the geographic gatherer."""
+    config = ConfigParser(interpolation=None)
+    config['DEFAULT'] = {
+        'regions': "euro4 euron1",
+        'area_definition_file': AREA_DEFINITION_FILE}
+    config['minimal_config'] = {
+        'timeliness': '30',
+        'service': 'service_a',
+        'topics': 'topic_a',
+    }
+    config['posttroll_section'] = {
+        'timeliness': '20',
+        'service': 'service_b',
+        'duration': '12.3',
+        'topics': 'topic_b,topic_c',
+        'watcher': 'posttroll',
+        'publish_topic': '/topic',
+        'inbound_connection': 'not_localhost, myhost:9999',
+        'publish_message_after_each_reception': 'pmaer_is_yes'
+    }
+    config['polling_observer_section'] = {
+        'timeliness': '10',
+        'pattern': 'pattern',
+        'publish_topic': '/topic',
+        'watcher': 'PollingObserver',
+    }
+    config['observer_section'] = {
+        'timeliness': '5',
+        'pattern': 'pattern',
+        'publish_topic': '/topic',
+        'watcher': 'Observer',
+    }
+    return config
 
 
 @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
 @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
 @patch('pytroll_collectors.utils.create_publisher_from_dict_config', new=fake_create_publisher_from_dict_config)
-@patch('pytroll_collectors.triggers._posttroll.NSSubscriber', new=fake_ns_subscriber)
+@patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config', new=fake_sub_factory)
 class TestGeographicGatherer:
     """Test the top-level geographic gathering."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_config_file):
+    def setup(self, tmp_config_file, tmp_config_parser):
         """Set up things."""
-        self.config = ConfigParser(interpolation=None)
-        self.config['DEFAULT'] = {
-            'regions': "euro4 euron1",
-            'area_definition_file': AREA_DEFINITION_FILE}
-        self.config['minimal_config'] = {
-            'timeliness': '30',
-            'service': 'service_a',
-            'topics': 'topic_a',
-            }
-        self.config['posttroll_section'] = {
-            'timeliness': '20',
-            'service': 'service_b',
-            'duration': '12.3',
-            'topics': 'topic_b,topic_c',
-            'watcher': 'posttroll',
-            'publish_topic': '/topic',
-            'nameserver': 'not_localhost',
-            'publish_message_after_each_reception': 'pmaer_is_yes'
-        }
-        self.config['polling_observer_section'] = {
-            'timeliness': '10',
-            'pattern': 'pattern',
-            'publish_topic': '/topic',
-            'watcher': 'PollingObserver',
-        }
-        self.config['observer_section'] = {
-            'timeliness': '5',
-            'pattern': 'pattern',
-            'publish_topic': '/topic',
-            'watcher': 'Observer',
-        }
+        self.config = tmp_config_parser
 
         fake_create_publisher_from_dict_config.reset_mock()
-        fake_ns_subscriber.reset_mock()
+        fake_sub_factory.reset_mock()
 
         with open(tmp_config_file, mode="w") as fp:
             self.config.write(fp)
@@ -149,7 +156,7 @@ class TestGeographicGatherer:
         opts = arg_parse(["-c", section, str(tmp_config_file)])
         gatherer = GeographicGatherer(opts)
 
-        trigger = self._check_one_trigger(gatherer, section)
+        trigger = _check_one_trigger(gatherer, section)
         assert isinstance(trigger, FakePostTrollTrigger)
 
         # RegionCollector is called with two areas, the configured timeout and no duration
@@ -218,7 +225,7 @@ class TestGeographicGatherer:
 
         gatherer = GeographicGatherer(opts)
 
-        trigger = self._check_one_trigger(gatherer, section)
+        trigger = _check_one_trigger(gatherer, section)
 
         # The PostTrollTrigger is configured, so only that should've been called
         assert isinstance(trigger, FakePostTrollTrigger)
@@ -226,9 +233,16 @@ class TestGeographicGatherer:
         services = self.config.get(section, 'service').split(',')
         topics = self.config.get(section, 'topics').split(',')
         duration = self.config.getfloat(section, 'duration')
-        nameserver = self.config.get(section, 'nameserver')
+        inbound_connection = self.config.get(section, "inbound_connection")
+        nameserver, addresses = inbound_connection.split(",")
+        addresses = [addresses.strip()]
 
-        fake_ns_subscriber.assert_called_once_with(services, topics, True, nameserver=nameserver)
+        sub_config = dict(services=services,
+                          topics=topics,
+                          nameserver=nameserver,
+                          addr_listener=True,
+                          addresses=addresses)
+        fake_sub_factory.assert_called_once_with(sub_config)
 
         assert trigger.duration == duration
 
@@ -263,7 +277,7 @@ class TestGeographicGatherer:
         self._watchdog_test(section, gatherer)
 
     def _watchdog_test(self, section, gatherer):
-        trigger = self._check_one_trigger(gatherer, section)
+        trigger = _check_one_trigger(gatherer, section)
 
         # The PollingObserver is configured, so only WatchDogTrigger should've been called
         assert isinstance(trigger, FakeWatchDogTrigger)
@@ -292,13 +306,6 @@ class TestGeographicGatherer:
 
     def _check_publisher_no_args(self, sections):
         assert_create_publisher_from_dict_config(sections, 0, None)
-
-    def _check_one_trigger(self, gatherer, section):
-        # There's one trigger
-        assert len(gatherer.triggers) == 1
-        trigger = gatherer.triggers[0]
-        # All the other sections should've been removed
-        return trigger
 
     def test_init_all_sections(self, tmp_config_file):
         """Test initialization of GeographicGatherer with all defined sections."""
@@ -339,3 +346,63 @@ def assert_create_publisher_from_dict_config(sections, port, nameservers):
     }
     fake_create_publisher_from_dict_config.assert_called_once_with(expected)
     fake_create_publisher_from_dict_config.return_value.start.assert_called_once()
+
+
+def _check_one_trigger(gatherer, section):
+    # There's one trigger
+    assert len(gatherer.triggers) == 1
+    trigger = gatherer.triggers[0]
+    # All the other sections should've been removed
+    return trigger
+
+
+@patch('pytroll_collectors.utils.create_publisher_from_dict_config', new=fake_create_publisher_from_dict_config)
+class TestGeographicGathererWithPosttrollTrigger:
+    """Test the top-level geographic gathering."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_config_file, tmp_config_parser):
+        """Set up things."""
+        self.config = tmp_config_parser
+
+        fake_create_publisher_from_dict_config.reset_mock()
+        fake_sub_factory.reset_mock()
+
+        with open(tmp_config_file, mode="w") as fp:
+            self.config.write(fp)
+
+    def test_args_accepts_inbound_info(self, tmp_config_file):
+        """Test passing the inbound_connection arg."""
+        section = 'posttroll_section'
+        opts = arg_parse(["-c", section, "-i", "myhost:9999", str(tmp_config_file)])
+
+        assert opts.inbound_connection == ["myhost:9999"]
+
+    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+    def test_posttroll_trigger_passes_inbound_info(self, posttroll_trigger_class, tmp_config_file):
+        """Test that the host info is passed on to the posttroll trigger."""
+        section = 'posttroll_section'
+        host_info = "myhost:9999"
+        opts = arg_parse(["-c", section, "-i", host_info, str(tmp_config_file)])
+
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        gatherer = GeographicGatherer(opts)
+        _check_one_trigger(gatherer, section)
+
+        assert (([host_info] in posttroll_trigger_class.mock_calls[0].args) or
+                ([host_info] in posttroll_trigger_class.mock_calls[0].kwargs.values()))
+
+    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+    def test_posttroll_trigger_passes_multiple_inbound_info(self, posttroll_trigger_class, tmp_config_file):
+        """Test that the multiple host info is passed on to the posttroll trigger."""
+        section = 'posttroll_section'
+        host_info = ["myhost:9999", "myotherhost:8888", "somenameserver"]
+        opts = arg_parse(["-c", section,
+                          "-i", host_info[0], "-i", host_info[1], "-i", host_info[2],
+                          str(tmp_config_file)])
+
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        GeographicGatherer(opts)
+
+        assert ((host_info in posttroll_trigger_class.mock_calls[0].args) or
+                (host_info in posttroll_trigger_class.mock_calls[0].kwargs.values()))
