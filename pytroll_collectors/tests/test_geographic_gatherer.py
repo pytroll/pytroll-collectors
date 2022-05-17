@@ -235,7 +235,7 @@ class TestGeographicGatherer:
         duration = self.config.getfloat(section, 'duration')
         inbound_connection = self.config.get(section, "inbound_connection")
         nameserver, addresses = inbound_connection.split(",")
-        addresses = [addresses.strip()]
+        addresses = ["tcp://" + addresses.strip()]
 
         sub_config = dict(services=services,
                           topics=topics,

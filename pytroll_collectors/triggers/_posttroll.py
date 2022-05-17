@@ -48,12 +48,10 @@ class _MessageProcessor(Thread):
         logger.debug("Nameserver: {}".format(nameserver))
         config_for_subscriber = create_subscriber_config(services, topics, nameserver, inbound_connection)
         self.subscriber = create_subscriber_from_dict_config(config_for_subscriber)
-        self.sub = None
         self.loop = True
 
     def start(self):
         """Start the processor."""
-        self.sub = self.subscriber.start()
         Thread.start(self)
 
     def process(self, msg):
@@ -64,7 +62,7 @@ class _MessageProcessor(Thread):
     def run(self):
         """Run the trigger."""
         try:
-            for msg in self.sub.recv(2):
+            for msg in self.subscriber.recv(2):
                 if not self.loop:
                     break
                 if msg is None:
@@ -103,7 +101,7 @@ def _split_inbound_connection(inbound_connection):
     nameservers = []
     for address in inbound_connection:
         if ":" in address:
-            addresses.append(address)
+            addresses.append("tcp://" + address)
         else:
             nameservers.append(address)
     if len(nameservers) > 1:

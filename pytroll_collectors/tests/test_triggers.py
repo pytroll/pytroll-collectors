@@ -95,7 +95,7 @@ class TestPostTrollTrigger:
         host_info = ["myhost:9999"]
         PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info)
         passed_settings = nssub.mock_calls[0].args[0]
-        assert passed_settings["addresses"] == host_info
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
     def test_subscribe_nameserver_defaults_to_localhost(self, nssub):
@@ -115,7 +115,7 @@ class TestPostTrollTrigger:
         nameserver = "someotherhost"
         PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info, nameserver=nameserver)
         passed_settings = nssub.mock_calls[0].args[0]
-        assert passed_settings["addresses"] == host_info
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
         assert passed_settings["nameserver"] == nameserver
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
@@ -127,7 +127,7 @@ class TestPostTrollTrigger:
         nameserver = None
         PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info, nameserver=nameserver)
         passed_settings = nssub.mock_calls[0].args[0]
-        assert passed_settings["addresses"] == host_info
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
         assert passed_settings["nameserver"] is False
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
@@ -154,7 +154,7 @@ class TestPostTrollTrigger:
         PostTrollTrigger(None, None, None, publisher,
                          inbound_connection=inbound_connection, nameserver=nameserver)
         passed_settings = nssub.mock_calls[0].args[0]
-        assert passed_settings["addresses"] == host_info
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
         assert passed_settings["nameserver"] == nameserver_info
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
@@ -196,7 +196,7 @@ class TestMessageProcessor:
                              msg_foo]
         sub = Mock()
         sub.recv = recv
-        sub_factory.return_value.start.return_value = sub
+        sub_factory.return_value = sub
 
         proc = _MessageProcessor('foo', 'bar', nameserver='baz')
         expected_config = dict(services="foo", topics="bar", nameserver="baz", addr_listener=True)
