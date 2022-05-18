@@ -60,27 +60,9 @@ class FakePostTrollTrigger(PostTrollTrigger):
 class FakeWatchDogTrigger(WatchDogTrigger):
     """Fake WatchDogTrigger."""
 
-    def publish_collection(self, *args, **kwargs):
-        """Publish collection."""
-        del args, kwargs
-
     def start(self):
         """Start."""
         self.start_called = True
-
-
-@pytest.fixture
-def create_publisher_from_dict_config():
-    """Return a faked function."""
-    with patch('pytroll_collectors.utils.create_publisher_from_dict_config') as patched_fun:
-        yield patched_fun
-
-
-@pytest.fixture
-def ns_subscriber():
-    """Return a fake ns subscriber."""
-    with patch('pytroll_collectors.triggers._posttroll.NSSubscriber') as patched_fun:
-        yield patched_fun
 
 
 @pytest.fixture
