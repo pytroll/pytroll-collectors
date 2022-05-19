@@ -1,3 +1,20 @@
+## Version 0.12.0 (2022/05/19)
+
+
+### Pull Requests Merged
+
+#### Features added
+
+* [PR 105](https://github.com/pytroll/pytroll-collectors/pull/105) - Allow direct listening to host/port in geographic gatherer.
+* [PR 104](https://github.com/pytroll/pytroll-collectors/pull/104) - Refactor the fsspec to message functions
+* [PR 102](https://github.com/pytroll/pytroll-collectors/pull/102) - Make it possible to disable nameserver connections for publisher in Segment and Geographic gatherers
+* [PR 101](https://github.com/pytroll/pytroll-collectors/pull/101) - Cleanup dependencies
+* [PR 98](https://github.com/pytroll/pytroll-collectors/pull/98) - Change tested Python versions to 3.8, 3.9 and 3.10
+* [PR 97](https://github.com/pytroll/pytroll-collectors/pull/97) - Replace `yaml.load()` with `yaml.safe_load()` in `zipcollector_runner.py`
+
+In this release 6 pull requests were closed.
+
+
 ## Version 0.11.1 (2021/08/27)
 
 ### Pull Requests Merged
