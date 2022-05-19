@@ -23,16 +23,15 @@
 
 import argparse
 import os
-import logging
-import logging.handlers
 import time
 
 from pytroll_collectors.segments import SegmentGatherer
 from pytroll_collectors.segments import ini_to_dict
 from pytroll_collectors.helper_functions import read_yaml
+from pytroll_collectors.logging import setup_logging
 
 
-def arg_parse():
+def arg_parse(args=None):
     """Handle input arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log",
@@ -44,7 +43,7 @@ def arg_parse():
     parser.add_argument("-C", "--config_item",
                         help="config item to use with .ini files")
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
@@ -60,28 +59,7 @@ def main():
     os.environ["TZ"] = "UTC"
     time.tzset()
 
-    handlers = []
-    if args.log:
-        handlers.append(
-            logging.handlers.TimedRotatingFileHandler(args.log,
-                                                      "midnight",
-                                                      backupCount=7))
-
-    handlers.append(logging.StreamHandler())
-
-    if args.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-    for handler in handlers:
-        handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
-                                               " %(name)s] %(message)s",
-                                               '%Y-%m-%d %H:%M:%S'))
-        handler.setLevel(loglevel)
-        logging.getLogger('').setLevel(loglevel)
-        logging.getLogger('').addHandler(handler)
-
-    logging.getLogger("posttroll").setLevel(logging.INFO)
+    setup_logging(args, "segment_gatherer")
 
     gatherer = SegmentGatherer(config)
 

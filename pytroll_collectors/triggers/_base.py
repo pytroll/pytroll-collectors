@@ -28,7 +28,6 @@ from datetime import datetime, timedelta
 import logging
 from threading import Thread, Event
 import os
-from configparser import NoOptionError
 
 from trollsift import compose, Parser
 from posttroll import message
@@ -67,7 +66,7 @@ def fix_start_end_time(mda):
     return mda
 
 
-class Trigger(object):
+class Trigger:
     """Abstract trigger class."""
 
     def __init__(self, collectors, publisher, publish_topic=None):
@@ -140,39 +139,33 @@ def _merge_metadata(metadata):
 class FileTrigger(Trigger, Thread):
     """File trigger, acting upon inotify events."""
 
-    def __init__(self, collectors, config, publisher,
+    def __init__(self, collectors, config_items, publisher,
                  publish_topic=None, publish_message_after_each_reception=False):
         """Init the file trigger."""
         Thread.__init__(self)
         Trigger.__init__(self, collectors, publisher, publish_topic=publish_topic)
-        self._config = config
+        self._config_items = config_items
         self._running = True
         self.new_file = Event()
         self.publish_message_after_each_reception = publish_message_after_each_reception
 
     def _get_metadata(self, fname):
         """Parse metadata from the file."""
-        res = None
-        for section in self._config.sections():
-            try:
-                parser = Parser(self._config.get(section, "pattern"))
-            except NoOptionError:
-                continue
-            if not parser.validate(fname):
-                continue
-            res = parser.parse(fname)
-            res.update(dict(self._config.items(section)))
+        parser = Parser(self._config_items["pattern"])
 
-            for key in ["watcher", "pattern", "timeliness", "regions"]:
-                res.pop(key, None)
+        res = parser.parse(fname)
+        res.update(dict(self._config_items))
 
-            res = fix_start_end_time(res)
+        for key in ["watcher", "pattern", "timeliness", "regions"]:
+            res.pop(key, None)
 
-            if ("sensor" in res) and ("," in res["sensor"]):
-                res["sensor"] = res["sensor"].split(",")
+        res = fix_start_end_time(res)
 
-            res["uri"] = fname
-            res["filename"] = os.path.basename(fname)
+        if ("sensor" in res) and ("," in res["sensor"]):
+            res["sensor"] = res["sensor"].split(",")
+
+        res["uri"] = fname
+        res["filename"] = os.path.basename(fname)
 
         return res
 

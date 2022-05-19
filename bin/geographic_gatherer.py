@@ -25,92 +25,31 @@
 
 import sys
 import time
-import logging
-import logging.handlers
 import os
 import os.path
 
-from configparser import RawConfigParser
-
-from pytroll_collectors.geographic_gatherer import GeographicGatherer
-
-
-def arg_parse():
-    """Handle input arguments."""
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log",
-                        help="File to log to (defaults to stdout)",
-                        default=None)
-    parser.add_argument("-v", "--verbose", help="print debug messages too",
-                        action="store_true")
-    parser.add_argument("-c", "--config-item",
-                        help="config item to use (all by default). Can be specified multiply times",
-                        action="append")
-    parser.add_argument("-p", "--publish-port", default=0, type=int,
-                        help="Port to publish the messages on. Default: automatic")
-    parser.add_argument("-n", "--nameservers",
-                        help=("Connect publisher to given nameservers: "
-                              "'-n localhost -n 123.456.789.0'. Use '-n false' to disable. "
-                              "Default: localhost."
-                              ),
-                        action="append")
-    parser.add_argument("config", help="config file to be used")
-
-    return parser.parse_args()
-
-
-def setup_logging(opts):
-    """Set up logging."""
-    handlers = []
-    if opts.log:
-        handlers.append(logging.handlers.TimedRotatingFileHandler(opts.log,
-                                                                  "midnight",
-                                                                  backupCount=7))
-    handlers.append(logging.StreamHandler())
-
-    if opts.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-    for handler in handlers:
-        handler.setFormatter(logging.Formatter("[%(levelname)s: %(asctime)s :"
-                                               " %(name)s] %(message)s",
-                                               '%Y-%m-%d %H:%M:%S'))
-        handler.setLevel(loglevel)
-        logging.getLogger('').setLevel(loglevel)
-        logging.getLogger('').addHandler(handler)
-
-    logging.getLogger("posttroll").setLevel(logging.INFO)
-    return logging.getLogger("gatherer")
+from pytroll_collectors.geographic_gatherer import GeographicGatherer, arg_parse
+from pytroll_collectors.logging import setup_logging
 
 
 def main():
     """Run the gatherer."""
-    config = RawConfigParser()
-
     opts = arg_parse()
-    config.read(opts.config)
 
-    logger = setup_logging(opts)
+    logger = setup_logging(opts, "geographic_gatherer")
 
     print("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 
-    if config is None:
-        return
-
-    granule_triggers = GeographicGatherer(config, opts)
+    granule_triggers = GeographicGatherer(opts)
     status = granule_triggers.run()
 
     logger.info("GeographicGatherer has stopped.")
 
     return status
 
+
 if __name__ == '__main__':
-
     status = main()
-
     sys.exit(status)

@@ -26,28 +26,32 @@
 
 from threading import Thread
 import logging
+import warnings
 
-from posttroll.subscriber import NSSubscriber
+from posttroll.subscriber import create_subscriber_from_dict_config
 
 from ._base import FileTrigger, fix_start_end_time
 
 logger = logging.getLogger(__name__)
 
 
-class AbstractMessageProcessor(Thread):
+class _MessageProcessor(Thread):
     """Process Messages."""
 
-    def __init__(self, services, topics, nameserver="localhost"):
+    def __init__(self, services, topics, nameserver=None, inbound_connection=None):
         """Init the message processor."""
-        super(AbstractMessageProcessor, self).__init__()
+        super().__init__()
+        if nameserver:
+            warnings.warn(PendingDeprecationWarning(
+                "`nameserver` for subscription should be replaced with `inbound_connection"
+            ))
         logger.debug("Nameserver: {}".format(nameserver))
-        self.nssub = NSSubscriber(services, topics, True, nameserver=nameserver)
-        self.sub = None
+        config_for_subscriber = create_subscriber_config(services, topics, nameserver, inbound_connection)
+        self.subscriber = create_subscriber_from_dict_config(config_for_subscriber)
         self.loop = True
 
     def start(self):
         """Start the processor."""
-        self.sub = self.nssub.start()
         Thread.start(self)
 
     def process(self, msg):
@@ -58,7 +62,7 @@ class AbstractMessageProcessor(Thread):
     def run(self):
         """Run the trigger."""
         try:
-            for msg in self.sub.recv(2):
+            for msg in self.subscriber.recv(2):
                 if not self.loop:
                     break
                 if msg is None:
@@ -71,31 +75,61 @@ class AbstractMessageProcessor(Thread):
 
     def stop(self):
         """Stop the trigger."""
-        self.nssub.stop()
+        self.subscriber.stop()
         self.loop = False
+
+
+def create_subscriber_config(services, topics, nameserver, inbound_connection):
+    """Create the subscriber config dictionary."""
+    config_for_subscriber = dict(services=services, topics=topics, nameserver=nameserver, addr_listener=True)
+    if inbound_connection:
+        addresses, nameservers = _split_inbound_connection(inbound_connection)
+        if len(nameservers) == 1:
+            nameserver = nameservers[0]
+        config_for_subscriber["addresses"] = addresses
+    if nameserver is None:
+        if inbound_connection:
+            nameserver = False
+        else:
+            nameserver = "localhost"
+    config_for_subscriber["nameserver"] = nameserver
+    return config_for_subscriber
+
+
+def _split_inbound_connection(inbound_connection):
+    addresses = []
+    nameservers = []
+    for address in inbound_connection:
+        if ":" in address:
+            addresses.append("tcp://" + address)
+        else:
+            nameservers.append(address)
+    if len(nameservers) > 1:
+        raise ValueError("Only one nameserver (address without a port) can be provided.")
+    return addresses, nameservers
 
 
 class PostTrollTrigger(FileTrigger):
     """Get posttroll messages."""
 
     def __init__(self, collectors, services, topics, publisher, duration=None,
-                 publish_topic=None, nameserver="localhost",
+                 publish_topic=None, nameserver=None,
+                 inbound_connection=None,
                  publish_message_after_each_reception=False):
         """Init the posttroll trigger."""
         self.duration = duration
-        self.msgproc = AbstractMessageProcessor(services, topics, nameserver=nameserver)
+        self.msgproc = _MessageProcessor(services, topics, nameserver=nameserver, inbound_connection=inbound_connection)
         self.msgproc.process = self.add_file
-        FileTrigger.__init__(self, collectors, None, publisher, publish_topic=publish_topic,
-                             publish_message_after_each_reception=publish_message_after_each_reception)
+        super().__init__(collectors, None, publisher, publish_topic=publish_topic,
+                         publish_message_after_each_reception=publish_message_after_each_reception)
 
     def start(self):
         """Start the posttroll trigger."""
-        FileTrigger.start(self)
+        super().start()
         self.msgproc.start()
 
     def _get_metadata(self, message):
         """Return the message data."""
-
         # Include file duration in message data
         if self.duration:
             message.data["duration"] = self.duration
@@ -111,4 +145,4 @@ class PostTrollTrigger(FileTrigger):
     def stop(self):
         """Stop the posttroll trigger."""
         self.msgproc.stop()
-        FileTrigger.stop(self)
+        super().stop()

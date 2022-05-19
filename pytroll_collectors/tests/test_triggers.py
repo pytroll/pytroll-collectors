@@ -24,10 +24,10 @@
 """Unittests for triggers."""
 
 import time
-import unittest
 from datetime import datetime, timedelta
 
 from unittest.mock import patch, Mock, call
+import pytest
 
 
 class FakeMessage(object):
@@ -39,11 +39,11 @@ class FakeMessage(object):
         self.type = msg_type
 
 
-class TestPostTrollTrigger(unittest.TestCase):
+class TestPostTrollTrigger:
     """Test the posttroll trigger."""
 
     @patch('pytroll_collectors.triggers.PostTrollTrigger._get_metadata')
-    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
     def test_timeout(self, nssub, get_metadata):
         """Test timing out."""
         from pytroll_collectors.triggers import PostTrollTrigger
@@ -67,7 +67,7 @@ class TestPostTrollTrigger(unittest.TestCase):
 
         ptt = PostTrollTrigger([collector], None, None, publisher,
                                publish_topic=None)
-        sub = ptt.msgproc.nssub.start.return_value
+        sub = ptt.msgproc.subscriber.start.return_value
         sub.recv.return_value = iter(messages)
         ptt.start()
         time.sleep(.4)
@@ -77,26 +77,115 @@ class TestPostTrollTrigger(unittest.TestCase):
         publisher.send.assert_called_once()
 
     def test_duration(self):
-        """Test duration"""
+        """Test duration."""
         from pytroll_collectors.triggers import PostTrollTrigger
         publisher = Mock()
         ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
 
         msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
 
-        self.assertIn("end_time", msg_data)
-        self.assertEqual(msg_data["end_time"], datetime(2020, 1, 21, 11, 28))
+        assert "end_time" in msg_data
+        assert msg_data["end_time"] == datetime(2020, 1, 21, 11, 28)
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_inbound_connection_is_used(self, nssub):
+        """Test that inbound_connection is used."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        host_info = ["myhost:9999"]
+        PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_subscribe_nameserver_defaults_to_localhost(self, nssub):
+        """Test that inbound_connection is used."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        PostTrollTrigger(None, None, None, publisher, nameserver=None)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert passed_settings["nameserver"] == "localhost"
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_both_inbound_connection_and_nameserver_are_used(self, nssub):
+        """Test that inbound_connection is used over nameserver."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        host_info = ["myhost:9999"]
+        nameserver = "someotherhost"
+        PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info, nameserver=nameserver)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
+        assert passed_settings["nameserver"] == nameserver
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_nameserver_defaults_to_false_when_inbound_connection_is_passed(self, nssub):
+        """Test that nameserver defaults to false when inbound_connection is passed."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        host_info = ["myhost:9999"]
+        nameserver = None
+        PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info, nameserver=nameserver)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
+        assert passed_settings["nameserver"] is False
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_inbound_connection_can_replace_nameserver(self, nssub):
+        """Test that inbound_connection can replace nameserver."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        host_info = ["mynameserverhost"]
+        nameserver = None
+        PostTrollTrigger(None, None, None, publisher, inbound_connection=host_info, nameserver=nameserver)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert not passed_settings.get("addresses")
+        assert passed_settings["nameserver"] == host_info[0]
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_inbound_connection_be_split(self, nssub):
+        """Test that inbound_connection can be split into addresses and nameserver."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        host_info = ["myhost:9999"]
+        nameserver_info = "mynameserverhost"
+        nameserver = None
+        inbound_connection = host_info + [nameserver_info]
+        PostTrollTrigger(None, None, None, publisher,
+                         inbound_connection=inbound_connection, nameserver=nameserver)
+        passed_settings = nssub.mock_calls[0].args[0]
+        assert passed_settings["addresses"] == ["tcp://" + host_info[0]]
+        assert passed_settings["nameserver"] == nameserver_info
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_inbound_connection_can_only_contain_one_nameserver(self, nssub):
+        """Test that inbound_connection can only contain one nameserver."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        nameserver_info = ["mynameserverhost", "myothernameserverhost"]
+        inbound_connection = nameserver_info
+        with pytest.raises(ValueError):
+            PostTrollTrigger(None, None, None, publisher, inbound_connection=inbound_connection)
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_passing_nameserver_issues_a_deprecation_warning(self, nssub):
+        """Test that passing nameserver issues a deprecation warning."""
+        from pytroll_collectors.triggers import PostTrollTrigger
+        publisher = Mock()
+        nameserver = "mynameserver"
+        with pytest.deprecated_call():
+            PostTrollTrigger(None, None, None, publisher, nameserver=nameserver)
 
 
-class TestAbstractMessageProcessor(unittest.TestCase):
-    """Test AbstractMessageProcessor."""
+class TestMessageProcessor:
+    """Test _MessageProcessor."""
 
-    @patch('pytroll_collectors.triggers._posttroll.AbstractMessageProcessor.process')
+    @patch('pytroll_collectors.triggers._posttroll._MessageProcessor.process')
     @patch('pytroll_collectors.triggers._posttroll.Thread')
-    @patch('pytroll_collectors.triggers._posttroll.NSSubscriber')
-    def test_all(self, NSSubscriber, Thread, process):
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_all(self, sub_factory, Thread, process):
         """Test the run() method."""
-        from pytroll_collectors.triggers._posttroll import AbstractMessageProcessor
+        from pytroll_collectors.triggers._posttroll import _MessageProcessor
 
         msg_file = Mock(type='file')
         msg_collection = Mock(type='collection')
@@ -107,11 +196,11 @@ class TestAbstractMessageProcessor(unittest.TestCase):
                              msg_foo]
         sub = Mock()
         sub.recv = recv
-        NSSubscriber.return_value.start.return_value = sub
+        sub_factory.return_value = sub
 
-        proc = AbstractMessageProcessor('foo', 'bar', nameserver='baz')
-        NSSubscriber.assert_called_with('foo', 'bar', True,
-                                        nameserver='baz')
+        proc = _MessageProcessor('foo', 'bar', nameserver='baz')
+        expected_config = dict(services="foo", topics="bar", nameserver="baz", addr_listener=True)
+        sub_factory.assert_called_with(expected_config)
         proc.start()
         Thread.start.assert_called()
         proc.run()
@@ -121,18 +210,57 @@ class TestAbstractMessageProcessor(unittest.TestCase):
         assert call(msg_foo) not in process.mock_calls
         assert call(None) not in process.mock_calls
 
-        proc.nssub.stop.assert_called()
+        proc.subscriber.stop.assert_called()
         assert proc.loop is False
 
 
-def suite():
-    """Test suite for test_trigger."""
-    loader = unittest.TestLoader()
-    mysuite = unittest.TestSuite()
-    mysuite.addTest(loader.loadTestsFromTestCase(TestPostTrollTrigger))
+class TestFileTrigger:
+    """Test the FileTrigger class."""
 
-    return mysuite
+    def test_getting_metadata(self):
+        """Test getting the metadata."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        collectors = []
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
 
+        assert res == {"name": "somefile",
+                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'filename': 'somefile_20220512T1544_20220512T1545.data',
+                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'uri': 'somefile_20220512T1544_20220512T1545.data'
+                       }
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_getting_metadata_does_not_involve_multiple_sections(self):
+        """Test that getting metadata does not involve multiple sections."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        collectors = []
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        config.set(section, "key1", "value1")
+        section = "section2"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        config.set(section, "key2", "value2")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
+
+        assert res == {"name": "somefile",
+                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'filename': 'somefile_20220512T1544_20220512T1545.data',
+                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'uri': 'somefile_20220512T1544_20220512T1545.data',
+                       'key1': "value1"
+                       }
