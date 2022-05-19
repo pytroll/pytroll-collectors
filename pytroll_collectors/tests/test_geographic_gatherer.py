@@ -22,14 +22,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Unittests for top level geographic segment gathering."""
-from unittest.mock import MagicMock
-import pytest
-from unittest.mock import patch
-from configparser import ConfigParser
 import datetime as dt
 import os
-from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
+import time
+from configparser import ConfigParser
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
+import pytest
+
 from pytroll_collectors.geographic_gatherer import arg_parse
+from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 
 AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
@@ -348,7 +351,6 @@ class TestGeographicGathererWithPosttrollTrigger:
         self.config = tmp_config_parser
 
         fake_create_publisher_from_dict_config.reset_mock()
-        fake_sub_factory.reset_mock()
 
         with open(tmp_config_file, mode="w") as fp:
             self.config.write(fp)
@@ -388,3 +390,125 @@ class TestGeographicGathererWithPosttrollTrigger:
 
         assert ((host_info in posttroll_trigger_class.mock_calls[0].args) or
                 (host_info in posttroll_trigger_class.mock_calls[0].kwargs.values()))
+
+
+class FakePass:
+    """A fake Pass class."""
+
+    def __init__(self, platform, start, end, instrument):
+        """Set up the fake pass."""
+        self.platform = platform
+        self.start = start
+        self.end = end
+        self.instrument = instrument
+
+    def area_coverage(self, area):
+        """Compute fake area coverage."""
+        del area
+        if self.start.minute in range(43, 55):
+            return 1
+        return 0
+
+
+@pytest.fixture
+def tmp_tle(tmp_path):
+    """Create a tle file."""
+    filepath = tmp_path / "tle.txt"
+    with open(filepath, mode='w') as fd:
+        fd.write("NOAA 19\n"
+                 "1 33591U 09005A   22137.89132437  .00000212  00000+0  13986-3 0  9991\n"
+                 "2 33591  99.1504 171.3822 0012841 273.9417  86.0286 14.12563990683876\n")
+    return filepath
+
+
+@patch('pytroll_collectors.utils.create_publisher_from_dict_config', new=fake_create_publisher_from_dict_config)
+@patch('pytroll_collectors.region_collector.Pass', new=FakePass)
+class TestGeographicGathererWithPosttrollTriggerEndToEnd:
+    """Test the top-level geographic gathering, end to end."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        """Set up things."""
+        self.base_info = {"sensor": ["avhrr/3", "mhs", "amsu-a", "amsu-b", "hirs/4"],
+                          "format": "HRPT",
+                          "data_processing_level": "0",
+                          "variant": "EARS",
+                          "platform_name": "NOAA-19"}
+        self.publish_topic = "/HRPT/0/NOAA-19/"
+
+        config = ConfigParser(interpolation=None)
+        config['DEFAULT'] = {
+            'area_definition_file': AREA_DEFINITION_FILE}
+        config['ears_avhrr'] = {
+            'timeliness': '1500000000',
+            'duration': '60',
+            'service': '',
+            'topics': '/segment/HRPT/0/NOAA-19/',
+            'orbit_type': "polar",
+            'regions': "euron1",
+            "pattern": "/san1/polar_in/regional/avhrr/lvl0/avhrr_{start_time:%Y%m%d_%H%M%S}_{platform_name}.hrp",
+            "publish_topic": self.publish_topic,
+            "platform_name": self.base_info["platform_name"],
+            "format": self.base_info["format"],
+            "type": "binary",
+            "data_processing_level": "0",
+            "sensor": ",".join(self.base_info["sensor"]),
+            "variant": self.base_info["variant"],
+        }
+
+        self.config = config
+
+        fake_create_publisher_from_dict_config.reset_mock()
+
+        self.config_path = tmp_path / 'config.ini'
+
+        with open(self.config_path, mode="w") as fp:
+            self.config.write(fp)
+
+    @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
+    def test_full_pass(self, sub_factory, monkeypatch, tmp_tle):
+        """Test that the multiple host info is passed on to the posttroll trigger."""
+        monkeypatch.setenv("TLES", os.fspath(tmp_tle))
+        from posttroll.message import Message
+        section = 'ears_avhrr'
+        opts = arg_parse(["-c", section, "-v", str(self.config_path)])
+
+        input_messages = []
+        expected_files = []
+        for minute in range(38, 57):
+            expected_file = {"start_time": dt.datetime(2022, 5, 18, 9, minute, 0),
+                             "end_time": dt.datetime(2022, 5, 18, 9, minute + 1, 0),
+                             "uri": f"/EARS/avhrr_20220518_09{minute}00_noaa19.hrp.bz2",
+                             "uid": f"avhrr_20220518_09{minute}00_noaa19.hrp.bz2"}
+            expected_files.append(expected_file)
+
+            input_data = expected_file.copy()
+            input_data.update(self.base_info)
+            input_messages.append(Message(self.publish_topic, "file", input_data))
+
+        sub_factory.return_value.recv.return_value = input_messages
+
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        try:
+            gatherer = GeographicGatherer(opts)
+
+            time.sleep(.2)
+            data = {"start_time": dt.datetime(2022, 5, 18, 9, 43, 0),
+                    "end_time": dt.datetime(2022, 5, 18, 9, 55, 00),
+                    "collection_area_id": "euron1",
+                    "collection": expected_files
+                    }
+            data.update(self.base_info)
+            expected_msg = Message(self.publish_topic, 'collection', data)
+
+            ret = fake_create_publisher_from_dict_config.return_value
+            snd_msg = Message(rawstr=ret.send.mock_calls[0].args[0])
+
+            for snd_file in snd_msg.data["collection"]:
+                assert snd_file in expected_msg.data["collection"]
+
+            snd_msg.data.pop("collection")
+            expected_msg.data.pop("collection")
+            assert snd_msg.data == expected_msg.data
+        finally:
+            gatherer.stop()
