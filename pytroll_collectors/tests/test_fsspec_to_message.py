@@ -178,9 +178,30 @@ class TestUnpackMessage:
              "uri": f"{packing}:/{filename}::ssh://{host}{path}"} for filename in filenames]}
 
         assert msg.data == expected_data
+        assert msg.subject == topic
+
+    @pytest.mark.skipif(os.getenv("GITHUB_ACTIONS", "false") == "true", reason="SSH filesystem shaky on github actions")
+    @pytest.mark.parametrize(
+        ("packing", "create_packfile", "filesystem_class"),
+        [
+            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+        ]
+    )
+    def test_pack_local_file_extract_filesystem(self, packing, create_packfile, filesystem_class, tmp_path):
+        """Test that extracting packed files give a valid filesystem."""
+        filenames = self.create_files_to_pack(tmp_path)
+
+        pack_path = create_pack_path(tmp_path)
+        path = pack_path / ("packfile." + packing)
+        create_packfile(filenames, path)
+
+        packed_file = path
+        topic = "interesting_topic"
+        msg = extract_local_files_to_message_for_remote_use(packed_file, topic, packing=packing)
+
         filesystem_info = json.dumps(msg.data["dataset"][0]["filesystem"])
         self.check_filesystem_is_understood_by_fsspec(filesystem_info)
-        assert msg.subject == topic
 
     def check_filesystem_is_understood_by_fsspec(self, filesystem_info):
         """Check that the filesystem info is understood by fsspec."""
