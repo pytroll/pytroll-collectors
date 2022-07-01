@@ -321,11 +321,15 @@ class TestGeographicGatherer:
     def test_fails_unreadable_config(self, tmp_path):
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         opts = arg_parse(["/thıs/fıle/does/not/exıst"])
-        with pytest.raises(OSError):
+        with pytest.raises(
+                OSError,
+                match="Could not read configuration file /thıs/fıle/does/not/exıst"):
             GeographicGatherer(opts)
         os.chmod(os.fspath(tmp_path), 0)
         opts = arg_parse([os.fspath(tmp_path)])
-        with pytest.raises(OSError):
+        with pytest.raises(
+                OSError,
+                match=f"Could not read configuration file {tmp_path!s}"):
             GeographicGatherer(opts)
 
 
