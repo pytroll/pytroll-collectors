@@ -221,7 +221,7 @@ inbound_connection
     One of the addresses can be given as just `host`, in which case it is interpreted as a nameserver to query addresses
     from. If omitted, the default behaviour is to use `localhost` as a nameserver.
 
-.. literalinclude:: ../../examples/gatherer_config.ini_template
+.. literalinclude:: ../../examples/geographic_gatherer_config.ini_template
    :language: ini
 
 scisys_receiver
@@ -243,7 +243,7 @@ Collects together files that belong together for a single time step.
 
 Geostationary example: Single full disk dataset of Meteosat SEVIRI data
 are segmented to 144 separate files. These are prolog (PRO), epilog (EPI),
-24 segments for HRV and 8 segments for each of the lower level channels.
+24 segments for HRV and 8 segments for each of the lower resolution channels.
 For processing, some of those segments are essential (if absent, no
 processing can take place), others are optional (if one segment in the
 middle is missing, an image can be produced, but it will have a gap).
@@ -254,6 +254,85 @@ the same start and end times and coverage, just different data.
 
 Historically this was created to collect SEVIRI segments, which has some
 impact on the configuration.
+
+In the segment gatherer YAML configuration, the user can define one or more patterns that are collected.
+The following top level variables may be defined:
+
+patterns
+    Mapping of pattern names to pattern definitions.  Each category definition is itself a mapping
+    that must contain the key ``pattern`` and may contain the keys ``critical_files``, ``wanted_files``,
+    ``all_files``, ``is_critical_set``, and ``variable_tags``.  When ``patterns``
+    is not defined, the segment gatherer will not do anything useful.
+
+    pattern
+        Defines the pattern used to parse filenames obtained from incoming
+        posttroll messages.  The string follows trollsift syntax.
+
+    critical_files
+        Describes the files that must be 
+        unconditionally present.  If timeout is reached and one or more critical
+        files are missing, no message is published and all further processing ceases.
+        The critical files are describes as a comma-separated string.
+        Each item must contain
+        exactly one colon (``:``).  The part before the colon is a string
+        describing the channel.  The part after the colon is a list of segments
+        seperated by a hyphen-minus character (``-``).  If this list contains
+        more than one segment, each item must be parseable as a base-10 integer,
+        and it will be interpreted as a range between the first and the last segment.
+
+    wanted_files
+        Describes files that are wanted, but not critical.  If one or more
+        wanted files are missing, the segment gatherer will wait for them
+        to appear until the timeout is reached.  If timeout is reached and one or
+        more wanted files are missing, a message will be published without
+        the missing files.  If all wanted files
+        are present before timeout is reached, collection is finished and a
+        message will be published immediately.
+        The syntax is as for ``critical_files``.
+
+    all_files
+        Describes files that are accepted, but not needed.  Any file matching the
+        ``all_files`` pattern is included with the published message, but the
+        segment gatherer will not wait for those files.
+
+    is_critical_set
+        ???
+
+    variable_tags
+        List of strings for tags that are expected to vary between segments.
+
+timeliness
+    Time in seconds from the first arrived file until timeout.  When timeout is
+    reached, all collected files (meaning all files that match the ``all_files`` pattern)
+    are broadcast in a posttroll message.
+
+time_name
+    Name of the time tag used in all patterns.
+
+time_tolerance
+    ???
+
+posttroll
+    Configuration related to posttroll messaging, with the keys ``topics`` (list of topics to listen to)
+    ``publish_topic`` (topic used for published messages), ``publish_port``, ``nameservers``, and ``addresses``.
+
+group_by_minutes
+    ???
+
+keep_parsed_keys
+    ???
+
+bundle_datasets
+    ???
+
+num_files_premature_publish
+    ???
+    
+providing_server
+    ???
+
+check_existing_files_after_start
+    ???
 
 The YAML format supports collection of several different data together. As
 an example: SEVIRI data and NWC SAF GEO products.
