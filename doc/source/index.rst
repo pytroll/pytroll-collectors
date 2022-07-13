@@ -269,6 +269,9 @@ patterns
         Defines the pattern used to parse filenames obtained from incoming
         posttroll messages.  The string follows trollsift syntax.
         The labels ``channel_name`` and ``segment`` have special meaning.
+        They must be defined as strings in the pattern, because the segment
+        gatherer formats the filename pattern /after/ converting numeric
+        segments or segment ranges to strings.
 
     critical_files
         Describes the files that must be 
