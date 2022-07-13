@@ -972,8 +972,10 @@ class TestSegmentGathererCollections(unittest.TestCase):
         viirs_msg = Message_p(rawstr=viirs_message)
         pps_msg = Message_p(rawstr=pps_message)
 
-        self.collection_gatherer.process(viirs_msg)
-        self.collection_gatherer.process(pps_msg)
+        with self._caplog.at_level(logging.DEBUG):
+            self.collection_gatherer.process(viirs_msg)
+            self.collection_gatherer.process(pps_msg)
+        assert "Found existing time slot at 2020-10-13 05:17:21.200000, using that" in self._caplog.text
 
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
         assert slot.get_status() == Status.SLOT_READY
