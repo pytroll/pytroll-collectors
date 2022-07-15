@@ -31,6 +31,7 @@ from unittest.mock import patch, MagicMock, call
 
 import pytest
 
+import posttroll.message
 from pytroll_collectors.helper_functions import read_yaml
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message, DO_NOT_COPY_KEYS
 
@@ -50,6 +51,18 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
 LOGGING_ERROR = logging.ERROR
+
+fake_config = {
+    "patterns": {
+        "oak": {
+            "pattern": "oak-s{start_time:%Y%m%d%H%M%S}-e{end_time:%Y%m%d%H%M%S}-s{segment}.tree",
+            "critical_files": None,
+            "wanted_files": ":001-003",
+            "all_files": ":001-003",
+            "is_critical_set": False}},
+    "timeliness": 10,
+    "group_by_minutes": 10,
+    "time_name": "start_time"}
 
 
 class FakeMessage:
@@ -1051,6 +1064,22 @@ class TestSegmentGathererCollections(unittest.TestCase):
             dataset.extend(files['dataset'])
         assert message.data['dataset'] == dataset
         assert message.type == "dataset"
+
+    def test_end_time_correct_group_by_minutes(self):
+        """Test that end_time is correct in message."""
+        sg = SegmentGatherer(fake_config)
+        messages = [posttroll.message.Message(
+            rawstr=f"pytroll://tree/oak file pytroll@forest 1980-01-01T13:0{i:d}:00.000000 v1.01 application/json "
+                   f'{{"platform_name": "forest", "start_time": "1980-01-01T13:0{i:d}:00", "end_time": '
+                   f'"1980-01-01T13:0{i+1:d}:00", "uri": "/data/oak-s19800101130{i:d}00-e19800101130{i+1:d}00-'
+                   f's00{i:d}.tree", "uid": "oak-s19800101130{i:d}00-e19800101130{i+1:d}00-s00{i:d}.tree", '
+                   '"sensor": "Thaumetopoea processionea"}')
+                for i in range(3)]
+        for msg in messages:
+            sg.process(msg)
+        assert len(sg.slots) == 1
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 0, 3)
 
 
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
