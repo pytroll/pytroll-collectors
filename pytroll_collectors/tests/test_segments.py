@@ -59,7 +59,8 @@ fake_config = {
             "critical_files": None,
             "wanted_files": ":001-003",
             "all_files": ":001-003",
-            "is_critical_set": False}},
+            "is_critical_set": False,
+            "variable_tags": ["start_time", "end_time"]}},
     "timeliness": 10,
     "group_by_minutes": 10,
     "time_name": "start_time"}
@@ -1079,7 +1080,7 @@ class TestSegmentGathererCollections(unittest.TestCase):
             sg.process(msg)
         assert len(sg.slots) == 1
         assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 0, 3)
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
 
 
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
