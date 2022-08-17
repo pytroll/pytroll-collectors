@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2020 Martin Raspaud
-
-# Author(s):
-
-#   Martin Raspaud <martin.raspaud@smhi.se>
+# Copyright (c) 2020 - 2022 Pytroll developers
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -43,6 +39,7 @@ def sleeper(duration):
     yield
     end_time = datetime.utcnow()
     waiting_time = duration - (end_time - start_time).total_seconds()
+    logger.debug('waiting time: %f', waiting_time)
     time.sleep(max(waiting_time, 0))
 
 
@@ -93,17 +90,29 @@ def set_last_fetch(timestamp):
     DatetimeHolder.last_fetch = timestamp
 
 
+def get_last_fetch():
+    """Get the last fetch time."""
+    return DatetimeHolder.last_fetch
+
+
+def create_messages_for_recent_files(bucket, config):
+    """Create messages for recent files and return."""
+    time_back = config['timedelta']
+    subject = config['subject']
+    pattern = config.get('file_pattern')
+    with sleeper(2.5):
+        set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+        s3_kwargs = config['s3_kwargs']
+        fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
+        messages = filelist_unzip_to_messages(fs, files, subject)
+
+    return messages
+
+
 def publish_new_files(bucket, config):
     """Publish files newly arrived in bucket."""
     with Publish("s3_stalker") as pub:
-        time_back = config['timedelta']
-        subject = config['subject']
-        pattern = config.get('file_pattern')
-        with sleeper(2.5):
-            set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
-            s3_kwargs = config['s3_kwargs']
-            fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
-            messages = filelist_unzip_to_messages(fs, files, subject)
+        messages = create_messages_for_recent_files(bucket, config)
 
         for message in messages:
             logger.info("Publishing %s", str(message))
