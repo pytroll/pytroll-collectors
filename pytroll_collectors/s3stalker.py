@@ -51,6 +51,7 @@ class DatetimeHolder:
 
 def get_last_files(path, *args, pattern=None, **kwargs):
     """Get the last files from path (s3 bucket and directory)."""
+    kwargs['skip_instance_cache'] = True
     fs = s3fs.S3FileSystem(*args, **kwargs)
     files = _get_files_since_last_fetch(fs, path)
     files = _match_files_to_pattern(files, path, pattern)
@@ -97,14 +98,19 @@ def get_last_fetch():
 
 def create_messages_for_recent_files(bucket, config):
     """Create messages for recent files and return."""
+    logger.debug("Create messages for recent files...")
     time_back = config['timedelta']
+    logger.debug("time_back = %s", str(time_back))
+
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):
         set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
+        logger.debug('s3_kwargs: %s', str(s3_kwargs))
         fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
         messages = filelist_unzip_to_messages(fs, files, subject)
+        # fs.clear_instance_cache()
 
     return messages
 

@@ -31,9 +31,9 @@ import logging.config
 from datetime import datetime, timedelta, timezone
 import time
 import yaml
+import sys
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.s3stalker import sleeper
 from pytroll_collectors.s3stalker import create_messages_for_recent_files
 from pytroll_collectors.s3stalker import get_last_fetch
 
@@ -45,9 +45,10 @@ logger = logging.getLogger(__name__)
 
 
 class S3StalkerRunner(Thread):
+    """Runner for stalking for new files in an S3 object store."""
 
     def __init__(self, bucket, config):
-        """Initialize the active fires post processor class."""
+        """Initialize the S3Stalker runner class."""
         super().__init__()
 
         self.bucket = bucket
@@ -66,17 +67,17 @@ class S3StalkerRunner(Thread):
         signal.signal(signal.SIGTERM, self.signal_shutdown)
 
     def signal_shutdown(self, *args, **kwargs):
-        """Shutdown the S3 Stalker Daemon/Runner."""
+        """Shutdown the S3 Stalker daemon/runner."""
         self.close()
 
     def run(self):
-        """Run the s3-stalker as a daemon."""
+        """Start the s3-stalker daemon/runner in a thread."""
         first_run = True
         config = self.config
+        last_fetch_time = None
         while self.loop:
             logger.debug('Create messages with urls for most recent files only:')
             if first_run:
-                last_fetch_time = datetime.utcnow().replace(tzinfo=timezone.utc)
                 config['timedelta'] = {'hours': 1}
                 first_run = False
             else:
@@ -84,6 +85,7 @@ class S3StalkerRunner(Thread):
                 config['timedelta'] = {'seconds': seconds_back}
 
             messages = create_messages_for_recent_files(self.bucket, config)
+
             last_fetch_time = get_last_fetch()
             logger.info("Last fetch time...: %s", str(last_fetch_time))
 
@@ -100,11 +102,15 @@ class S3StalkerRunner(Thread):
 
     def _get_seconds_back_to_search(self, last_fetch_time):
         """Update the time to look back considering also the modification time of the last file."""
+        dtime_back = timedelta(**self.time_back)
+        seconds_back = dtime_back.total_seconds()
+
+        if last_fetch_time is None:
+            return seconds_back
+
         start_time = datetime.utcnow()
         start_time = start_time.replace(tzinfo=timezone.utc)
         seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
-        dtime_back = timedelta(**self.time_back)
-        seconds_back = dtime_back.total_seconds()
         return max(seconds_back, seconds_to_last_file)
 
     def close(self):
