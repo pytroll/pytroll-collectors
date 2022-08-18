@@ -47,12 +47,13 @@ logger = logging.getLogger(__name__)
 class S3StalkerRunner(Thread):
     """Runner for stalking for new files in an S3 object store."""
 
-    def __init__(self, bucket, config):
+    def __init__(self, bucket, config, startup_timedelta_seconds):
         """Initialize the S3Stalker runner class."""
         super().__init__()
 
         self.bucket = bucket
         self.config = config
+        self.startup_timedelta_seconds = startup_timedelta_seconds
         self.time_back = self.config['timedelta']
         self.publisher = None
         self.loop = False
@@ -76,9 +77,11 @@ class S3StalkerRunner(Thread):
         config = self.config
         last_fetch_time = None
         while self.loop:
-            logger.debug('Create messages with urls for most recent files only:')
             if first_run:
-                config['timedelta'] = {'hours': 1}
+                logger.info('Create messages with urls for most recent files only')
+                logger.info('On start up we consider files with age up to %d seconds from now',
+                            self.startup_timedelta_seconds)
+                config['timedelta'] = {'seconds': self.startup_timedelta_seconds}
                 first_run = False
             else:
                 seconds_back = self._get_seconds_back_to_search(last_fetch_time)
@@ -97,7 +100,7 @@ class S3StalkerRunner(Thread):
             wait_seconds = waiting_time.total_seconds()
 
             # Wait for some time...
-            logger.info("Waiting %d seconds", wait_seconds)
+            logger.debug("Waiting %d seconds", wait_seconds)
             time.sleep(max(wait_seconds, 0))
 
     def _get_seconds_back_to_search(self, last_fetch_time):
@@ -129,6 +132,10 @@ def arg_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("bucket", help="The bucket to retrieve from.")
     parser.add_argument("config", help="Config file to be used")
+    parser.add_argument("-s", "--startup_timedelta_seconds",
+                        type=int,
+                        help="The time window in seconds back in time on start up (default=3600)",
+                        default=3600)
     parser.add_argument("-l", "--log",
                         help="Log configuration file",
                         default=None)
@@ -142,6 +149,7 @@ def main():
 
     bucket = args.bucket
     config = read_yaml(args.config)
+    startup_timedelta_seconds = args.startup_timedelta_seconds
 
     if args.log is not None:
         with open(args.log) as fd:
@@ -150,7 +158,7 @@ def main():
 
     logger.info("Try start the s3-stalker runner:")
     try:
-        s3runner = S3StalkerRunner(bucket, config)
+        s3runner = S3StalkerRunner(bucket, config, startup_timedelta_seconds)
 
     except Exception as err:
         logger.error('The S3 Stalker Runner crashed: %s', str(err))
