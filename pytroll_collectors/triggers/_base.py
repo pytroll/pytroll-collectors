@@ -77,16 +77,13 @@ class Trigger:
 
     def _process_metadata(self, metadata):
         """Execute the collectors and publish the collection."""
-        print(metadata)
         if not metadata:
             logger.warning("No metadata")
             return
         for collector in self.collectors:
-            print("coll", collector)
             try:
                 res = collector(metadata.copy())
             except KeyError as ke:
-                print("after", str(ke))
                 logger.exception("collector failed with: %s ",str(ke))
             else:
                 if res:
