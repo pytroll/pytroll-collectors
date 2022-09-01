@@ -264,3 +264,29 @@ class TestFileTrigger:
                        'uri': 'somefile_20220512T1544_20220512T1545.data',
                        'key1': "value1"
                        }
+
+
+    @patch('pytroll_collectors.triggers._base.FileTrigger')
+    def test_filetrigger_exception(self, patch_filetrigger):
+        """Test getting the metadata."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        def _collectors(metadata):
+            raise KeyError("Found no TLE entry for 'METOP-B'")
+        collectors = [_collectors]
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        res = trigger._process_metadata({'sensor': 'avhrr', 'platform_name': 'Metop-B',
+                                         'start_time': datetime(2022, 9, 1, 10, 22, 3),
+                                         'orbit_number': '51653',
+                                         'uri': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
+                                         'uid': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
+                                         'origin': '157.249.16.188:9062',
+                                         'end_time': datetime(2022, 9, 1, 10, 25, 3)})
+
+        assert not patch_filetrigger.publish_collection.called
