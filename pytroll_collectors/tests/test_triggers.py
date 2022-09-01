@@ -265,14 +265,13 @@ class TestFileTrigger:
                        'key1': "value1"
                        }
 
-    @patch('pytroll_collectors.triggers._base.FileTrigger')
-    def test_filetrigger_exception(self, patch_filetrigger):
+    def test_filetrigger_exception(self, caplog):
         """Test getting the metadata."""
         from pytroll_collectors.triggers._base import FileTrigger
         import configparser
 
         def _collectors(metadata):
-            raise KeyError("Found no TLE entry for 'METOP-B'")
+            raise KeyError("Found no TLE entry for 'METOP-B' to similate KeyError")
         collectors = [_collectors]
         config = configparser.ConfigParser(interpolation=None)
         section = "section1"
@@ -288,4 +287,4 @@ class TestFileTrigger:
                                    'uid': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
                                    'origin': '157.249.16.188:9062',
                                    'end_time': datetime(2022, 9, 1, 10, 25, 3)})
-        assert not patch_filetrigger.publish_collection.called
+        assert "Found no TLE entry for 'METOP-B' to similate KeyError" in caplog.text
