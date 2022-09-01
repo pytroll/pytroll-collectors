@@ -84,7 +84,7 @@ class Trigger:
             try:
                 res = collector(metadata.copy())
             except KeyError as ke:
-                logger.exception("collector failed with: %s ",str(ke))
+                logger.exception("collector failed with: %s ", str(ke))
             else:
                 if res:
                     self.publish_collection(res)
