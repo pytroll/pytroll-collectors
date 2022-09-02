@@ -295,6 +295,7 @@ class TestFileTrigger:
         from pytroll_collectors.triggers._base import FileTrigger
         import configparser
         granule_metadata = {'sensor': 'avhrr'}
+
         def _collectors(metadata):
             return True
         collectors = [_collectors]
