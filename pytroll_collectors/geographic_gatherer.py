@@ -45,7 +45,11 @@ class GeographicGatherer:
     def __init__(self, opts):
         """Initialize the class."""
         self._config = ConfigParser(interpolation=None)
-        self._config.read(opts.config)
+        # ConfigParser.read silently ignores unreadable files...
+        read = self._config.read(opts.config)
+        if not read:
+            raise OSError(f"Could not read configuration file {opts.config:s}. "
+                          "Please make sure it exists and is readable.")
 
         self._opts = opts
         self.publisher = None

@@ -318,6 +318,20 @@ class TestGeographicGatherer:
         fake_create_publisher_from_dict_config.assert_called_once_with(expected)
         fake_create_publisher_from_dict_config.return_value.start.assert_called_once()
 
+    def test_fails_unreadable_config(self, tmp_path):
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        opts = arg_parse(["/thıs/fıle/does/not/exıst"])
+        with pytest.raises(
+                OSError,
+                match="Could not read configuration file /thıs/fıle/does/not/exıst"):
+            GeographicGatherer(opts)
+        os.chmod(os.fspath(tmp_path), 0)
+        opts = arg_parse([os.fspath(tmp_path)])
+        with pytest.raises(
+                OSError,
+                match=f"Could not read configuration file {tmp_path!s}"):
+            GeographicGatherer(opts)
+
 
 def assert_create_publisher_from_dict_config(sections, port, nameservers):
     """Check that publisher creator has been called correctly."""
