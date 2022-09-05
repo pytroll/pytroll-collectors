@@ -47,7 +47,7 @@ import trollsift
 from posttroll import message as pmessage
 from posttroll.listener import ListenerContainer
 from queue import Empty
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
@@ -845,10 +845,33 @@ class SegmentGatherer(object):
 
 def _get_existing_files_from_message(message):
     mask = message.pattern.parser.globify({})
-    path = urlparse(message.message_data["uri"]).path
-    base_dir = os.path.dirname(path)
+    url_parts = urlparse(message.message_data["uri"])
 
-    return glob.glob(os.path.join(base_dir, mask))
+    if url_parts.scheme in ("", "file"):
+        base_dir = os.path.dirname(url_parts.path)
+        return glob.glob(os.path.join(base_dir, mask))
+    elif url_parts.scheme == "s3":
+        return _s3_glob(url_parts, mask)
+    else:
+        logging.warning("Unknown scheme for checking existing files: %s" % url_parts.scheme)
+        return []
+
+
+def _s3_glob(url_parts, mask):
+    from s3fs import S3FileSystem
+
+    pattern = urlunparse(
+        (
+            url_parts.scheme,
+            url_parts.netloc,
+            '/'.join(url_parts.path.split('/')[:-1]) + '/' + mask,
+            '',
+            '',
+            ''
+        )
+    )
+    s3 = S3FileSystem()
+    return s3.glob(pattern)
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):

@@ -74,6 +74,8 @@ class TestSegmentGatherer(unittest.TestCase):
         """Set up the testing."""
         self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+        self.mda_msg0deg_s3 = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "s3://bucket-name/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
         self.mda_msg0deg_south_segment = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
@@ -605,6 +607,35 @@ class TestSegmentGatherer(unittest.TestCase):
             logs = [rec.message for rec in self._caplog.records]
             assert "Only 'file' messages are supported." in logs
         assert logging.disable.call_count == 2
+
+    @patch("pytroll_collectors.segments.logging")
+    @patch("s3fs.S3FileSystem")
+    def test_check_and_add_existing_s3_files(self, s3filesystem, logging):
+        """Test that existing matching files are added to the slot in S3 storage."""
+        existing_files = [
+            "s3://bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "s3://bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            # A file that should not match
+            "s3://bucket-name/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        glob = MagicMock()
+        glob.return_value = existing_files
+        s3 = MagicMock()
+        s3.glob = glob
+        s3filesystem.return_value = s3
+        mda = self.mda_msg0deg_s3.copy()
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
+        slot_str = str(mda["start_time"])
+        slot = self.msg0deg.slots[slot_str]
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        mask_call = 's3://bucket-name/H-000-????__-????________-?????????-?????????-????????????-__'
+        glob.assert_called_with(mask_call)
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) in slot._info['msg']['received_files']
+        assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
