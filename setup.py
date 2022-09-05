@@ -47,6 +47,9 @@ extras_require = {
     ],
     'trollstalker': [
         'pyinotify',
+    ],
+    's3_segment_gatherer': [
+        's3fs'
     ]
 }
 
