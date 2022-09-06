@@ -64,10 +64,20 @@ METOP-C
 _granule_metadata = {"platform_name": "Metop-C",
                      "sensor": "avhrr"}
 
+_granule_metadata_metop_b = {"platform_name": "Metop-B",
+                             "sensor": "avhrr"}
 
 def granule_metadata(s_min):
     """Return common granule_metadata dictionary."""
     return {**_granule_metadata,
+            "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
+            "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
+            "uri": f"file://{s_min:d}"}
+
+
+def granule_metadata_metop_b(s_min):
+    """Return common granule_metadata dictionary."""
+    return {**_granule_metadata_metop_b,
             "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
             "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
             "uri": f"file://{s_min:d}"}
@@ -196,6 +206,15 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
     test_string = ("Failed to import schedule_cut for harvest_schedules from failed_not_existing_module. "
                    "Will not perform schedule cut.")
     assert test_string in caplog.text
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+def test_collect_missing_tle_from_file(europe_collector, caplog):
+    """Test that granules can be collected, but missing TLE raises and exception"""
+    with caplog.at_level(logging.DEBUG):
+        for s_min in (0, 3, 6, 9, 12, 15, 18):
+            with pytest.raises(KeyError):
+                europe_collector.collect({**granule_metadata_metop_b(s_min)})
 
 
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
