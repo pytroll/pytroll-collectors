@@ -491,7 +491,7 @@ class TestSegmentGatherer(unittest.TestCase):
         slot = col.slots[time_slot]
         _ = slot.add_file(message)
         meta = col.slots[time_slot].output_metadata
-        self.assertTrue(meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/'))
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/'))
 
     def test_add_two_files(self):
         """Test adding two files."""
