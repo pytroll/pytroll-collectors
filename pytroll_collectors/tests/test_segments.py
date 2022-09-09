@@ -113,6 +113,12 @@ class TestSegmentGatherer(unittest.TestCase):
                            "orig_platform_name": "G16", "dataset_name": "Rad",
                            "sensor": ["abi"], "channel": "C08"}
 
+        self.mda_msg0deg_s3 = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "s3://bucket-name/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+
+        self.mda_msg0deg_file_scheme = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "file:///home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
@@ -461,6 +467,31 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(meta['dataset']), 1)
         self.assertTrue('uri' in meta['dataset'][0])
         self.assertTrue('uid' in meta['dataset'][0])
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/'))
+
+    def test_add_single_file_s3_scheme(self):
+        """Test adding a file that is in S3 storage."""
+        msg = FakeMessage(self.mda_msg0deg_s3)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('s3://bucket-name/'))
+
+    def test_add_single_file_file_scheme(self):
+        """Test adding a file that has file:// scheme in the URI."""
+        msg = FakeMessage(self.mda_msg0deg_file_scheme)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/'))
 
     def test_add_two_files(self):
         """Test adding two files."""

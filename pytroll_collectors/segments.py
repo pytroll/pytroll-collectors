@@ -68,6 +68,7 @@ class Status(Enum):
 
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 REMOVE_TAGS = {'path', 'segment'}
+SUPPORTED_REMOTE_SCHEMES = ('s3', )
 
 
 class Parser(metaclass=ABCMeta):
@@ -381,7 +382,11 @@ class Slot:
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
         if message.type == 'file':
-            uri = urlparse(msg_data['uri']).path
+            url_parts = urlparse(msg_data['uri'])
+            if url_parts.scheme in SUPPORTED_REMOTE_SCHEMES:
+                uri = msg_data['uri']
+            else:
+                uri = url_parts.path
             uid = msg_data['uid']
             metadata['dataset'].append({'uri': uri, 'uid': uid})
         elif message.type == 'dataset':
