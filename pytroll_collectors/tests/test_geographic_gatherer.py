@@ -489,9 +489,9 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
         sub_factory.return_value.recv.return_value = input_messages
 
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
-        try:
-            gatherer = GeographicGatherer(opts)
 
+        gatherer = GeographicGatherer(opts)
+        try:
             time.sleep(.2)
             data = {"start_time": dt.datetime(2022, 5, 18, 9, 43, 0),
                     "end_time": dt.datetime(2022, 5, 18, 9, 55, 00),
