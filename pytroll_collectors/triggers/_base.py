@@ -81,9 +81,13 @@ class Trigger:
             logger.warning("No metadata")
             return
         for collector in self.collectors:
-            res = collector(metadata.copy())
-            if res:
-                self.publish_collection(res)
+            try:
+                res = collector(metadata.copy())
+            except KeyError as ke:
+                logger.exception("collector failed with: %s ", str(ke))
+            else:
+                if res:
+                    self.publish_collection(res)
 
     def publish_collection(self, metadata):
         """Terminate the gathering."""

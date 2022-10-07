@@ -131,7 +131,7 @@ def extract_local_files_to_message_for_remote_use(filename, subject, packing=Non
         file = list(packfs.find('/', detail=True).values())
         fs_dict = json.loads(packfs.to_json())
         fs_dict["target_protocol"] = target_protocol or "ssh"
-        fs_dict["target_options"] = target_options or {"host": socket.gethostname(), "protocol": "ssh"}
+        fs_dict["target_options"] = target_options or {"host": socket.gethostname()}
 
     return create_message_with_json_fs(json.dumps(fs_dict), file, subject)
 

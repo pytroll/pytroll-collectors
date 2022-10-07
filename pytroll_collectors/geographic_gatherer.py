@@ -115,12 +115,16 @@ class GeographicGatherer:
             logger.exception('Something went wrong')
             self.return_status = 1
         finally:
-            logger.info('Ending publication the gathering of granules...')
-            for trigger in self.triggers:
-                trigger.stop()
-            self.publisher.stop()
+            self.stop()
 
         return self.return_status
+
+    def stop(self):
+        """Stop the gatherer."""
+        logger.info('Ending publication the gathering of granules...')
+        for trigger in self.triggers:
+            trigger.stop()
+        self.publisher.stop()
 
 
 class TriggerFactory:

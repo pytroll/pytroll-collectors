@@ -1,12 +1,13 @@
 """Tests for the fsspec to message features."""
+import json
+import os
 import socket
 from copy import deepcopy
-import os
-import pytest
 
+import pytest
 import pytroll_collectors.fsspec_to_message
-from pytroll_collectors.tests.test_s3stalker import ls_output, fs_json, subject, zip_content, zip_json, zip_json_fo
 from pytroll_collectors.fsspec_to_message import extract_local_files_to_message_for_remote_use
+from pytroll_collectors.tests.test_s3stalker import ls_output, fs_json, subject, zip_content, zip_json, zip_json_fo
 
 
 class TestMessageComposer:
@@ -172,13 +173,40 @@ class TestUnpackMessage:
             {"filesystem": {"cls": filesystem_class,
                             "protocol": packing, "args": [],
                             "fo": f"{path}",
-                            "target_protocol": "ssh", "target_options": {"protocol": "ssh", "host": host}},
+                            "target_protocol": "ssh", "target_options": {"host": host}},
              "uid": f"{packing}:/{filename}",
              "uri": f"{packing}:/{filename}::ssh://{host}{path}"} for filename in filenames]}
-        from pprint import pprint
-        pprint(expected_data)
+
         assert msg.data == expected_data
         assert msg.subject == topic
+
+    @pytest.mark.skipif(os.getenv("GITHUB_ACTIONS", "false") == "true", reason="SSH filesystem shaky on github actions")
+    @pytest.mark.parametrize(
+        ("packing", "create_packfile", "filesystem_class"),
+        [
+            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+        ]
+    )
+    def test_pack_local_file_extract_filesystem(self, packing, create_packfile, filesystem_class, tmp_path):
+        """Test that extracting packed files give a valid filesystem."""
+        filenames = self.create_files_to_pack(tmp_path)
+
+        pack_path = create_pack_path(tmp_path)
+        path = pack_path / ("packfile." + packing)
+        create_packfile(filenames, path)
+
+        packed_file = path
+        topic = "interesting_topic"
+        msg = extract_local_files_to_message_for_remote_use(packed_file, topic, packing=packing)
+
+        filesystem_info = json.dumps(msg.data["dataset"][0]["filesystem"])
+        self.check_filesystem_is_understood_by_fsspec(filesystem_info)
+
+    def check_filesystem_is_understood_by_fsspec(self, filesystem_info):
+        """Check that the filesystem info is understood by fsspec."""
+        from fsspec import AbstractFileSystem
+        return AbstractFileSystem.from_json(filesystem_info)
 
     @pytest.mark.parametrize(
         ("packing", "create_packfile", "filesystem_class"),
