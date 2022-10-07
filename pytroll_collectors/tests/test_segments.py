@@ -669,11 +669,12 @@ class TestSegmentGatherer(unittest.TestCase):
     @patch("s3fs.S3FileSystem")
     def test_check_and_add_existing_s3_files(self, s3filesystem, logging):
         """Test that existing matching files are added to the slot in S3 storage."""
+        # There's no 's3://' in the glob result of s3fs.S3FileSystem.glob() call
         existing_files = [
-            "s3://bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
-            "s3://bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
             # A file that should not match
-            "s3://bucket-name/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+            "bucket-name/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
         glob = MagicMock()
         glob.return_value = existing_files
         s3 = MagicMock()
@@ -693,6 +694,8 @@ class TestSegmentGatherer(unittest.TestCase):
         for fname in existing_files[:-1]:
             assert os.path.basename(fname) in slot._info['msg']['received_files']
         assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
+        for dset in slot.output_metadata['dataset']:
+            assert dset['uri'].startswith('s3://')
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""

@@ -877,7 +877,9 @@ def _s3_glob(url_parts, mask):
         )
     )
     s3 = S3FileSystem()
-    return s3.glob(pattern)
+    files = s3.glob(pattern)
+    # There's no 's3://' in the returned filenames, so add it
+    return ['s3://' + f for f in files if not f.startswith('s3://')]
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
