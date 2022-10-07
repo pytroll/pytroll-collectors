@@ -450,6 +450,18 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertTrue('uri' in meta['dataset'][0])
         self.assertTrue('uid' in meta['dataset'][0])
 
+    def test_add_single_s3_file(self):
+        """Test adding a file that is in S3 storage."""
+        msg = FakeMessage(self.mda_msg0deg_s3)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        assert meta['dataset'][0]['uri'] == msg.data['uri']
+
     def test_add_two_files(self):
         """Test adding two files."""
         msg_data = {'msg': self.mda_msg0deg.copy(), 'iodc': self.mda_iodc.copy()}

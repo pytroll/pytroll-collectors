@@ -380,7 +380,13 @@ class Slot:
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
         if message.type == 'file':
-            uri = urlparse(msg_data['uri']).path
+            url_parts = urlparse(message.message_data["uri"])
+            if url_parts.scheme in ["", "file"]:
+                uri = urlparse(msg_data['uri']).path
+            elif url_parts.scheme in "s3":
+                uri = message.message_data["uri"]
+            else:
+                logging.warning("Unknown sceme in incomming message: %s", url_parts.scheme)
             uid = msg_data['uid']
             metadata['dataset'].append({'uri': uri, 'uid': uid})
         elif message.type == 'dataset':
