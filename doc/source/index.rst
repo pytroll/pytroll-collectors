@@ -269,38 +269,35 @@ patterns
         Defines the pattern used to parse filenames obtained from incoming
         posttroll messages.  The string follows trollsift syntax.
         The labels ``channel_name`` and ``segment`` have special meaning.
-        They must be defined as strings in the pattern, because the segment
+        They must be defined as string type (for example ``{segments:4s}``) in the pattern, because the segment
         gatherer formats the filename pattern /after/ converting numeric
         segments or segment ranges to strings.
 
     critical_files
-        Describes the files that must be 
-        unconditionally present.  If timeout is reached and one or more critical
-        files are missing, no message is published and all further processing ceases.
-        The critical files are describes as a comma-separated string.
-        Each item must contain
-        exactly one colon (``:``).  The part before the colon is a string
-        describing the channel.  The channel string may be empty, such as in
-        cases where the filename does not contain a channel label. 
-        The part after the colon is a list of segments
-        seperated by a hyphen-minus character (``-``).  If this list contains
-        more than one segment, each item must be parseable as a base-10 integer,
-        and it will be interpreted as a range between the first and the last segment.
-        For each channel, the segments are matched against the ``segment`` as
-        extracted from the filename using the ``pattern`` defined above.  
-        If the filename pattern has no segments or channels, they are matched
-        against the entire filename, with ``variable_tags`` (see below) replaced by
-        wildcards.  
+        Describes the files that must be unconditionally present.  If timeout is reached
+        and one or more critical files are missing, no message is published and all
+        further processing ceases. The critical files are describes as a comma-separated string.
+        Each item must contain exactly one colon (``:``).  The part before the
+        colon is a string describing the channel. The channel string may be
+        empty, such as in cases where the filename does not contain a channel
+        label. 
+        The part after the colon is a list of segments seperated by a hyphen-minus
+        character (``-``). If this list contains more than one segment, each item must
+        be parseable as a base-10 integer, and it will be interpreted as a range
+        between the first and the last segment. For each channel, the segments
+        are matched against the ``segment`` as extracted from the filename using
+        the ``pattern`` defined above. If the filename pattern has no segments or
+        channels, they are matched against the entire filename, with ``variable_tags``
+        (see below) replaced by wildcards.  
 
     wanted_files
         Describes files that are wanted, but not critical.  If one or more
         wanted files are missing, the segment gatherer will wait for them
         to appear until the timeout is reached.  If timeout is reached and one or
         more wanted files are missing, a message will be published without
-        the missing files.  If all wanted files
-        are present before timeout is reached, collection is finished and a
-        message will be published immediately.
-        The syntax is as for ``critical_files``.
+        the missing files.  If all wanted files are present before timeout is reached,
+        collection is finished and a message will be published immediately. The
+        syntax is as for ``critical_files``.
 
     all_files
         Describes files that are accepted, but not needed.  Any file matching the
@@ -308,17 +305,18 @@ patterns
         segment gatherer will not wait for those files.
 
     is_critical_set
-        ???
+        A boolean that marks this set of files as critical for the whole collection. Used for
+        example when cloud mask data are required to successfully create a masked image.
 
     variable_tags
         List of strings for tags that are expected to vary between segments.
         Those are replaced with wildcards for the purposes of pattern matching.
 
     group_by_minutes
-        Optional.
-        Group the data for every full minute interval
-        For example in the case time of "201712081129" would go in slot
-        "2017-12-08T11:20:00" along with other files with minutes between 20 and 29.
+        Optional integer.
+        Group the data for rounded minute interval.
+        For example defining ``group_by_minutes = 10`` all the files from time "201712081120"
+        to time ""201712081129" would go in slot "2017-12-08T11:20:00".
         (Can also be defined globally)
         By default, no grouping by minutes is performed and times are matched
         exactly or with a tolerance of ``time_tolerance``.
@@ -378,7 +376,8 @@ providing_server
 check_existing_files_after_start
     Optional.  When the first postroll message arrives after the segment
     gatherer has started, check the file system if there are existing files
-    that should also be added to this time slot.  Defaults to False.
+    that should also be added to this time slot. Currently does not support
+    (remote) S3 filesystems. Defaults to False.
 
 The YAML format supports collection of several different data together. As
 an example: SEVIRI data and NWC SAF GEO products.
