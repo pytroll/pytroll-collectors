@@ -269,9 +269,9 @@ patterns
         Defines the pattern used to parse filenames obtained from incoming
         posttroll messages.  The string follows trollsift syntax.
         The labels ``channel_name`` and ``segment`` have special meaning.
-        They must be defined as string type (for example ``{segments:4s}``) in the pattern, because the segment
-        gatherer formats the filename pattern /after/ converting numeric
-        segments or segment ranges to strings.
+        Labels must be defined as string type (for example ``{segments:4s}``)
+        because the segment gatherer formats the filename pattern only after
+        converting numeric segments or segment ranges to strings.
 
     critical_files
         Describes the files that must be unconditionally present.  If timeout is reached
@@ -358,8 +358,7 @@ posttroll
     ``publish_topic`` (topic used for published messages), ``publish_port``, ``nameservers``, and ``addresses``.
 
 bundle_datasets
-    Optional.
-    ???
+    Optional.  Merge datasets within a collection to be a single dataset.
 
 num_files_premature_publish
     Optional.
