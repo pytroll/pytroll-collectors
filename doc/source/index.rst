@@ -221,7 +221,7 @@ inbound_connection
     One of the addresses can be given as just `host`, in which case it is interpreted as a nameserver to query addresses
     from. If omitted, the default behaviour is to use `localhost` as a nameserver.
 
-.. literalinclude:: ../../examples/gatherer_config.ini_template
+.. literalinclude:: ../../examples/geographic_gatherer_config.ini_template
    :language: ini
 
 scisys_receiver
