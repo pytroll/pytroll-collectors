@@ -49,7 +49,7 @@ extras_require = {
         'pyinotify',
     ],
     's3_segment_gatherer': [
-        's3fs'
+        'fsspec'
     ]
 }
 

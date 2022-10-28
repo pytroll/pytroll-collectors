@@ -40,7 +40,6 @@ import logging.handlers
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
-import glob
 import os
 
 import trollsift
@@ -853,18 +852,11 @@ def _get_existing_files_from_message(message):
     mask = message.pattern.parser.globify({})
     url_parts = urlparse(message.message_data["uri"])
 
-    if url_parts.scheme in ("", "file"):
-        base_dir = os.path.dirname(url_parts.path)
-        return glob.glob(os.path.join(base_dir, mask))
-    elif url_parts.scheme == "s3":
-        return _s3_glob(url_parts, mask)
-    else:
-        logging.warning("Unknown scheme for checking existing files: %s" % url_parts.scheme)
-        return []
+    return _fsspec_glob(url_parts, mask)
 
 
-def _s3_glob(url_parts, mask):
-    from s3fs import S3FileSystem
+def _fsspec_glob(url_parts, mask):
+    import fsspec
 
     pattern = urlunparse(
         (
@@ -876,10 +868,14 @@ def _s3_glob(url_parts, mask):
             ''
         )
     )
-    s3 = S3FileSystem()
-    files = s3.glob(pattern)
-    # There's no 's3://' in the returned filenames, so add it
-    return ['s3://' + f for f in files if not f.startswith('s3://')]
+
+    fs_ = fsspec.filesystem(url_parts.scheme)
+    files = fs_.glob(pattern)
+    # There might be no scheme in the returned filenames, so add it if scheme is defined
+    if url_parts.scheme:
+        files = [url_parts.scheme + '://' + f for f in files if not f.startswith(
+            url_parts.scheme + '://')]
+    return files
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):

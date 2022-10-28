@@ -621,14 +621,19 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
 
     @patch("pytroll_collectors.segments.logging")
-    @patch("pytroll_collectors.segments.glob")
-    def test_check_and_add_existing_files(self, glob, logging):
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files(self, filesystem, logging):
         """Test that existing matching files are added to the slot."""
         existing_files = [
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
             # A file that should not match
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        glob = MagicMock()
+        glob.return_value = existing_files
+        fs_ = MagicMock()
+        fs_.glob = glob
+        filesystem.return_value = fs_
         glob.glob.return_value = existing_files
         mda = self.mda_msg0deg.copy()
         fake_message = FakeMessage(mda)
@@ -666,10 +671,10 @@ class TestSegmentGatherer(unittest.TestCase):
         assert logging.disable.call_count == 2
 
     @patch("pytroll_collectors.segments.logging")
-    @patch("s3fs.S3FileSystem")
-    def test_check_and_add_existing_s3_files(self, s3filesystem, logging):
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_s3_files(self, filesystem, logging):
         """Test that existing matching files are added to the slot in S3 storage."""
-        # There's no 's3://' in the glob result of s3fs.S3FileSystem.glob() call
+        # There's no 's3://' in the glob result of fsspec.filesystem("s3").glob() call
         existing_files = [
             "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
             "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
@@ -679,7 +684,7 @@ class TestSegmentGatherer(unittest.TestCase):
         glob.return_value = existing_files
         s3 = MagicMock()
         s3.glob = glob
-        s3filesystem.return_value = s3
+        filesystem.return_value = s3
         mda = self.mda_msg0deg_s3.copy()
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
