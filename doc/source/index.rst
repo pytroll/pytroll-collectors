@@ -274,7 +274,7 @@ Example yaml config:
 
 If the collected segments are in an S3 object store, the
 ``check_existing_files_after_start`` feature needs some additional
-configuration All the connection configurations and such are done
+configuration. All the connection configurations and such are done
 using the `fsspec`_ configuration system.
 
 An example configuration could be for example placed in `~/.config/fsspec/s3.json`::
