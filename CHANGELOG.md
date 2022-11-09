@@ -1,3 +1,33 @@
+## Version 0.13.0 (2022/10/18)
+
+### Issues Closed
+
+* [Issue 112](https://github.com/pytroll/pytroll-collectors/issues/112) - segment_gatherer publishes incorrect end_time when using group_by_minutes
+* [Issue 72](https://github.com/pytroll/pytroll-collectors/issues/72) - gatherer does not complain when configuration file does not exist
+
+In this release 2 issues were closed.
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 107](https://github.com/pytroll/pytroll-collectors/pull/107) - Fix too many protocols
+
+#### Features added
+
+* [PR 118](https://github.com/pytroll/pytroll-collectors/pull/118) - Ensure files in S3 keep their full URIs in messages
+* [PR 116](https://github.com/pytroll/pytroll-collectors/pull/116) - Catch KeyError from collector from missing TLE
+* [PR 115](https://github.com/pytroll/pytroll-collectors/pull/115) - Add CI labels
+* [PR 111](https://github.com/pytroll/pytroll-collectors/pull/111) - When adding to existing timeslot, indicate which one
+* [PR 106](https://github.com/pytroll/pytroll-collectors/pull/106) - Add end to end test for the geographic gatherer
+
+#### Documentation changes
+
+* [PR 110](https://github.com/pytroll/pytroll-collectors/pull/110) - Improving segment gatherer documentation
+
+In this release 7 pull requests were closed.
+
+
 ## Version 0.12.0 (2022/05/19)
 
 

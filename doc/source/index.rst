@@ -239,11 +239,11 @@ segment_gatherer
 
 .. automodule:: pytroll_collectors.segments
 
-Collects together files that belong together for a single time step.
+Collects together files that belong together for a single time slot.
 
 Geostationary example: Single full disk dataset of Meteosat SEVIRI data
 are segmented to 144 separate files. These are prolog (PRO), epilog (EPI),
-24 segments for HRV and 8 segments for each of the lower level channels.
+24 segments for HRV and 8 segments for each of the lower resolution channels.
 For processing, some of those segments are essential (if absent, no
 processing can take place), others are optional (if one segment in the
 middle is missing, an image can be produced, but it will have a gap).
@@ -254,6 +254,129 @@ the same start and end times and coverage, just different data.
 
 Historically this was created to collect SEVIRI segments, which has some
 impact on the configuration.
+
+In the segment gatherer YAML configuration, the user can define one or
+more patterns that are collected.  The following top level variables
+may be defined:
+
+patterns
+    Mapping of pattern names to pattern definitions.  Each category definition is itself a mapping
+    that must contain the key ``pattern`` and may contain the keys ``critical_files``, ``wanted_files``,
+    ``all_files``, ``is_critical_set``, and ``variable_tags``.  When ``patterns``
+    is not defined, the segment gatherer will not do anything useful.
+
+    pattern
+        Defines the pattern used to parse filenames obtained from incoming
+        posttroll messages.  The string follows trollsift syntax.
+        The labels ``channel_name`` and ``segment`` have special meaning.
+        Labels must be defined as string type (for example ``{segments:4s}``)
+        because the segment gatherer formats the filename pattern only after
+        converting numeric segments or segment ranges to strings.
+
+    critical_files
+        Describes the files that must be unconditionally present.  If timeout is reached
+        and one or more critical files are missing, no message is published and all
+        further processing ceases. The critical files are describes as a comma-separated string.
+        Each item must contain exactly one colon (``:``).  The part before the
+        colon is a string describing the channel. The channel string may be
+        empty, such as in cases where the filename does not contain a channel
+        label. 
+        The part after the colon is a list of segments seperated by a hyphen-minus
+        character (``-``). If this list contains more than one segment, each item must
+        be parseable as a base-10 integer, and it will be interpreted as a range
+        between the first and the last segment. For each channel, the segments
+        are matched against the ``segment`` as extracted from the filename using
+        the ``pattern`` defined above. If the filename pattern has no segments or
+        channels, they are matched against the entire filename, with ``variable_tags``
+        (see below) replaced by wildcards.  
+
+    wanted_files
+        Describes files that are wanted, but not critical.  If one or more
+        wanted files are missing, the segment gatherer will wait for them
+        to appear until the timeout is reached.  If timeout is reached and one or
+        more wanted files are missing, a message will be published without
+        the missing files.  If all wanted files are present before timeout is reached,
+        collection is finished and a message will be published immediately. The
+        syntax is as for ``critical_files``.
+
+    all_files
+        Describes files that are accepted, but not needed.  Any file matching the
+        ``all_files`` pattern is included with the published message, but the
+        segment gatherer will not wait for those files.
+
+    is_critical_set
+        A boolean that marks this set of files as critical for the whole collection. Used for
+        example when cloud mask data are required to successfully create a masked image.
+
+    variable_tags
+        List of strings for tags that are expected to vary between segments.
+        Those are replaced with wildcards for the purposes of pattern matching.
+
+    group_by_minutes
+        Optional integer.
+        Group the data for rounded minute interval.
+        For example defining ``group_by_minutes = 10`` all the files from time "201712081120"
+        to time ""201712081129" would go in slot "2017-12-08T11:20:00".
+        (Can also be defined globally)
+        By default, no grouping by minutes is performed and times are matched
+        exactly or with a tolerance of ``time_tolerance``.
+
+    start_time_pattern
+        Optional.
+        Mapping with the keys ``start_time``, ``end_time``, and ``delta_time``,
+        which are all strings with the format ``%H:%M``.  This defines a pattern
+        of time slots that will be considered for processing.  Any timeslot that
+        does not match this pattern will be discarded.  For example, a
+        ``start_time`` of ``06:00``, ``end_time`` of ``18:00``, and ``delta_time``
+        of ``01:00`` will result in processing to go ahead only for whole-hour
+        time slots between 06:00 and 18:00.
+        By default, all time slots are processed.
+
+    keep_parsed_keys
+        Optional.
+        The segment gatherer normally combines metadata from the filename and
+        the received posttroll message.  The list of keys defined here will be
+        taken from the filename pattern rather than from the message metadata.
+        By default, only the parsed keys hardcoded in the source code are always
+        taken from the filename pattern.
+        (Can also be defined globally)
+
+timeliness
+    Time in seconds from the first arrived file until timeout.  When timeout is
+    reached, all collected files (meaning all files that match the ``all_files`` pattern)
+    are broadcast in a posttroll message.
+
+time_name
+    Name of the time tag used in all patterns.
+
+time_tolerance
+    Time difference in seconds for which start times are considered to
+    belong to the same time slot.
+
+posttroll
+    Configuration related to posttroll messaging, with the keys ``topics`` (list of topics to listen to)
+    ``publish_topic`` (topic used for published messages), ``publish_port``, ``nameservers``, and ``addresses``.
+
+bundle_datasets
+    Optional.  Merge datasets within a collection to be a single dataset.
+
+num_files_premature_publish
+    Optional.
+    Define a number of received files after that an event will be published
+    although there are still some missing files. After publishing such
+    event, the segment gatherer still waits for further file messages
+    for this timeslot.
+    
+providing_server
+    Optional.  Affects posttroll listening in a multicast environment.  In a
+    multicast environment, messages may come in from different servers.  By
+    setting a server name here, only messages from that server will be considered.
+
+check_existing_files_after_start
+    Optional.  When the first postroll message arrives after the segment
+    gatherer has started, check the file system if there are existing files
+    that should also be added to this time slot. Currently does not support
+    (remote) S3 filesystems. Defaults to False.
 
 The YAML format supports collection of several different data together. As
 an example: SEVIRI data and NWC SAF GEO products.
