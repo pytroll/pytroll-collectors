@@ -42,6 +42,7 @@ from collections import OrderedDict
 from enum import Enum
 import glob
 import os
+from datetime import datetime
 
 import trollsift
 from posttroll import message as pmessage
@@ -168,6 +169,7 @@ class Message:
         self.metadata = pattern.parser.parse(self.message_data)
         self._time_name = self.pattern.time_name
         self._adjust_time_by_flooring()
+        self.slot_time = None  # Might differ by tolerance (s) from time_name
 
     @property
     def id_time(self):
@@ -406,7 +408,18 @@ class Slot:
         if mask in slot_pattern['received_files']:
             logger.debug("File already received")
             should_be_added = False
-        if mask not in slot_pattern['all_files']:
+        if mask in slot_pattern['all_files']:
+            pass
+        elif message.slot_time is not None:
+            # File probably within tolerance of existing slot
+            metadata_new = metadata.copy()
+            metadata_new[message._time_name] = message.slot_time  # Use slot time insted of file_time
+            mask_temp = message.pattern.parser.globify(metadata_new)
+            if mask_temp not in slot_pattern['all_files']:
+                logger.debug("%s not in %s", mask, slot_pattern['all_files'])
+                logger.debug("%s not in %s", mask_temp, slot_pattern['all_files'])
+                should_be_added = False
+        else:
             logger.debug("%s not in %s", mask, slot_pattern['all_files'])
             should_be_added = False
         return mask, should_be_added
@@ -754,7 +767,10 @@ class SegmentGatherer(object):
                 return
 
         slot_time = self._find_time_slot(message.id_time)
-
+        try:
+            message.slot_time = datetime.strptime(slot_time, "%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            message.slot_time = datetime.strptime(slot_time, "%Y-%m-%d %H:%M:%S")
         # Init metadata etc if this is the first file
         if slot_time not in self.slots:
             slot = self._create_slot(message)
