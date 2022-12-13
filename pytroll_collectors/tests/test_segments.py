@@ -28,7 +28,6 @@ import os
 import os.path
 import unittest
 from unittest.mock import patch, MagicMock, call
-
 import pytest
 
 import posttroll.message
@@ -960,6 +959,35 @@ new_pps_message_data = \
                                     'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}],
                     'sensor': ['viirs']}
 
+new_pps_message_data_within_time_tolerance = \
+    {'orig_platform_name': 'noaa20',
+     'orbit_number': 15037,
+     'start_time': dt.datetime(2020, 10, 13, 5, 17, 20, 0),
+     'stfrac': 4,
+     'end_time': dt.datetime(2020, 10, 13, 5, 18, 43, 700000),
+     'etfrac': 2,
+     'module': 'ppsMakePhysiography',
+     'pps_version': 'v2018',
+     'platform_name': 'NOAA-20',
+     'orbit': 15037,
+     'file_was_already_processed': False,
+     'data_processing_level': '2',
+     'format': 'CF',
+     'status': 'OK',
+     'dataset': [{
+         'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+         'uid': 'S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                 {
+                     'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                     'uid': 'S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                 {
+                     'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                     'uid': 'S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+                 {
+                     'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+                     'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}],
+     'sensor': ['viirs']}
+
 
 class TestSegmentGathererCollections(unittest.TestCase):
     """Test collections gathering."""
@@ -988,12 +1016,25 @@ class TestSegmentGathererCollections(unittest.TestCase):
         """Test mismatching files generate multiple slots."""
         from posttroll.message import Message as Message_p
         viirs_msg = Message_p(rawstr=viirs_message)
-        pps_msg = FakeMessage(pps_message_data, message_type='dataset')
+        pps_msg = FakeMessage(pps_message_data, message_type='dataset', subject='/foo/pps')
 
         self.collection_gatherer.process(viirs_msg)
         self.collection_gatherer.process(pps_msg)
 
         assert len(self.collection_gatherer.slots) == 2
+
+    def test_mismatching_files_within_tolerance_generate_one_slot(self):
+        """Test mismatching files within timetolerance generate one slot."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        pps_msg = FakeMessage(new_pps_message_data_within_time_tolerance, message_type='dataset', subject='/foo/pps')
+
+        self.collection_gatherer.process(viirs_msg)
+        self.collection_gatherer.process(pps_msg)
+
+        assert len(self.collection_gatherer.slots) == 1
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        assert slot.output_metadata['collection']['pps']['dataset'] != []
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
