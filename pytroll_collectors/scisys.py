@@ -493,7 +493,7 @@ class GMCSubscriber(object):
         self.loop = False
 
 
-def _get_subject_from_msg2send(to_send, station, environment, topic_postfix):
+def _get_subject_from_msg2send(to_send, station, env, topic_postfix):
     """Get the publish topic from the message to be send."""
     if topic_postfix is not None:
         subject = "/".join(("", to_send['sensor'], to_send['format'],
@@ -502,7 +502,7 @@ def _get_subject_from_msg2send(to_send, station, environment, topic_postfix):
     else:
         subject = "/".join(("", to_send['sensor'], to_send['format'],
                             to_send['data_processing_level'],
-                            station, environment,
+                            station, env,
                             "polar", "direct_readout"))
     return subject
 
@@ -534,7 +534,7 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
             logger.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
-            subject = _get_subject_from_msg2send(to_send, topic_postfix)
+            subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
             logger.debug("Subject: %s", str(subject))
             msg = Message(subject,
                           "file",
