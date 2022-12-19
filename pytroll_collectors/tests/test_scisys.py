@@ -120,6 +120,21 @@ msg_npp2 = {"orbit_number": 15591,
             "end_time": datetime.datetime(2014, 10, 31, 9, 5, 48, 400000),
             "type": "HDF5", "data_processing_level": "0", 'variant': 'DR'}
 
+fildis_m03 = '<message timestamp="2022-12-19T18:57:45" sequence="2581" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN AVHR_HRP_00_M03_20221219184226Z_20221219185738Z_N_O_20221219184230Z -&gt; ftp://{hostname}:21/tmp</body></message>'.format(  # noqa
+    hostname=hostname)
+
+msg_m03_avhrr = {'start_time': datetime.datetime(2022, 12, 19, 18, 42, 26),
+                 'end_time': datetime.datetime(2022, 12, 19, 18, 57, 38),
+                 'orbit_number': 21363,
+                 'platform_name': 'Metop-C',
+                 'sensor': 'avhrr/3',
+                 'format': 'EPS',
+                 'type': 'binary',
+                 'data_processing_level': '0',
+                 'uid': 'AVHR_HRP_00_M03_20221219184226Z_20221219185738Z_N_O_20221219184230Z',
+                 'uri': 'ssh://{hostname}/tmp/AVHR_HRP_00_M03_20221219184226Z_20221219185738Z_N_O_20221219184230Z'.format(hostname=hostname),  # noqa
+                 'variant': 'DR'}
+
 
 def touch(fname):
     """Create an empty file."""
@@ -248,7 +263,7 @@ def test_get_subject_from_msg2send_atms():
 
     filename = os.path.join('/tmp', ATMS['uid'])
     touch(filename)
-    string = TwoMetMessage(INPUT_DISPATCH_ATMS)  # input_dispatch_atms)
+    string = TwoMetMessage(INPUT_DISPATCH_ATMS)
     to_send = msg_rec.receive(string)
     os.remove(filename)
 
@@ -265,3 +280,32 @@ def test_get_subject_from_msg2send_atms():
     subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
 
     assert subject == "/atms/RDR/0/"
+
+
+def test_get_subject_from_msg2send_avhrr3():
+    """Test get the subject from the message being send - avhrr data."""
+    msg_rec = MessageReceiver("nimbus")
+
+    filename = os.path.join('/tmp', msg_n19['uid'])
+    touch(filename)
+    string = TwoMetMessage(fildis_n19)
+    to_send = msg_rec.receive(string)
+    os.remove(filename)
+
+    station = 'nrk'
+    environment = 'dev'
+    topic_postfix = ''
+
+    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    assert subject == "/HRPT/0/"
+
+    # filename = os.path.join('/tmp', msg_m03_avhrr['uid'])
+    # touch(filename)
+    # msg_2met = TwoMetMessage(fildis_m03)
+
+    # to_send = msg_rec.receive(msg_2met)
+    # assert to_send == msg_m03_avhrr
+    # os.remove(filename)
+
+    # subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    # assert subject == "/avhrr-3/HRPT/0/"

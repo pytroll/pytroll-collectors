@@ -495,12 +495,16 @@ class GMCSubscriber(object):
 
 def _get_subject_from_msg2send(to_send, station, env, topic_postfix):
     """Get the publish topic from the message to be send."""
+    if isinstance(to_send['sensor'], str):
+        prefix = '/' + to_send['sensor'].replace('/', '-')
+    else:
+        prefix = ''
     if topic_postfix is not None:
-        subject = "/".join(("", to_send['sensor'], to_send['format'],
+        subject = "/".join((prefix, to_send['format'],
                             to_send['data_processing_level'],
                             topic_postfix))
     else:
-        subject = "/".join(("", to_send['sensor'], to_send['format'],
+        subject = "/".join((prefix, to_send['format'],
                             to_send['data_processing_level'],
                             station, env,
                             "polar", "direct_readout"))
