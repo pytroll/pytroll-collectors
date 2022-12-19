@@ -95,8 +95,7 @@ class S3StalkerRunner(Thread):
                 logger.info("Publishing %s", str(message))
                 self.publisher.send(str(message))
 
-            waiting_time = timedelta(**self.time_back)
-            wait_seconds = waiting_time.total_seconds()
+            wait_seconds = timedelta(**self.time_back).total_seconds()
 
             # Wait for some time...
             logger.debug("Waiting %d seconds", wait_seconds)
