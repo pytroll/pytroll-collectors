@@ -28,103 +28,13 @@ run as a cronjob.
 import argparse
 import logging
 import logging.config
-from datetime import datetime, timedelta, timezone
-import time
 import yaml
 import sys
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.s3stalker import create_messages_for_recent_files
-from pytroll_collectors.s3stalker import get_last_fetch
-
-import signal
-from threading import Thread
-from posttroll.publisher import create_publisher_from_dict_config
+from pytroll_collectors.s3stalker import S3StalkerRunner
 
 logger = logging.getLogger(__name__)
-
-
-class S3StalkerRunner(Thread):
-    """Runner for stalking for new files in an S3 object store."""
-
-    def __init__(self, bucket, config, startup_timedelta_seconds):
-        """Initialize the S3Stalker runner class."""
-        super().__init__()
-
-        self.bucket = bucket
-        self.config = config
-        self.startup_timedelta_seconds = startup_timedelta_seconds
-        self.time_back = self.config['timedelta']
-        self.publisher = None
-        self.loop = False
-        self._setup_and_start_communication()
-
-    def _setup_and_start_communication(self):
-        """Set up the Posttroll communication and start the publisher."""
-        logger.debug("Starting up... ")
-        self.publisher = create_publisher_from_dict_config(self.config['publisher'])
-        self.publisher.start()
-        self.loop = True
-        signal.signal(signal.SIGTERM, self.signal_shutdown)
-
-    def signal_shutdown(self, *args, **kwargs):
-        """Shutdown the S3 Stalker daemon/runner."""
-        self.close()
-
-    def run(self):
-        """Start the s3-stalker daemon/runner in a thread."""
-        first_run = True
-        config = self.config
-        last_fetch_time = None
-        while self.loop:
-            if first_run:
-                logger.info('Create messages with urls for most recent files only')
-                logger.info('On start up we consider files with age up to %d seconds from now',
-                            self.startup_timedelta_seconds)
-                config['timedelta'] = {'seconds': self.startup_timedelta_seconds}
-                first_run = False
-            else:
-                seconds_back = self._get_seconds_back_to_search(last_fetch_time)
-                config['timedelta'] = {'seconds': seconds_back}
-
-            messages = create_messages_for_recent_files(self.bucket, config)
-
-            last_fetch_time = get_last_fetch()
-            logger.info("Last fetch time...: %s", str(last_fetch_time))
-
-            for message in messages:
-                logger.info("Publishing %s", str(message))
-                self.publisher.send(str(message))
-
-            waiting_time = timedelta(**self.time_back)
-            wait_seconds = waiting_time.total_seconds()
-
-            # Wait for some time...
-            logger.debug("Waiting %d seconds", wait_seconds)
-            time.sleep(max(wait_seconds, 0))
-
-    def _get_seconds_back_to_search(self, last_fetch_time):
-        """Update the time to look back considering also the modification time of the last file."""
-        dtime_back = timedelta(**self.time_back)
-        seconds_back = dtime_back.total_seconds()
-
-        if last_fetch_time is None:
-            return seconds_back
-
-        start_time = datetime.utcnow()
-        start_time = start_time.replace(tzinfo=timezone.utc)
-        seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
-        return max(seconds_back, seconds_to_last_file)
-
-    def close(self):
-        """Shutdown the S3Stalker runner."""
-        logger.info('Terminating the S3 Stalker daemon/runner.')
-        self.loop = False
-        if self.publisher:
-            try:
-                self.publisher.stop()
-            except Exception:
-                logger.exception("Couldn't stop publisher.")
 
 
 def arg_parse():

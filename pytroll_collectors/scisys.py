@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012 - 2021 Pytroll developers
+# Copyright (c) 2012 - 2022 Pytroll developers
 #
 # Author(s):
 #
@@ -140,9 +140,9 @@ class PassRecorder(dict):
         """Get a pass."""
         utctime, satellite = key
         for (rectime, recsat), val in self.iter():
-            if(recsat == satellite and
-               (abs(rectime - utctime)).seconds < 30 * 60 and
-               (abs(rectime - utctime)).days == 0):
+            if (recsat == satellite and
+                (abs(rectime - utctime)).seconds < 30 * 60 and
+                    (abs(rectime - utctime)).days == 0):
                 return val
         return default
 
@@ -522,13 +522,13 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
                 continue
             if topic_postfix is not None:
                 subject = "/".join(("", to_send['format'],
-                                   to_send['data_processing_level'],
-                                   topic_postfix))
+                                    to_send['data_processing_level'],
+                                    topic_postfix))
             else:
                 subject = "/".join(("", to_send['format'],
-                                   to_send['data_processing_level'],
-                                   station, environment,
-                                   "polar", "direct_readout"))
+                                    to_send['data_processing_level'],
+                                    station, environment,
+                                    "polar", "direct_readout"))
             logger.debug("Subject: %s", str(subject))
             msg = Message(subject,
                           "file",
