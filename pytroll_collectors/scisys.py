@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012 - 2021 Pytroll developers
+# Copyright (c) 2012 - 2022 Pytroll developers
 #
 # Author(s):
 #
@@ -140,9 +140,9 @@ class PassRecorder(dict):
         """Get a pass."""
         utctime, satellite = key
         for (rectime, recsat), val in self.iter():
-            if(recsat == satellite and
-               (abs(rectime - utctime)).seconds < 30 * 60 and
-               (abs(rectime - utctime)).days == 0):
+            if (recsat == satellite and
+                (abs(rectime - utctime)).seconds < 30 * 60 and
+                    (abs(rectime - utctime)).days == 0):
                 return val
         return default
 
@@ -493,6 +493,20 @@ class GMCSubscriber(object):
         self.loop = False
 
 
+def _get_subject_from_msg2send(to_send, station, environment, topic_postfix):
+    """Get the publish topic from the message to be send."""
+    if topic_postfix is not None:
+        subject = "/".join(("", to_send['sensor'], to_send['format'],
+                            to_send['data_processing_level'],
+                            topic_postfix))
+    else:
+        subject = "/".join(("", to_send['sensor'], to_send['format'],
+                            to_send['data_processing_level'],
+                            station, environment,
+                            "polar", "direct_readout"))
+    return subject
+
+
 def receive_from_zmq(host, port, station, environment, excluded_platforms,
                      target_server, ftp_prefix, topic_postfix,
                      publish_port=0, nameservers=None, days=1):
@@ -520,15 +534,7 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
             logger.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
-            if topic_postfix is not None:
-                subject = "/".join(("", to_send['format'],
-                                   to_send['data_processing_level'],
-                                   topic_postfix))
-            else:
-                subject = "/".join(("", to_send['format'],
-                                   to_send['data_processing_level'],
-                                   station, environment,
-                                   "polar", "direct_readout"))
+            subject = _get_subject_from_msg2send(to_send, topic_postfix)
             logger.debug("Subject: %s", str(subject))
             msg = Message(subject,
                           "file",

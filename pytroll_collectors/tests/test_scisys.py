@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2013 - 2021 Pytroll developers
+# Copyright (c) 2013 - 2022 Pytroll developers
 #
 # Author(s):
 #
@@ -30,18 +30,19 @@ import os
 import unittest
 
 from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
+from pytroll_collectors.scisys import _get_subject_from_msg2send
 
 hostname = 'localhost'
 
 input_stoprc = '<message timestamp="2013-02-18T09:21:35" sequence="7482" severity="INFO" messageID="0" type="2met.message" sourcePU="SMHI-Linux" sourceSU="POESAcquisition" sourceModule="POES" sourceInstance="1"><body>STOPRC Stop reception: Satellite: NPP, Orbit number: 6796, Risetime: 2013-02-18 09:08:09, Falltime: 2013-02-18 09:21:33</body></message>'  # noqa
 
-input_dispatch_viirs = '<message timestamp="2013-02-18T09:24:20" sequence="27098" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/npp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5 ftp://{hostname}:21/tmp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5</body></message>'.format(  # noqa
+INPUT_DISPATCH_VIIRS = '<message timestamp="2013-02-18T09:24:20" sequence="27098" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/npp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5 ftp://{hostname}:21/tmp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5</body></message>'.format(  # noqa
     hostname=hostname)
 
-input_dispatch_atms = '<message timestamp="2013-02-18T09:24:21" sequence="27100" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/npp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5 ftp://{hostname}:21/tmp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5</body></message>'.format(  # noqa
+INPUT_DISPATCH_ATMS = '<message timestamp="2013-02-18T09:24:21" sequence="27100" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/npp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5 ftp://{hostname}:21/tmp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5</body></message>'.format(  # noqa
     hostname=hostname)
 
-viirs = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
+VIIRS = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
          'start_time': datetime.datetime(2013, 2, 18, 9, 8, 10, 300000),
          'data_processing_level': '0', 'orbit_number': 6796,
          'uri': 'ssh://{hostname}/tmp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5'.format(hostname=hostname),  # noqa
@@ -50,7 +51,7 @@ viirs = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
          'end_time': datetime.datetime(2013, 2, 18, 9, 21, 25, 600000),
          'type': 'HDF5', 'variant': 'DR'}
 
-atms = {'platform_name': 'Suomi-NPP', 'format': 'RDR', 'start_time':
+ATMS = {'platform_name': 'Suomi-NPP', 'format': 'RDR', 'start_time':
         datetime.datetime(2013, 2, 18, 9, 8, 19, 400000),
         'data_processing_level': '0', 'orbit_number': 6796, 'uri':
         'ssh://{hostname}/tmp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5'.format(  # noqa
@@ -91,7 +92,7 @@ msg_n19 = {"platform_name": "NOAA-19", "format": "HRPT",
 
 stoprc_m01 = '<message timestamp="2014-10-28T08:45:22" sequence="1157" severity="INFO" messageID="0" type="2met.message" sourcePU="SMHI-Linux" sourceSU="HRPTAcquisition" sourceModule="FSSRVC" sourceInstance="1"><body>STOPRC Stop reception: Satellite: METOP-B, Orbit number: 10948, Risetime: 2014-10-28 08:30:10, Falltime: 2014-10-28 08:45:22</body></message>'  # noqa
 
-fildis_m01 = '<message timestamp="2014-10-28T08:45:27" sequence="203535" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/metop/MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z ftp://{hostname}:21/tmp/MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z</body></message>'.format( # noqa
+fildis_m01 = '<message timestamp="2014-10-28T08:45:27" sequence="203535" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/metop/MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z ftp://{hostname}:21/tmp/MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z</body></message>'.format(  # noqa
     hostname=hostname)
 
 msg_m01 = {"platform_name": "Metop-B", "format": "EPS",
@@ -138,18 +139,18 @@ class ScisysReceiverTest(unittest.TestCase):
         to_send = msg_rec.receive(string)
         self.assertTrue(to_send is None)
 
-        filename = os.path.join('/tmp', viirs['uid'])
+        filename = os.path.join('/tmp', VIIRS['uid'])
         touch(filename)
-        string = TwoMetMessage(input_dispatch_viirs)
+        string = TwoMetMessage(INPUT_DISPATCH_VIIRS)
         to_send = msg_rec.receive(string)
-        self.assertDictEqual(to_send, viirs)
+        self.assertDictEqual(to_send, VIIRS)
         os.remove(filename)
 
-        filename = os.path.join('/tmp', atms['uid'])
+        filename = os.path.join('/tmp', ATMS['uid'])
         touch(filename)
-        string = TwoMetMessage(input_dispatch_atms)
+        string = TwoMetMessage(INPUT_DISPATCH_ATMS)
         to_send = msg_rec.receive(string)
-        self.assertDictEqual(to_send, atms)
+        self.assertDictEqual(to_send, ATMS)
         os.remove(filename)
 
         # NPP with start
@@ -216,14 +217,51 @@ class ScisysReceiverTest(unittest.TestCase):
         os.remove(filename)
 
 
-def suite():
-    """Test suite for test_scisys."""
-    loader = unittest.TestLoader()
-    mysuite = unittest.TestSuite()
-    mysuite.addTest(loader.loadTestsFromTestCase(ScisysReceiverTest))
+def test_get_subject_from_msg2send_viirs():
+    """Test the get the subject from the message being send - viirs data."""
+    msg_rec = MessageReceiver("nimbus")
 
-    return mysuite
+    filename = os.path.join('/tmp', VIIRS['uid'])
+    touch(filename)
+    string = TwoMetMessage(INPUT_DISPATCH_VIIRS)
+    to_send = msg_rec.receive(string)
+    os.remove(filename)
+
+    topic_postfix = None
+    station = 'nrk'
+    environment = 'dev'
+    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+
+    assert subject == "/viirs/RDR/0/nrk/dev/polar/direct_readout"
+
+    station = 'nrk'
+    environment = 'dev'
+    topic_postfix = 'my_topic'
+    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+
+    assert subject == "/viirs/RDR/0/my_topic"
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_get_subject_from_msg2send_atms():
+    """Test get the subject from the message being send - atms data."""
+    msg_rec = MessageReceiver("nimbus")
+
+    filename = os.path.join('/tmp', ATMS['uid'])
+    touch(filename)
+    string = TwoMetMessage(INPUT_DISPATCH_ATMS)  # input_dispatch_atms)
+    to_send = msg_rec.receive(string)
+    os.remove(filename)
+
+    topic_postfix = None
+    station = 'nrk'
+    environment = 'dev'
+    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+
+    assert subject == "/atms/RDR/0/nrk/dev/polar/direct_readout"
+
+    station = 'nrk'
+    environment = 'dev'
+    topic_postfix = ''
+    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+
+    assert subject == "/atms/RDR/0/"
