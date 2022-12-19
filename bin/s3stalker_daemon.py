@@ -89,8 +89,7 @@ class S3StalkerRunner(Thread):
 
             messages = create_messages_for_recent_files(self.bucket, config)
 
-            last_fetch_time = get_last_fetch()
-            logger.info("Last fetch time...: %s", str(last_fetch_time))
+            logger.debug("Last fetch time is %s", str(get_last_fetch()))
 
             for message in messages:
                 logger.info("Publishing %s", str(message))
