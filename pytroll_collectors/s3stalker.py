@@ -99,14 +99,13 @@ class S3StalkerRunner(Thread):
             logger.info('On start up we consider files with age up to %d seconds from now',
                         self.startup_timedelta_seconds)
             return {'seconds': self.startup_timedelta_seconds}
-        else:
-            seconds_back = self._get_seconds_back_to_search(last_fetch_time)
-            return {'seconds': seconds_back}
+
+        seconds_back = self._get_seconds_back_to_search(last_fetch_time)
+        return {'seconds': seconds_back}
 
     def _get_seconds_back_to_search(self, last_fetch_time):
         """Update the time to look back considering also the modification time of the last file."""
-        dtime_back = timedelta(**self.time_back)
-        seconds_back = dtime_back.total_seconds()
+        seconds_back = timedelta(**self.time_back).total_seconds()
 
         if last_fetch_time is None:
             return seconds_back
@@ -121,10 +120,7 @@ class S3StalkerRunner(Thread):
         logger.info('Terminating the S3 Stalker daemon/runner.')
         self.loop = False
         if self.publisher:
-            try:
-                self.publisher.stop()
-            except Exception:
-                logger.exception("Couldn't stop publisher.")
+            self.publisher.stop()
 
 
 @contextmanager

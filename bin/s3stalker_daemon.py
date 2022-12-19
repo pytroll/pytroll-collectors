@@ -69,15 +69,13 @@ def main():
     logger.info("Try start the s3-stalker runner:")
     try:
         s3runner = S3StalkerRunner(bucket, config, startup_timedelta_seconds)
-
-    except Exception as err:
-        logger.error('The S3 Stalker Runner crashed: %s', str(err))
-        sys.exit(1)
-    try:
         s3runner.start()
         s3runner.join()
     except KeyboardInterrupt:
         logger.debug("Interrupting")
+    except Exception as err:
+        logger.error('The S3 Stalker Runner crashed: %s', str(err))
+        sys.exit(1)
     finally:
         s3runner.close()
 
