@@ -73,14 +73,10 @@ class S3StalkerRunner(Thread):
             config['timedelta'] = self._get_timedelta(last_fetch_time, is_first_run=first_run)
             first_run = False
 
-            messages = create_messages_for_recent_files(self.bucket, config)
-
             last_fetch_time = get_last_fetch()
             logger.info("Last fetch time...: %s", str(last_fetch_time))
 
-            for message in messages:
-                logger.info("Publishing %s", str(message))
-                self.publisher.send(str(message))
+            self._process_messages(config)
 
             waiting_time = timedelta(**self.time_back)
             wait_seconds = waiting_time.total_seconds()
@@ -88,6 +84,13 @@ class S3StalkerRunner(Thread):
             # Wait for some time...
             logger.debug("Waiting %d seconds", wait_seconds)
             time.sleep(max(wait_seconds, 0))
+
+    def _process_messages(self, config):
+        """Go through all messages in list and publish them one after the other."""
+        messages = create_messages_for_recent_files(self.bucket, config)
+        for message in messages:
+            logger.info("Publishing %s", str(message))
+            self.publisher.send(str(message))
 
     def _get_timedelta(self, last_fetch_time, is_first_run):
         """Get the seconds for the time window to search for (new) files."""
