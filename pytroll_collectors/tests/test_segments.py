@@ -1035,6 +1035,7 @@ class TestSegmentGathererCollections(unittest.TestCase):
         assert len(self.collection_gatherer.slots) == 1
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
         assert slot.output_metadata['collection']['pps']['dataset'] != []
+        assert slot.get_status() == Status.SLOT_READY
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
