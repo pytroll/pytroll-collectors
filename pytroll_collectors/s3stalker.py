@@ -49,6 +49,11 @@ class S3StalkerRunner(Thread):
         self.time_back = self.config['timedelta']
         self.publisher = None
         self.loop = False
+        self._set_signal_shutdown()
+
+    def _set_signal_shutdown(self):
+        """Set a signal to handle shutdown."""
+        signal.signal(signal.SIGTERM, self.signal_shutdown)
 
     def _setup_and_start_communication(self):
         """Set up the Posttroll communication and start the publisher."""
@@ -56,7 +61,6 @@ class S3StalkerRunner(Thread):
         self.publisher = create_publisher_from_dict_config(self.config['publisher'])
         self.publisher.start()
         self.loop = True
-        signal.signal(signal.SIGTERM, self.signal_shutdown)
 
     def signal_shutdown(self, *args, **kwargs):
         """Shutdown the S3 Stalker daemon/runner."""
@@ -66,24 +70,27 @@ class S3StalkerRunner(Thread):
         """Start the s3-stalker daemon/runner in a thread."""
         self._setup_and_start_communication()
 
+        waiting_time = timedelta(**self.time_back)
+        wait_seconds = waiting_time.total_seconds()
+
         first_run = True
         config = self.config
         last_fetch_time = None
         while self.loop:
-            config['timedelta'] = self._get_timedelta(last_fetch_time, is_first_run=first_run)
+            last_fetch_time = self.do_fetch_most_recent(last_fetch_time, first_run, config)
             first_run = False
-
-            last_fetch_time = get_last_fetch()
-            logger.info("Last fetch time...: %s", str(last_fetch_time))
-
-            self._process_messages(config)
-
-            waiting_time = timedelta(**self.time_back)
-            wait_seconds = waiting_time.total_seconds()
-
-            # Wait for some time...
             logger.debug("Waiting %d seconds", wait_seconds)
             time.sleep(max(wait_seconds, 0))
+
+    def do_fetch_most_recent(self, last_fetch_time, first_run, config):
+        """Do a fecth of the most recent files and create and send the messages."""
+        config['timedelta'] = self._get_timedelta(last_fetch_time, is_first_run=first_run)
+
+        last_fetch_time = get_last_fetch()
+        logger.info("Last fetch time...: %s", str(last_fetch_time))
+
+        self._process_messages(config)
+        return last_fetch_time
 
     def _process_messages(self, config):
         """Go through all messages in list and publish them one after the other."""
@@ -192,7 +199,6 @@ def create_messages_for_recent_files(bucket, config):
     logger.debug("Create messages for recent files...")
     time_back = config['timedelta']
     logger.debug("time_back = %s", str(time_back))
-
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):

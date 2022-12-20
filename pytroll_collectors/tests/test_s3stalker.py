@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2020 Martin Raspaud
+# Copyright (c) 2020, 2022 Martin Raspaud
 
 # Author(s):
 
@@ -25,10 +25,17 @@ import datetime
 import unittest
 from unittest import mock
 from copy import deepcopy
+from freezegun import freeze_time
 
 from dateutil.tz import tzutc
+from dateutil import tz as tzone
 
 import pytroll_collectors.fsspec_to_message
+
+from pytroll_collectors.s3stalker import S3StalkerRunner
+from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch
+from pytroll_collectors.s3stalker import _match_files_to_pattern
+
 
 subject = "/my/great/subject/"
 
@@ -115,26 +122,29 @@ ls_output = [{
              {
                  'Key': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201121T131528_0157_046_051_1980_MAR_O_NR_002.zip',  # noqa
                  'LastModified': datetime.datetime(2020, 11, 21, 14, 1, 8, 996000, tzinfo=tzutc()),
-                 'ETag': '"0251f232014b24bacc3d45c10c4c0df2-38"', 'Size': 315207067, 'StorageClass': 'STANDARD',
+                 'ETag': '"0251f232014b24bacc3d45c10c4c0df2-38"', 'Size': 315207067,
+                 'StorageClass': 'STANDARD',
                  'type': 'file', 'size': 315207067,
                  'name': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201121T131528_0157_046_051_1980_MAR_O_NR_002.zip'},  # noqa
              {
                  'Key': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201122T192710_0157_046_051_1980_MAR_O_NT_002.md5',  # noqa
                  'LastModified': datetime.datetime(2020, 11, 22, 21, 1, 5, 181000, tzinfo=tzutc()),
-                 'ETag': '"c5e3e19f37b3670d4b4792d430e2a3a6"', 'Size': 32, 'StorageClass': 'STANDARD', 'type': 'file',
+                 'ETag': '"c5e3e19f37b3670d4b4792d430e2a3a6"', 'Size': 32,
+                 'StorageClass': 'STANDARD', 'type': 'file',
                  'size': 32,
                  'name': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201122T192710_0157_046_051_1980_MAR_O_NT_002.md5'},  # noqa
              {
                  'Key': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201122T192710_0157_046_051_1980_MAR_O_NT_002.zip',  # noqa
                  'LastModified': datetime.datetime(2020, 11, 22, 21, 1, 5, 99000, tzinfo=tzutc()),
-                 'ETag': '"d043d88fe0f2b27f58e4993fef8017d1-38"', 'Size': 314382569, 'StorageClass': 'STANDARD',
+                 'ETag': '"d043d88fe0f2b27f58e4993fef8017d1-38"', 'Size': 314382569,
+                 'StorageClass': 'STANDARD',
                  'type': 'file', 'size': 314382569,
                  'name': 'sentinel-s3-ol2wfr-zips/2020/11/21/S3B_OL_2_WFR____20201121T104211_20201121T104448_20201122T192710_0157_046_051_1980_MAR_O_NT_002.zip'}]  # noqa
 
 fs_json = '{"cls": "s3fs.core.S3FileSystem", "protocol": "s3", "args": [], "anon": true}'
 
-zip_json =  '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "args": ["sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip"], "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
-zip_json_fo =  '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "fo": "sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip", "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
+zip_json = '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "args": ["sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip"], "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
+zip_json_fo = '{"cls": "fsspec.implementations.zip.ZipFileSystem", "protocol": "abstract", "fo": "sentinel-s3-ol2wfr-zips/2020/11/21/S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.zip", "target_protocol": "s3", "target_options": {"anon": true, "client_kwargs": {}}}'  # noqa
 
 zip_content = {
     'S3A_OL_2_WFR____20201121T075933_20201121T080210_20201121T103050_0157_065_192_1980_MAR_O_NR_002.SEN3/Oa01_reflectance.nc': {  # noqa
@@ -1110,3 +1120,113 @@ class TestFileListUnzipToMessages(unittest.TestCase):
         fs, files = s3stalker.get_last_files(path, pattern=zip_pattern, anon=True)
         message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
         assert message_list[0].data['platform_name'] == 'S3A'
+
+
+S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_url': 'https://xxx.yyy.zz',
+                                                                    'aws_access_key_id': 'my_accesskey',
+                                                                    'aws_secret_access_key': 'my_secret_key'}},
+                     'timedelta': {'minutes': 2},
+                     'subject': '/yuhu',
+                     'file_pattern': 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5',  # noqa
+                     'publisher': {'name': 's3stalker_runner'}}
+
+
+@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+def test_s3stalker_runner_ini(_set_signal_shutdown):
+    """Test initialize/instanciate the S3StalkerRunner class."""
+    _set_signal_shutdown.return_value = None
+
+    startup_timedelta_seconds = 1800
+    bucket = 'atms-sdr'
+
+    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+    assert s3runner.bucket == 'atms-sdr'
+    assert s3runner.config == S3_STALKER_CONFIG
+    assert s3runner.startup_timedelta_seconds == startup_timedelta_seconds
+    assert s3runner.time_back == {'minutes': 2}
+    assert s3runner.publisher is None
+    assert s3runner.loop is False
+
+
+@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+def test_s3stalker_runner_get_timedelta(signal_shutdown):
+    """Test getting the delta time defining the how far back in time to search for new files in the bucket."""
+    signal_shutdown.return_value = None
+
+    startup_timedelta_seconds = 2000
+    bucket = 'atms-sdr'
+
+    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+    last_fetch_time = None
+    first_run = True
+    result = s3runner._get_timedelta(last_fetch_time, is_first_run=first_run)
+
+    assert result == {'seconds': 2000}
+
+
+@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_process_messages')
+@freeze_time('2022-12-20 10:10:0')
+def test_do_fetch_most_recent(process_messages, signal_shutdown):
+    """Test getting the time of the last files fetch."""
+    signal_shutdown.return_value = None
+    process_messages.return_value = None
+
+    startup_timedelta_seconds = 3600
+    bucket = 'atms-sdr'
+
+    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+    set_last_fetch(datetime.datetime.now(tzone.UTC) - datetime.timedelta(seconds=startup_timedelta_seconds))
+
+    first_run = False
+    last_fetch_time = get_last_fetch()
+
+    result = s3runner.do_fetch_most_recent(last_fetch_time, first_run, S3_STALKER_CONFIG)
+
+    assert result.strftime('%Y%m%d-%H%M') == '20221220-0910'
+
+
+def test_match_files_to_pattern():
+    """Test matching files to pattern."""
+    path = 'atms-sdr'
+    pattern = 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5'  # noqa
+
+    FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5',
+              'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 173000, tzinfo=tzutc()),
+              'ETag': '"bb037828c47d28a30ce6d49e719b6c64"',
+              'Size': 155964,
+              'StorageClass': 'STANDARD',
+              'type': 'file',
+              'size': 155964,
+              'name': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5'},
+             {'Key': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5',
+              'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 834000, tzinfo=tzutc()),
+              'ETag': '"327b7e1300700f55268cc1f4dc133459"',
+              'Size': 156172,
+              'StorageClass': 'STANDARD',
+              'type': 'file',
+              'size': 156172,
+              'name': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5'},
+             {'Key': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5',
+              'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 86000, tzinfo=tzutc()),
+              'ETag': '"2fe59174e29627acd82a28716b18d92a"',
+              'Size': 168096,
+              'StorageClass': 'STANDARD',
+              'type': 'file',
+              'size': 168096,
+              'name': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5'},
+             {'Key': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5',
+              'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 798000, tzinfo=tzutc()),
+              'ETag': '"ffff983cdf767ab635a7ae51dc7d0626"',
+              'Size': 167928,
+              'StorageClass': 'STANDARD',
+              'type': 'file',
+              'size': 167928,
+              'name': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5'}]
+
+    res_files = _match_files_to_pattern(FILES, path, pattern)
+
+    assert res_files == FILES[0:2]
