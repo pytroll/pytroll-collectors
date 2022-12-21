@@ -18,6 +18,7 @@ dependencies:
   - cartopy
   - geopy
   - freezegun
+  - paramiko
   - responses
   - netifaces
   - watchdog
