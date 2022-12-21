@@ -45,7 +45,11 @@ class GeographicGatherer:
     def __init__(self, opts):
         """Initialize the class."""
         self._config = ConfigParser(interpolation=None)
-        self._config.read(opts.config)
+        # ConfigParser.read silently ignores unreadable files...
+        read = self._config.read(opts.config)
+        if not read:
+            raise OSError(f"Could not read configuration file {opts.config:s}. "
+                          "Please make sure it exists and is readable.")
 
         self._opts = opts
         self.publisher = None
@@ -111,12 +115,16 @@ class GeographicGatherer:
             logger.exception('Something went wrong')
             self.return_status = 1
         finally:
-            logger.info('Ending publication the gathering of granules...')
-            for trigger in self.triggers:
-                trigger.stop()
-            self.publisher.stop()
+            self.stop()
 
         return self.return_status
+
+    def stop(self):
+        """Stop the gatherer."""
+        logger.info('Ending publication the gathering of granules...')
+        for trigger in self.triggers:
+            trigger.stop()
+        self.publisher.stop()
 
 
 class TriggerFactory:

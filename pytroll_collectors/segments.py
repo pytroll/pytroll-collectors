@@ -365,6 +365,7 @@ class Slot:
         # add uri, uid and sensor
 
         self._add_file_info_to_metadata(metadata, message)
+        self._update_metadata_times(metadata, message)
 
         # Collect all sensors, not only the latest
         sensors = metadata.get('sensor', [])
@@ -380,13 +381,18 @@ class Slot:
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
         if message.type == 'file':
-            uri = urlparse(msg_data['uri']).path
-            uid = msg_data['uid']
-            metadata['dataset'].append({'uri': uri, 'uid': uid})
+            metadata['dataset'].append({'uri': msg_data['uri'], 'uid': msg_data['uid']})
         elif message.type == 'dataset':
             metadata['dataset'].extend(message.message_data['dataset'])
         else:
             raise NotImplementedError('Cannot handle message of type: ' + str(message.type))
+
+    def _update_metadata_times(self, metadata, message):
+        """Update start/end time when message added to metadata."""
+        if "start_time" in metadata and "start_time" in message.message_data:
+            metadata["start_time"] = min(metadata["start_time"], message.message_data["start_time"])
+        if "end_time" in metadata and "end_time" in message.message_data:
+            metadata["end_time"] = max(metadata["end_time"], message.message_data["end_time"])
 
     def is_relevant(self, message):
         """Check if the message is relevant to this slot."""

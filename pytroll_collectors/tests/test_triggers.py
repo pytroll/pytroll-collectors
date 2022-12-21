@@ -264,3 +264,48 @@ class TestFileTrigger:
                        'uri': 'somefile_20220512T1544_20220512T1545.data',
                        'key1': "value1"
                        }
+
+    def test_filetrigger_exception(self, caplog):
+        """Test getting the metadata."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+
+        def _collectors(metadata):
+            raise KeyError("Found no TLE entry for 'METOP-B' to simulate")
+        collectors = [_collectors]
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        trigger._process_metadata({'sensor': 'avhrr', 'platform_name': 'Metop-B',
+                                   'start_time': datetime(2022, 9, 1, 10, 22, 3),
+                                   'orbit_number': '51653',
+                                   'uri': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
+                                   'uid': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
+                                   'origin': '157.249.16.188:9062',
+                                   'end_time': datetime(2022, 9, 1, 10, 25, 3)})
+        assert "Found no TLE entry for 'METOP-B' to simulate" in caplog.text
+
+    @patch('pytroll_collectors.triggers._base.Trigger.publish_collection')
+    def test_filetrigger_collecting_complete(self, patch_publish_collection):
+        """Test getting the metadata."""
+        from pytroll_collectors.triggers._base import FileTrigger
+        import configparser
+        granule_metadata = {'sensor': 'avhrr'}
+
+        def _collectors(metadata):
+            return True
+        collectors = [_collectors]
+        config = configparser.ConfigParser(interpolation=None)
+        section = "section1"
+        config.add_section(section)
+        config.set(section, "pattern", "{name}_{start_time:%Y%m%dT%H%M}_{end_time:%Y%m%dT%H%M}.data")
+        publisher = None
+        trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
+                              publish_message_after_each_reception=False)
+        trigger._process_metadata(granule_metadata)
+
+        patch_publish_collection.assert_called_once()

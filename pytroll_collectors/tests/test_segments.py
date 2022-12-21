@@ -31,6 +31,7 @@ from unittest.mock import patch, MagicMock, call
 
 import pytest
 
+import posttroll.message
 from pytroll_collectors.helper_functions import read_yaml
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message, DO_NOT_COPY_KEYS
 
@@ -50,6 +51,19 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
 LOGGING_ERROR = logging.ERROR
+
+fake_config = {
+    "patterns": {
+        "oak": {
+            "pattern": "oak-s{start_time:%Y%m%d%H%M%S}-e{end_time:%Y%m%d%H%M%S}-s{segment}.tree",
+            "critical_files": None,
+            "wanted_files": ":001-003",
+            "all_files": ":001-003",
+            "is_critical_set": False,
+            "variable_tags": ["start_time", "end_time"]}},
+    "timeliness": 10,
+    "group_by_minutes": 10,
+    "time_name": "start_time"}
 
 
 class FakeMessage:
@@ -98,6 +112,12 @@ class TestSegmentGatherer(unittest.TestCase):
                            "end_time": dt.datetime(2019, 2, 1, 6, 11, 9, 100000),
                            "orig_platform_name": "G16", "dataset_name": "Rad",
                            "sensor": ["abi"], "channel": "C08"}
+
+        self.mda_msg0deg_s3 = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "s3://bucket-name/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+
+        self.mda_msg0deg_file_scheme = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "file:///home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
@@ -447,6 +467,31 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(meta['dataset']), 1)
         self.assertTrue('uri' in meta['dataset'][0])
         self.assertTrue('uid' in meta['dataset'][0])
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/'))
+
+    def test_add_single_file_s3_scheme(self):
+        """Test adding a file that is in S3 storage."""
+        msg = FakeMessage(self.mda_msg0deg_s3)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('s3://bucket-name/'))
+
+    def test_add_single_file_file_scheme(self):
+        """Test adding a file that has file:// scheme in the URI."""
+        msg = FakeMessage(self.mda_msg0deg_file_scheme)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        self.assertTrue(meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/'))
 
     def test_add_two_files(self):
         """Test adding two files."""
@@ -1051,6 +1096,22 @@ class TestSegmentGathererCollections(unittest.TestCase):
             dataset.extend(files['dataset'])
         assert message.data['dataset'] == dataset
         assert message.type == "dataset"
+
+    def test_end_time_correct_group_by_minutes(self):
+        """Test that end_time is correct in message."""
+        sg = SegmentGatherer(fake_config)
+        messages = [posttroll.message.Message(
+            rawstr=f"pytroll://tree/oak file pytroll@forest 1980-01-01T13:0{i:d}:00.000000 v1.01 application/json "
+                   f'{{"platform_name": "forest", "start_time": "1980-01-01T13:0{i:d}:00", "end_time": '
+                   f'"1980-01-01T13:0{i+1:d}:00", "uri": "/data/oak-s19800101130{i:d}00-e19800101130{i+1:d}00-'
+                   f's00{i:d}.tree", "uid": "oak-s19800101130{i:d}00-e19800101130{i+1:d}00-s00{i:d}.tree", '
+                   '"sensor": "Thaumetopoea processionea"}')
+                for i in range(3)]
+        for msg in messages:
+            sg.process(msg)
+        assert len(sg.slots) == 1
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
 
 
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
