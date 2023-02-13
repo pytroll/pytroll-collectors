@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2020 - 2022 Pytroll developers
+# Copyright (c) 2020 - 2023 Pytroll developers
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,7 +57,6 @@ class S3StalkerRunner(Thread):
 
     def _setup_and_start_communication(self):
         """Set up the Posttroll communication and start the publisher."""
-        logger.debug("Starting up... ")
         self.publisher = create_publisher_from_dict_config(self.config['publisher'])
         self.publisher.start()
         self.loop = True
@@ -68,6 +67,7 @@ class S3StalkerRunner(Thread):
 
     def run(self):
         """Start the s3-stalker daemon/runner in a thread."""
+        logger.info("Starting up... ")
         self._setup_and_start_communication()
 
         waiting_time = timedelta(**self.time_back)
@@ -216,7 +216,6 @@ def publish_new_files(bucket, config):
     """Publish files newly arrived in bucket."""
     with Publish("s3_stalker") as pub:
         messages = create_messages_for_recent_files(bucket, config)
-
         for message in messages:
             logger.info("Publishing %s", str(message))
             pub.send(str(message))
