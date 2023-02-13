@@ -30,13 +30,13 @@ from freezegun import freeze_time
 from dateutil.tz import tzutc
 from dateutil import tz as tzone
 
+import logging
 import pytroll_collectors.fsspec_to_message
 
 from pytroll_collectors.s3stalker import S3StalkerRunner
 from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch
 from pytroll_collectors.s3stalker import _match_files_to_pattern
 from pytroll_collectors.s3stalker import create_messages_for_recent_files
-
 
 subject = "/my/great/subject/"
 
@@ -1179,6 +1179,8 @@ def test_s3stalker_runner_ini(_set_signal_shutdown):
     assert s3runner.config == S3_STALKER_CONFIG
     assert s3runner.startup_timedelta_seconds == startup_timedelta_seconds
     assert s3runner.time_back == {'minutes': 2}
+    assert s3runner._timedelta == {'minutes': 2}
+    assert s3runner._wait_seconds == 120.0
     assert s3runner.publisher is None
     assert s3runner.loop is False
 
@@ -1233,6 +1235,14 @@ def test_match_files_to_pattern():
     assert res_files == ATMS_FILES[0:2]
 
 
+class FakePublisher:
+    """A fake publisher class with a dummy send method."""
+
+    def send(self, msg):
+        """Faking the sending of a message."""
+        print(msg)
+
+
 class TestS3StalkerRunner:
     """Test the S3 Stalker Runner functionalities."""
 
@@ -1243,6 +1253,7 @@ class TestS3StalkerRunner:
         start_time = datetime.datetime(2022, 12, 20, 12, 0)
         now = datetime.datetime.utcnow()
         self.delta_sec = (now - start_time).total_seconds()
+        self.bucket = 'atms-sdr'
 
     @mock.patch('s3fs.S3FileSystem')
     @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
@@ -1253,9 +1264,8 @@ class TestS3StalkerRunner:
         s3_fs.return_value.to_json.return_value = fs_json
 
         startup_timedelta_seconds = 2000
-        bucket = 'atms-sdr'
 
-        s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
 
         s3runner._timedelta = {'seconds': self.delta_sec}
 
@@ -1269,3 +1279,44 @@ class TestS3StalkerRunner:
         assert msg.data['start_time'] == datetime.datetime(2022, 12, 20, 12, 30, 56)
         assert msg.data['end_time'] == datetime.datetime(1900, 1, 1, 12, 31, 27)
         assert msg.data["process_time"] == "20221220124753607778"
+
+    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+    @freeze_time('2022-12-20 10:10:0')
+    def test_get_seconds_back_to_search(self, signal_shutdown):
+        """Test get seconds back in time to search for new files."""
+        signal_shutdown.return_value = None
+        startup_timedelta_seconds = 2000
+
+        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+        s3runner._timedelta = {'seconds': self.delta_sec}
+
+        result = s3runner._get_seconds_back_to_search(None)
+        assert result == 120.0
+
+        set_last_fetch(datetime.datetime.now(tzone.UTC) - datetime.timedelta(seconds=startup_timedelta_seconds))
+        last_fetch_time = get_last_fetch()
+        result = s3runner._get_seconds_back_to_search(last_fetch_time)
+        assert result == 2000.0
+
+    @mock.patch('s3fs.S3FileSystem')
+    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+    def test_process_messages(self, signal_shutdown, s3_fs, caplog):
+        """Test process the messages."""
+        signal_shutdown.return_value = None
+        s3_fs.return_value.ls.return_value = self.ls_output
+        s3_fs.return_value.to_json.return_value = fs_json
+
+        startup_timedelta_seconds = 2000
+
+        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+        s3runner.publisher = FakePublisher()
+
+        with caplog.at_level(logging.DEBUG):
+            s3runner._process_messages()
+
+        res = caplog.text.strip().split('\n')
+        assert 'Create messages for recent files...' in res[0]
+        assert "time_back = {'minutes': 2}" in res[1]
+        assert "waiting time:" in res[2]

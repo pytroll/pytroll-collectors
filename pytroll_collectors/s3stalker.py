@@ -48,6 +48,8 @@ class S3StalkerRunner(Thread):
         self.startup_timedelta_seconds = startup_timedelta_seconds
         self.time_back = self.config['timedelta']
         self._timedelta = self.config['timedelta']
+        self._wait_seconds = timedelta(**self.time_back).total_seconds()
+
         self.publisher = None
         self.loop = False
         self._set_signal_shutdown()
@@ -71,9 +73,6 @@ class S3StalkerRunner(Thread):
         logger.info("Starting up... ")
         self._setup_and_start_communication()
 
-        waiting_time = timedelta(**self.time_back)
-        wait_seconds = waiting_time.total_seconds()
-
         first_run = True
         last_fetch_time = None
         while self.loop:
@@ -85,8 +84,8 @@ class S3StalkerRunner(Thread):
 
             self._process_messages()
 
-            logger.debug("Waiting %d seconds", wait_seconds)
-            time.sleep(max(wait_seconds, 0))
+            logger.debug("Waiting %d seconds", self._wait_seconds)
+            time.sleep(max(self._wait_seconds, 0))
 
     def _set_timedelta(self, last_fetch_time, first_run):
         self._timedelta = self._get_timedelta(last_fetch_time, is_first_run=first_run)
@@ -111,15 +110,13 @@ class S3StalkerRunner(Thread):
 
     def _get_seconds_back_to_search(self, last_fetch_time):
         """Update the time to look back considering also the modification time of the last file."""
-        seconds_back = timedelta(**self.time_back).total_seconds()
-
         if last_fetch_time is None:
-            return seconds_back
+            return self._wait_seconds
 
         start_time = datetime.utcnow()
         start_time = start_time.replace(tzinfo=timezone.utc)
         seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
-        return max(seconds_back, seconds_to_last_file)
+        return max(self._wait_seconds, seconds_to_last_file)
 
     def close(self):
         """Shutdown the S3Stalker runner."""
@@ -201,7 +198,6 @@ def create_messages_for_recent_files(bucket, config, time_back):
     pattern = config.get('file_pattern')
     with sleeper(2.5):
         set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
-        # set_last_fetch(datetime.utcnow() - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
         fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
         messages = filelist_unzip_to_messages(fs_, files, subject)
