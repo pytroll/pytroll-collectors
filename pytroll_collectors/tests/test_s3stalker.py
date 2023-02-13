@@ -38,6 +38,11 @@ from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch
 from pytroll_collectors.s3stalker import _match_files_to_pattern
 from pytroll_collectors.s3stalker import create_messages_for_recent_files
 
+FAKE_MESSAGES = []
+FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 30, 56), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 27), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124753607778'}""")  # noqa
+FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 31, 28), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 59), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124754976465'}""")  # noqa
+
+
 subject = "/my/great/subject/"
 
 zip_pattern = "{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_{collection:3s}.zip"  # noqa
@@ -1235,12 +1240,20 @@ def test_match_files_to_pattern():
     assert res_files == ATMS_FILES[0:2]
 
 
-class FakePublisher:
-    """A fake publisher class with a dummy send method."""
+class FakePublish:
+    """A fake publish class with a dummy send method."""
+
+    def __init__(self, dummy):
+        """Initialize the fake publisher class."""
+        return
 
     def send(self, msg):
         """Faking the sending of a message."""
-        print(msg)
+        return msg
+
+    def __call__(self, msg):
+        """Faking a call method."""
+        return self.send(msg)
 
 
 class TestS3StalkerRunner:
@@ -1254,6 +1267,7 @@ class TestS3StalkerRunner:
         now = datetime.datetime.utcnow()
         self.delta_sec = (now - start_time).total_seconds()
         self.bucket = 'atms-sdr'
+        self.config = S3_STALKER_CONFIG
 
     @mock.patch('s3fs.S3FileSystem')
     @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
@@ -1311,7 +1325,7 @@ class TestS3StalkerRunner:
 
         s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
 
-        s3runner.publisher = FakePublisher()
+        s3runner.publisher = FakePublish('fake_publisher')
 
         with caplog.at_level(logging.DEBUG):
             s3runner._process_messages()

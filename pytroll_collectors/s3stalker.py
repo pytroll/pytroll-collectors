@@ -208,8 +208,8 @@ def create_messages_for_recent_files(bucket, config, time_back):
 
 def publish_new_files(bucket, config, time_back):
     """Publish files newly arrived in bucket."""
+    messages = create_messages_for_recent_files(bucket, config, time_back)
     with Publish("s3_stalker") as pub:
-        messages = create_messages_for_recent_files(bucket, config, time_back)
         for message in messages:
             logger.info("Publishing %s", str(message))
             pub.send(str(message))
