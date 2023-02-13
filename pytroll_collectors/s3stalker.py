@@ -202,7 +202,7 @@ def create_messages_for_recent_files(bucket, config):
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):
-        set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+        set_last_fetch(datetime.utcnow()) - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
         logger.debug('s3_kwargs: %s', str(s3_kwargs))
         fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
