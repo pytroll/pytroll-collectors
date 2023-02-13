@@ -19,11 +19,10 @@
 
 import logging
 import posixpath
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import time
 from contextlib import contextmanager
 import s3fs
-from dateutil import tz
 from posttroll.publisher import Publish
 from posttroll.publisher import create_publisher_from_dict_config
 from trollsift import Parser
@@ -118,7 +117,6 @@ class S3StalkerRunner(Thread):
             return seconds_back
 
         start_time = datetime.utcnow()
-        start_time = start_time.replace(tzinfo=timezone.utc)
         seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
         return max(seconds_back, seconds_to_last_file)
 
@@ -144,7 +142,7 @@ def sleeper(duration):
 class DatetimeHolder:
     """Holder for the last_fetch datetime."""
 
-    last_fetch = datetime.now(tz.UTC) - timedelta(hours=12)
+    last_fetch = datetime.utcnow - timedelta(hours=12)
 
 
 def get_last_files(path, *args, pattern=None, **kwargs):
@@ -202,12 +200,11 @@ def create_messages_for_recent_files(bucket, config):
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):
-        set_last_fetch(datetime.utcnow()) - timedelta(**time_back))
+        set_last_fetch(datetime.utcnow() - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
-        logger.debug('s3_kwargs: %s', str(s3_kwargs))
-        fs, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
-        messages = filelist_unzip_to_messages(fs, files, subject)
-        # fs.clear_instance_cache()
+        fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
+        messages = filelist_unzip_to_messages(fs_, files, subject)
+        # fs_.clear_instance_cache()
 
     return messages
 
