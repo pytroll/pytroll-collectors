@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2020 Martin Raspaud
+# Copyright (c) 2020, 2023 Martin Raspaud
 
 # Author(s):
 
@@ -54,6 +54,7 @@ def main():
 
     bucket = args.bucket
     config = read_yaml(args.config)
+    time_delta = config['timedelta']
 
     if args.log is not None:
         with open(args.log) as fd:
@@ -61,7 +62,7 @@ def main():
             logging.config.dictConfig(log_dict)
 
     try:
-        publish_new_files(bucket, config)
+        publish_new_files(bucket, config, time_delta)
     except KeyboardInterrupt:
         print("terminating publisher...")
 

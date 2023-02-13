@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2020, 2022 Martin Raspaud
+# Copyright (c) 2020, 2022, 2023 Martin Raspaud
 
 # Author(s):
 
@@ -1183,8 +1183,8 @@ def test_do_fetch_most_recent(process_messages, signal_shutdown):
 
     first_run = False
     last_fetch_time = get_last_fetch()
-
-    result = s3runner.do_fetch_most_recent(last_fetch_time, first_run, S3_STALKER_CONFIG)
+    s3runner._set_timedelta(last_fetch_time, first_run)
+    result = get_last_fetch()
 
     assert result.strftime('%Y%m%d-%H%M') == '20221220-0910'
 

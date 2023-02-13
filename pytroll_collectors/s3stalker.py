@@ -19,8 +19,9 @@
 
 import logging
 import posixpath
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
+# from dateutil import tz
 from contextlib import contextmanager
 import s3fs
 from posttroll.publisher import Publish
@@ -46,6 +47,7 @@ class S3StalkerRunner(Thread):
         self.config = config
         self.startup_timedelta_seconds = startup_timedelta_seconds
         self.time_back = self.config['timedelta']
+        self._timedelta = self.config['timedelta']
         self.publisher = None
         self.loop = False
         self._set_signal_shutdown()
@@ -73,27 +75,25 @@ class S3StalkerRunner(Thread):
         wait_seconds = waiting_time.total_seconds()
 
         first_run = True
-        config = self.config
         last_fetch_time = None
         while self.loop:
-            last_fetch_time = self.do_fetch_most_recent(last_fetch_time, first_run, config)
+            self._set_timedelta(last_fetch_time, first_run)
+
+            last_fetch_time = get_last_fetch()
+            logger.info("Last fetch time...: %s", str(last_fetch_time))
             first_run = False
+
+            self._process_messages()
+
             logger.debug("Waiting %d seconds", wait_seconds)
             time.sleep(max(wait_seconds, 0))
 
-    def do_fetch_most_recent(self, last_fetch_time, first_run, config):
-        """Do a fecth of the most recent files and create and send the messages."""
-        config['timedelta'] = self._get_timedelta(last_fetch_time, is_first_run=first_run)
+    def _set_timedelta(self, last_fetch_time, first_run):
+        self._timedelta = self._get_timedelta(last_fetch_time, is_first_run=first_run)
 
-        last_fetch_time = get_last_fetch()
-        logger.info("Last fetch time...: %s", str(last_fetch_time))
-
-        self._process_messages(config)
-        return last_fetch_time
-
-    def _process_messages(self, config):
+    def _process_messages(self):
         """Go through all messages in list and publish them one after the other."""
-        messages = create_messages_for_recent_files(self.bucket, config)
+        messages = create_messages_for_recent_files(self.bucket, self.config, self._timedelta)
         for message in messages:
             logger.info("Publishing %s", str(message))
             self.publisher.send(str(message))
@@ -117,6 +117,7 @@ class S3StalkerRunner(Thread):
             return seconds_back
 
         start_time = datetime.utcnow()
+        start_time = start_time.replace(tzinfo=timezone.utc)
         seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
         return max(seconds_back, seconds_to_last_file)
 
@@ -142,7 +143,7 @@ def sleeper(duration):
 class DatetimeHolder:
     """Holder for the last_fetch datetime."""
 
-    last_fetch = datetime.utcnow - timedelta(hours=12)
+    last_fetch = datetime.utcnow() - timedelta(hours=12)
 
 
 def get_last_files(path, *args, pattern=None, **kwargs):
@@ -192,14 +193,14 @@ def get_last_fetch():
     return DatetimeHolder.last_fetch
 
 
-def create_messages_for_recent_files(bucket, config):
+def create_messages_for_recent_files(bucket, config, time_back):
     """Create messages for recent files and return."""
     logger.debug("Create messages for recent files...")
-    time_back = config['timedelta']
     logger.debug("time_back = %s", str(time_back))
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):
+        # set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
         set_last_fetch(datetime.utcnow() - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
         fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
@@ -209,10 +210,10 @@ def create_messages_for_recent_files(bucket, config):
     return messages
 
 
-def publish_new_files(bucket, config):
+def publish_new_files(bucket, config, time_back):
     """Publish files newly arrived in bucket."""
     with Publish("s3_stalker") as pub:
-        messages = create_messages_for_recent_files(bucket, config)
+        messages = create_messages_for_recent_files(bucket, config, time_back)
         for message in messages:
             logger.info("Publishing %s", str(message))
             pub.send(str(message))
