@@ -35,6 +35,7 @@ import pytroll_collectors.fsspec_to_message
 from pytroll_collectors.s3stalker import S3StalkerRunner
 from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch
 from pytroll_collectors.s3stalker import _match_files_to_pattern
+from pytroll_collectors.s3stalker import create_messages_for_recent_files
 
 
 subject = "/my/great/subject/"
@@ -1130,6 +1131,39 @@ S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_ur
                      'file_pattern': 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5',  # noqa
                      'publisher': {'name': 's3stalker_runner'}}
 
+ATMS_FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5',
+               'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 173000, tzinfo=tzutc()),
+               'ETag': '"bb037828c47d28a30ce6d49e719b6c64"',
+               'Size': 155964,
+               'StorageClass': 'STANDARD',
+               'type': 'file',
+               'size': 155964,
+               'name': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5'},
+              {'Key': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5',
+               'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 834000, tzinfo=tzutc()),
+               'ETag': '"327b7e1300700f55268cc1f4dc133459"',
+               'Size': 156172,
+               'StorageClass': 'STANDARD',
+               'type': 'file',
+               'size': 156172,
+               'name': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5'},
+              {'Key': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5',
+               'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 86000, tzinfo=tzutc()),
+               'ETag': '"2fe59174e29627acd82a28716b18d92a"',
+               'Size': 168096,
+               'StorageClass': 'STANDARD',
+               'type': 'file',
+               'size': 168096,
+               'name': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5'},
+              {'Key': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5',
+               'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 798000, tzinfo=tzutc()),
+               'ETag': '"ffff983cdf767ab635a7ae51dc7d0626"',
+               'Size': 167928,
+               'StorageClass': 'STANDARD',
+               'type': 'file',
+               'size': 167928,
+               'name': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5'}]
+
 
 @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
 def test_s3stalker_runner_ini(_set_signal_shutdown):
@@ -1194,39 +1228,44 @@ def test_match_files_to_pattern():
     path = 'atms-sdr'
     pattern = 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5'  # noqa
 
-    FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5',
-              'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 173000, tzinfo=tzutc()),
-              'ETag': '"bb037828c47d28a30ce6d49e719b6c64"',
-              'Size': 155964,
-              'StorageClass': 'STANDARD',
-              'type': 'file',
-              'size': 155964,
-              'name': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5'},
-             {'Key': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5',
-              'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 834000, tzinfo=tzutc()),
-              'ETag': '"327b7e1300700f55268cc1f4dc133459"',
-              'Size': 156172,
-              'StorageClass': 'STANDARD',
-              'type': 'file',
-              'size': 156172,
-              'name': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5'},
-             {'Key': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5',
-              'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 86000, tzinfo=tzutc()),
-              'ETag': '"2fe59174e29627acd82a28716b18d92a"',
-              'Size': 168096,
-              'StorageClass': 'STANDARD',
-              'type': 'file',
-              'size': 168096,
-              'name': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5'},
-             {'Key': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5',
-              'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 798000, tzinfo=tzutc()),
-              'ETag': '"ffff983cdf767ab635a7ae51dc7d0626"',
-              'Size': 167928,
-              'StorageClass': 'STANDARD',
-              'type': 'file',
-              'size': 167928,
-              'name': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5'}]
+    res_files = _match_files_to_pattern(ATMS_FILES, path, pattern)
 
-    res_files = _match_files_to_pattern(FILES, path, pattern)
+    assert res_files == ATMS_FILES[0:2]
 
-    assert res_files == FILES[0:2]
+
+class TestS3StalkerRunner:
+    """Test the S3 Stalker Runner functionalities."""
+
+    def setup_method(self):
+        """Set up the test case."""
+        # s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
+        self.ls_output = deepcopy(ATMS_FILES)
+        start_time = datetime.datetime(2022, 12, 20, 12, 0)
+        now = datetime.datetime.utcnow()
+        self.delta_sec = (now - start_time).total_seconds()
+
+    @mock.patch('s3fs.S3FileSystem')
+    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
+    def test_create_messages_for_recent_files(self, signal_shutdown, s3_fs):
+        """Test create messages for recent files arriving in the bucket."""
+        signal_shutdown.return_value = None
+        s3_fs.return_value.ls.return_value = self.ls_output
+        s3_fs.return_value.to_json.return_value = fs_json
+
+        startup_timedelta_seconds = 2000
+        bucket = 'atms-sdr'
+
+        s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+
+        s3runner._timedelta = {'seconds': self.delta_sec}
+
+        result_msgs = create_messages_for_recent_files(s3runner.bucket, s3runner.config, s3runner._timedelta)
+
+        assert len(result_msgs) == 2
+        msg = result_msgs[0]
+        assert msg.data['orbit_number'] == '26363'
+        assert msg.data['platform_name'] == 'j01'
+        assert msg.data['frac_end'] == '6'
+        assert msg.data['start_time'] == datetime.datetime(2022, 12, 20, 12, 30, 56)
+        assert msg.data['end_time'] == datetime.datetime(1900, 1, 1, 12, 31, 27)
+        assert msg.data["process_time"] == "20221220124753607778"

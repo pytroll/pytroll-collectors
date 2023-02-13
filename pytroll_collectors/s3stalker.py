@@ -21,7 +21,7 @@ import logging
 import posixpath
 from datetime import datetime, timedelta, timezone
 import time
-# from dateutil import tz
+from dateutil import tz
 from contextlib import contextmanager
 import s3fs
 from posttroll.publisher import Publish
@@ -200,8 +200,8 @@ def create_messages_for_recent_files(bucket, config, time_back):
     subject = config['subject']
     pattern = config.get('file_pattern')
     with sleeper(2.5):
-        # set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
-        set_last_fetch(datetime.utcnow() - timedelta(**time_back))
+        set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+        # set_last_fetch(datetime.utcnow() - timedelta(**time_back))
         s3_kwargs = config['s3_kwargs']
         fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
         messages = filelist_unzip_to_messages(fs_, files, subject)
