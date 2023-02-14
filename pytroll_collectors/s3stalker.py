@@ -67,7 +67,6 @@ def _reset_last_fetch_from_file_list(files):
 
 def _get_files_since_last_fetch(fs, path):
     files = fs.ls(path, detail=True)
-    logger.warning(str(files))
     files = list(filter((lambda x: x['LastModified'] > DatetimeHolder.last_fetch), files))
     return files
 
