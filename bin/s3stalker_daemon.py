@@ -32,7 +32,7 @@ import yaml
 import sys
 
 from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.s3stalker import S3StalkerRunner
+from pytroll_collectors.s3stalker_daemon_runner import S3StalkerRunner
 
 logger = logging.getLogger(__name__)
 
