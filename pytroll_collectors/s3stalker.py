@@ -70,7 +70,7 @@ class S3StalkerRunner(Thread):
 
     def run(self):
         """Start the s3-stalker daemon/runner in a thread."""
-        logger.info("Starting up... ")
+        logger.info("Starting up s3stalker.")
         self._setup_and_start_communication()
 
         first_run = True
