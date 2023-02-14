@@ -79,7 +79,7 @@ class S3StalkerRunner(Thread):
             self._set_timedelta(last_fetch_time, first_run)
 
             last_fetch_time = get_last_fetch()
-            logger.info("Last fetch time...: %s", str(last_fetch_time))
+            logger.debug("Last fetch time...: %s", str(last_fetch_time))
             first_run = False
 
             self._process_messages()
