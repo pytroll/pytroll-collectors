@@ -50,6 +50,7 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
+CONFIG_NWCSAF_GEO = ini_to_dict(os.path.join(THIS_DIR, "data/segments_nwcsaf_geo.ini"), "nwcsaf_geo")
 LOGGING_ERROR = logging.ERROR
 
 fake_config = {
@@ -119,6 +120,8 @@ class TestSegmentGatherer(unittest.TestCase):
         self.mda_msg0deg_file_scheme = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "file:///home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
+        self.mda_nwcsaf_geo = {"product": "CRR-Ph", "sensor": "nwc_saf_geo", "platform_name": "Meteosat-11", "start_time": dt.datetime(2023, 2, 14, 13, 0, 0), "uri": "file:///data/S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc", "uid": "S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc"}  # noqa
+
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
@@ -126,6 +129,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
         self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+        self.nwcsaf_geo = SegmentGatherer(CONFIG_NWCSAF_GEO)
 
     def test_init(self):
         """Test init."""
@@ -250,6 +254,19 @@ class TestSegmentGatherer(unittest.TestCase):
             parser,
             self.goes_ini._patterns['goes16']['critical_files'])
         self.assertEqual(len(fname_set), 0)
+
+        # NWC SAF GEO, where a segment name has a dash in it (CRR-Ph)
+        mda = self.mda_nwcsaf_geo.copy()
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.nwcsaf_geo._patterns['nwcsaf_geo'])
+        self.nwcsaf_geo._create_slot(message)
+        slot_str = str(mda["start_time"])
+        slot = self.nwcsaf_geo.slots[slot_str]
+        parser = self.nwcsaf_geo._patterns['nwcsaf_geo'].parser
+        fname_set = slot.compose_filenames(
+            parser,
+            self.nwcsaf_geo._patterns['nwcsaf_geo']['critical_files'])
+        self.assertTrue("S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc" in fname_set)
 
     def test_update_timeout(self):
         """Test updating the timeout."""
