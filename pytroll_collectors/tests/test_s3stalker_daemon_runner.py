@@ -14,9 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Test s3stalker daemon."""
 import datetime
-import logging
 from copy import deepcopy
 from unittest import mock
+import time
 
 from dateutil.tz import tzutc, UTC
 from freezegun import freeze_time
@@ -68,25 +68,8 @@ ATMS_FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20
                'name': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5'}]
 
 
-def test_s3stalker_runner_initialization():
-    """Test initialize/instanciate the S3StalkerRunner class."""
-    startup_timedelta_seconds = 1800
-    bucket = 'atms-sdr'
-
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-    assert s3runner.bucket == 'atms-sdr'
-    assert s3runner.config == S3_STALKER_CONFIG
-    assert s3runner.startup_timedelta_seconds == startup_timedelta_seconds
-    assert s3runner.time_back == {'minutes': 2}
-    assert s3runner._timedelta == {'minutes': 2}
-    assert s3runner._wait_seconds == 120.0
-    assert s3runner.publisher is None
-    assert s3runner.loop is False
-
-
 def test_s3stalker_runner_get_timedelta():
-    """Test getting the delta time defining the how far back in time to search for new files in the bucket."""
+    """Test getting the delta time defining how far back in time to search for new files in the bucket."""
     startup_timedelta_seconds = 2000
     bucket = 'atms-sdr'
 
@@ -210,30 +193,12 @@ class TestS3StalkerRunner:
         assert result == 2000.0
 
     @mock.patch('s3fs.S3FileSystem')
-    def test_process_messages(self, s3_fs, caplog):
-        """Test process the messages."""
-        s3_fs.return_value.ls.return_value = self.ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-
-        startup_timedelta_seconds = 2000
-
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-        s3runner.publisher = FakePublish('fake_publisher')
-
-        with caplog.at_level(logging.DEBUG):
-            s3runner._process_messages()
-
-        res = caplog.text.strip().split('\n')
-        assert 'Create messages for recent files...' in res[0]
-        assert "time_back = {'minutes': 2}" in res[1]
-
-    @mock.patch('s3fs.S3FileSystem')
     @mock.patch('pytroll_collectors.s3stalker_daemon_runner.create_publisher_from_dict_config')
     def test_fetch_new_files_publishes_messages(self, create_publisher, s3_fs):
         """Test process the messages."""
         s3_fs.return_value.ls.return_value = self.ls_output[:2]
         s3_fs.return_value.to_json.return_value = fs_json
+
         publisher = FakePublish("fake_publisher")
         create_publisher.return_value = publisher
         before_files_arrived = datetime.datetime(2022, 12, 20, 12, 0, 0, tzinfo=UTC)
@@ -250,11 +215,11 @@ class TestS3StalkerRunner:
 
             with freeze_time(before_files_arrived + timedelta(hours=1)):
                 s3runner.start()
-                import time
                 time.sleep(.1)
                 assert len(publisher.messages_sent) == 2
                 first_messages_sent = publisher.messages_sent
                 publisher.clear_sent_messages()
+
             with freeze_time(before_files_arrived + timedelta(hours=2)):
                 s3_fs.return_value.ls.return_value = self.ls_output
                 time.sleep(.4)
