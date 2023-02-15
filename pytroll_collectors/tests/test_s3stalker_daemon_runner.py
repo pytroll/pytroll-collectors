@@ -122,16 +122,15 @@ class TestS3StalkerRunner:
         publisher = FakePublisher("fake_publisher")
         create_publisher.return_value = publisher
         before_files_arrived = datetime.datetime(2022, 12, 20, 12, 0, 0, tzinfo=UTC)
-        from pytroll_collectors.s3stalker import set_last_fetch
-        set_last_fetch(before_files_arrived)
 
         stalker_config = S3_STALKER_CONFIG.copy()
-        stalker_config["polling_interval"] = dict(seconds=.5)
+        stalker_config["polling_interval"] = dict(seconds=.2)
 
+        s3runner = None
         try:
 
             with freeze_time(before_files_arrived + datetime.timedelta(hours=1)):
-                s3runner = S3StalkerRunner(self.bucket, stalker_config)
+                s3runner = S3StalkerRunner(self.bucket, stalker_config, 0)
                 s3runner.start()
                 time.sleep(.1)
                 assert len(publisher.messages_sent) == 2
@@ -140,8 +139,9 @@ class TestS3StalkerRunner:
 
             with freeze_time(before_files_arrived + datetime.timedelta(hours=2)):
                 s3_fs.return_value.ls.return_value = self.ls_output
-                time.sleep(.5)
+                time.sleep(.1)
                 assert len(publisher.messages_sent) == 2
                 assert publisher.messages_sent != first_messages_sent
         finally:
-            s3runner.close()
+            if s3runner:
+                s3runner.close()

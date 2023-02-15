@@ -22,43 +22,41 @@ from dateutil.tz import UTC
 
 from posttroll.publisher import create_publisher_from_dict_config
 
-from pytroll_collectors.s3stalker import logger, get_last_fetch, create_messages_for_recent_files, set_last_fetch
+from pytroll_collectors.s3stalker import logger, create_messages_for_recent_files, set_last_fetch, sleeper
 
 
 class S3StalkerRunner(Thread):
     """Runner for stalking for new files in an S3 object store."""
 
-    def __init__(self, bucket, config):
+    def __init__(self, bucket, config, publisher_ready_time=2.5):
         """Initialize the S3Stalker runner class."""
         super().__init__()
 
         self.bucket = bucket
-        self.config = config
-        startup_time = timedelta(**self.config.pop("fetch_back_to"))
-        self.startup_timedelta_seconds = startup_time.total_seconds()
-        self.time_back = self.config.pop('polling_interval')
-        self._timedelta = self.time_back
-        self._wait_seconds = timedelta(**self.time_back).total_seconds()
+        startup_time = timedelta(**config.pop("fetch_back_to"))
 
-        self.publisher = None
+        self._wait_seconds = timedelta(**config.pop('polling_interval')).total_seconds()
+
+        self.config = config
+
+        self._publisher_ready_time = publisher_ready_time
+        self._publisher = None
         self.loop = False
         self._set_signal_shutdown()
+
         last_fetch_time = datetime.now(UTC) - startup_time
         set_last_fetch(last_fetch_time)
 
     def _set_signal_shutdown(self):
         """Set a signal to handle shutdown."""
-        signal.signal(signal.SIGTERM, self.signal_shutdown)
+        signal.signal(signal.SIGTERM, self.close)
 
     def _setup_and_start_communication(self):
         """Set up the Posttroll communication and start the publisher."""
-        self.publisher = create_publisher_from_dict_config(self.config['publisher'])
-        self.publisher.start()
+        self._publisher = create_publisher_from_dict_config(self.config['publisher'])
+        with sleeper(self._publisher_ready_time):
+            self._publisher.start()
         self.loop = True
-
-    def signal_shutdown(self, *args, **kwargs):
-        """Shutdown the S3 Stalker daemon/runner."""
-        self.close()
 
     def run(self):
         """Start the s3-stalker daemon/runner in a thread."""
@@ -66,25 +64,22 @@ class S3StalkerRunner(Thread):
         self._setup_and_start_communication()
 
         while self.loop:
-
-            last_fetch_time = get_last_fetch()
-            logger.debug("Last fetch time...: %s", str(last_fetch_time))
-
             self._fetch_bucket_content_and_publish_new_files()
 
-            logger.debug("Waiting %d seconds", self._wait_seconds)
-            time.sleep(max(self._wait_seconds, 0))
+            wait_time = max(self._wait_seconds, 0)
+            logger.debug(f"Waiting {wait_time} seconds to poll again.")
+            time.sleep(wait_time)
 
     def _fetch_bucket_content_and_publish_new_files(self):
         """Go through all messages in list and publish them one after the other."""
         messages = create_messages_for_recent_files(self.bucket, self.config)
         for message in messages:
             logger.info("Publishing %s", str(message))
-            self.publisher.send(str(message))
+            self._publisher.send(str(message))
 
-    def close(self):
+    def close(self, *args, **kwargs):
         """Shutdown the S3Stalker runner."""
         logger.info('Terminating the S3 Stalker daemon/runner.')
         self.loop = False
-        if self.publisher:
-            self.publisher.stop()
+        if self._publisher:
+            self._publisher.stop()
