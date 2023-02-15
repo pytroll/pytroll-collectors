@@ -12,7 +12,23 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""S3stalker daemon."""
+"""S3stalker daemon.
+
+The contents of the yaml configuration file should look like this::
+
+    s3_kwargs:
+      anon: false
+      client_kwargs:
+        aws_access_key_id: my_accesskey
+        aws_secret_access_key: my_secret_key
+        endpoint_url: https://xxx.yyy.zz
+    fetch_back_to:
+      hours: 20
+    polling_interval:
+      minutes: 2
+    file_pattern: '{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_{collection:3s}.zip'
+    subject: /segment/2/safe-olci/S3/
+"""  # noqa
 import signal
 import time
 from datetime import timedelta, datetime
@@ -41,7 +57,7 @@ class S3StalkerRunner(Thread):
 
         self._publisher_ready_time = publisher_ready_time
         self._publisher = None
-        self.loop = False
+        self.loop = True
         self._set_signal_shutdown()
 
         last_fetch_time = datetime.now(UTC) - startup_time
@@ -51,17 +67,16 @@ class S3StalkerRunner(Thread):
         """Set a signal to handle shutdown."""
         signal.signal(signal.SIGTERM, self.close)
 
-    def _setup_and_start_communication(self):
+    def _start_communication(self):
         """Set up the Posttroll communication and start the publisher."""
         self._publisher = create_publisher_from_dict_config(self.config['publisher'])
         with sleeper(self._publisher_ready_time):
             self._publisher.start()
-        self.loop = True
 
     def run(self):
         """Start the s3-stalker daemon/runner in a thread."""
         logger.info("Starting up s3stalker.")
-        self._setup_and_start_communication()
+        self._start_communication()
 
         while self.loop:
             self._fetch_bucket_content_and_publish_new_files()

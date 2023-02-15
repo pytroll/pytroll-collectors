@@ -15,7 +15,21 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Module to find new files on an s3 bucket."""
+"""Module to find new files on an s3 bucket.
+
+The contents of the yaml configuration file should look like this::
+
+    s3_kwargs:
+      anon: false
+      client_kwargs:
+        aws_access_key_id: my_accesskey
+        aws_secret_access_key: my_secret_key
+        endpoint_url: https://xxx.yyy.zz
+    fetch_back_to:
+      hours: 20
+    file_pattern: '{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_{collection:3s}.zip'
+    subject: /segment/2/safe-olci/S3/
+"""  # noqa
 
 import logging
 import posixpath
