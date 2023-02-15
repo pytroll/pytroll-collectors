@@ -307,9 +307,13 @@ class Slot:
                 format_string = '%d'
                 if len(segments[0]) > 1 and segments[0][0] == '0':
                     format_string = '%0' + str(len(segments[0])) + 'd'
-                segments = [format_string % i
-                            for i in range(int(segments[0]),
-                                           int(segments[-1]) + 1)]
+                try:
+                    segments = [format_string % i
+                                for i in range(int(segments[0]),
+                                               int(segments[-1]) + 1)]
+                except ValueError:
+                    # The segment name had a dash, it wasn't a range
+                    segments = ['-'.join(segments)]
             meta['channel_name'] = channel_name
             for seg in segments:
                 meta['segment'] = seg
