@@ -49,6 +49,16 @@ class DatetimeHolder:
     last_fetch = datetime.now(tz.UTC) - timedelta(hours=12)
 
 
+def set_last_fetch(timestamp):
+    """Set the last fetch time."""
+    DatetimeHolder.last_fetch = timestamp
+
+
+def get_last_fetch():
+    """Get the last fetch time."""
+    return DatetimeHolder.last_fetch
+
+
 def get_last_files(path, *args, pattern=None, **kwargs):
     """Get the last files from path (s3 bucket and directory)."""
     kwargs['skip_instance_cache'] = True
@@ -67,7 +77,8 @@ def _reset_last_fetch_from_file_list(files):
 
 def _get_files_since_last_fetch(fs, path):
     files = fs.ls(path, detail=True)
-    files = list(filter((lambda x: x['LastModified'] > DatetimeHolder.last_fetch), files))
+    logger.debug(f"Get files since {get_last_fetch}")
+    files = list(filter((lambda x: x['LastModified'] > get_last_fetch()), files))
     return files
 
 
@@ -86,38 +97,26 @@ def _match_files_to_pattern(files, path, pattern):
     return files
 
 
-def set_last_fetch(timestamp):
-    """Set the last fetch time."""
-    DatetimeHolder.last_fetch = timestamp
-
-
-def get_last_fetch():
-    """Get the last fetch time."""
-    return DatetimeHolder.last_fetch
-
-
 def publish_new_files(bucket, config, publisher_ready_time=2.5):
     """Publish files newly arrived in bucket."""
     time_back = config.pop('fetch_back_to')
-    fetch_epoch = datetime.now(tz.UTC) - timedelta(**time_back)
+    set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
     with Publish("s3_stalker") as pub:
         with sleeper(publisher_ready_time):
-            messages = create_messages_for_recent_files(bucket, config, fetch_epoch)
+            messages = create_messages_for_recent_files(bucket, config)
         for message in messages:
             logger.info("Publishing %s", str(message))
             pub.send(str(message))
 
 
-def create_messages_for_recent_files(bucket, config, last_fetch_time):
+def create_messages_for_recent_files(bucket, config):
     """Create messages for recent files and return."""
     logger.debug("Create messages for recent files...")
 
-    logger.debug(f"Setting last fetch to {last_fetch_time}")
+    logger.debug(f"Last fetch is {get_last_fetch()}")
     subject = config['subject']
     pattern = config.get('file_pattern')
-    set_last_fetch(last_fetch_time)
     s3_kwargs = config['s3_kwargs']
     fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
     messages = filelist_unzip_to_messages(fs_, files, subject)
-
     return messages

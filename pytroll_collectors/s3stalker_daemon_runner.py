@@ -15,14 +15,14 @@
 """S3stalker daemon."""
 import signal
 import time
-from datetime import timedelta, datetime, timezone
+from datetime import timedelta, datetime
 from threading import Thread
 
 from dateutil.tz import UTC
 
 from posttroll.publisher import create_publisher_from_dict_config
 
-from pytroll_collectors.s3stalker import logger, get_last_fetch, create_messages_for_recent_files
+from pytroll_collectors.s3stalker import logger, get_last_fetch, create_messages_for_recent_files, set_last_fetch
 
 
 class S3StalkerRunner(Thread):
@@ -34,14 +34,17 @@ class S3StalkerRunner(Thread):
 
         self.bucket = bucket
         self.config = config
-        self.startup_timedelta_seconds = timedelta(**self.config.pop("fetch_back_to")).total_seconds()
-        self.time_back = self.config['polling_interval']
-        self._timedelta = self.config['polling_interval']
+        startup_time = timedelta(**self.config.pop("fetch_back_to"))
+        self.startup_timedelta_seconds = startup_time.total_seconds()
+        self.time_back = self.config.pop('polling_interval')
+        self._timedelta = self.time_back
         self._wait_seconds = timedelta(**self.time_back).total_seconds()
 
         self.publisher = None
         self.loop = False
         self._set_signal_shutdown()
+        last_fetch_time = datetime.now(UTC) - startup_time
+        set_last_fetch(last_fetch_time)
 
     def _set_signal_shutdown(self):
         """Set a signal to handle shutdown."""
@@ -62,51 +65,22 @@ class S3StalkerRunner(Thread):
         logger.info("Starting up s3stalker.")
         self._setup_and_start_communication()
 
-        first_run = True
-        last_fetch_time = None
         while self.loop:
-            self._set_timedelta(last_fetch_time, first_run)
 
             last_fetch_time = get_last_fetch()
             logger.debug("Last fetch time...: %s", str(last_fetch_time))
-            first_run = False
 
             self._fetch_bucket_content_and_publish_new_files()
 
             logger.debug("Waiting %d seconds", self._wait_seconds)
             time.sleep(max(self._wait_seconds, 0))
 
-    def _set_timedelta(self, last_fetch_time, first_run):
-        self._timedelta = self._get_timedelta(last_fetch_time, is_first_run=first_run)
-
     def _fetch_bucket_content_and_publish_new_files(self):
         """Go through all messages in list and publish them one after the other."""
-        last_fetch_time = datetime.now(UTC) - timedelta(**self._timedelta)
-        messages = create_messages_for_recent_files(self.bucket, self.config, last_fetch_time)
+        messages = create_messages_for_recent_files(self.bucket, self.config)
         for message in messages:
             logger.info("Publishing %s", str(message))
             self.publisher.send(str(message))
-
-    def _get_timedelta(self, last_fetch_time, is_first_run):
-        """Get the seconds for the time window to search for (new) files."""
-        if is_first_run:
-            logger.info('Create messages with urls for most recent files only')
-            logger.info('On start up we consider files with age up to %d seconds from now',
-                        self.startup_timedelta_seconds)
-            return {'seconds': self.startup_timedelta_seconds}
-
-        seconds_back = self._get_seconds_back_to_search(last_fetch_time)
-        return {'seconds': seconds_back}
-
-    def _get_seconds_back_to_search(self, last_fetch_time):
-        """Update the time to look back considering also the modification time of the last file."""
-        if last_fetch_time is None:
-            return self._wait_seconds
-
-        start_time = datetime.utcnow()
-        start_time = start_time.replace(tzinfo=timezone.utc)
-        seconds_to_last_file = (start_time - last_fetch_time).total_seconds()
-        return max(self._wait_seconds, seconds_to_last_file)
 
     def close(self):
         """Shutdown the S3Stalker runner."""
