@@ -18,6 +18,8 @@ import time
 from datetime import timedelta, datetime, timezone
 from threading import Thread
 
+from dateutil.tz import UTC
+
 from posttroll.publisher import create_publisher_from_dict_config
 
 from pytroll_collectors.s3stalker import logger, get_last_fetch, create_messages_for_recent_files
@@ -26,15 +28,15 @@ from pytroll_collectors.s3stalker import logger, get_last_fetch, create_messages
 class S3StalkerRunner(Thread):
     """Runner for stalking for new files in an S3 object store."""
 
-    def __init__(self, bucket, config, startup_timedelta_seconds):
+    def __init__(self, bucket, config):
         """Initialize the S3Stalker runner class."""
         super().__init__()
 
         self.bucket = bucket
         self.config = config
-        self.startup_timedelta_seconds = startup_timedelta_seconds
-        self.time_back = self.config['timedelta']
-        self._timedelta = self.config['timedelta']
+        self.startup_timedelta_seconds = timedelta(**self.config.pop("fetch_back_to")).total_seconds()
+        self.time_back = self.config['polling_interval']
+        self._timedelta = self.config['polling_interval']
         self._wait_seconds = timedelta(**self.time_back).total_seconds()
 
         self.publisher = None
@@ -69,7 +71,7 @@ class S3StalkerRunner(Thread):
             logger.debug("Last fetch time...: %s", str(last_fetch_time))
             first_run = False
 
-            self._process_messages()
+            self._fetch_bucket_content_and_publish_new_files()
 
             logger.debug("Waiting %d seconds", self._wait_seconds)
             time.sleep(max(self._wait_seconds, 0))
@@ -77,9 +79,10 @@ class S3StalkerRunner(Thread):
     def _set_timedelta(self, last_fetch_time, first_run):
         self._timedelta = self._get_timedelta(last_fetch_time, is_first_run=first_run)
 
-    def _process_messages(self):
+    def _fetch_bucket_content_and_publish_new_files(self):
         """Go through all messages in list and publish them one after the other."""
-        messages = create_messages_for_recent_files(self.bucket, self.config, self._timedelta)
+        last_fetch_time = datetime.now(UTC) - timedelta(**self._timedelta)
+        messages = create_messages_for_recent_files(self.bucket, self.config, last_fetch_time)
         for message in messages:
             logger.info("Publishing %s", str(message))
             self.publisher.send(str(message))

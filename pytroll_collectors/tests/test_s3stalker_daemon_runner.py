@@ -25,15 +25,17 @@ import pytroll_collectors.s3stalker_daemon_runner
 from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch, _match_files_to_pattern, \
     create_messages_for_recent_files
 from pytroll_collectors.s3stalker_daemon_runner import S3StalkerRunner
-from pytroll_collectors.tests.test_s3stalker import fs_json
+from pytroll_collectors.tests.test_s3stalker import fs_json, FakePublisher
 
 S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_url': 'https://xxx.yyy.zz',
                                                                     'aws_access_key_id': 'my_accesskey',
                                                                     'aws_secret_access_key': 'my_secret_key'}},
-                     'timedelta': {'minutes': 2},
+                     'fetch_back_to': {'hours': 1},
+                     'polling_interval': {'minutes': 2},
                      'subject': '/yuhu',
                      'file_pattern': 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5',  # noqa
                      'publisher': {'name': 's3stalker_runner'}}
+
 ATMS_FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5',
                'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 173000, tzinfo=tzutc()),
                'ETag': '"bb037828c47d28a30ce6d49e719b6c64"',
@@ -70,10 +72,12 @@ ATMS_FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20
 
 def test_s3stalker_runner_get_timedelta():
     """Test getting the delta time defining how far back in time to search for new files in the bucket."""
-    startup_timedelta_seconds = 2000
     bucket = 'atms-sdr'
+    startup_timedelta_seconds = 2000
 
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+    config = S3_STALKER_CONFIG.copy()
+    config["fetch_back_to"] = {"seconds": startup_timedelta_seconds}
+    s3runner = S3StalkerRunner(bucket, config)
 
     last_fetch_time = None
     first_run = True
@@ -82,7 +86,8 @@ def test_s3stalker_runner_get_timedelta():
     assert result == {'seconds': 2000}
 
 
-@mock.patch.object(pytroll_collectors.s3stalker_daemon_runner.S3StalkerRunner, '_process_messages')
+@mock.patch.object(pytroll_collectors.s3stalker_daemon_runner.S3StalkerRunner,
+                   '_fetch_bucket_content_and_publish_new_files')
 @freeze_time('2022-12-20 10:10:0')
 def test_do_fetch_most_recent(process_messages):
     """Test getting the time of the last files fetch."""
@@ -91,7 +96,7 @@ def test_do_fetch_most_recent(process_messages):
     startup_timedelta_seconds = 3600
     bucket = 'atms-sdr'
 
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG.copy())
 
     set_last_fetch(datetime.datetime.now(UTC) - datetime.timedelta(seconds=startup_timedelta_seconds))
 
@@ -113,33 +118,6 @@ def test_match_files_to_pattern():
     assert res_files == ATMS_FILES[0:2]
 
 
-class FakePublish:
-    """A fake publish class with a dummy send method."""
-
-    def __init__(self, _dummy):
-        """Initialize the fake publisher class."""
-        self.messages_sent = []
-
-    def send(self, msg):
-        """Faking the sending of a message."""
-        self.messages_sent.append(msg)
-        return msg
-
-    def __call__(self, msg):
-        """Faking a call method."""
-        return self.send(msg)
-
-    def clear_sent_messages(self):
-        """Clear the sent messages."""
-        self.messages_sent = []
-
-    def start(self):
-        """Start the publisher."""
-
-    def stop(self):
-        """Stop the publisher."""
-
-
 class TestS3StalkerRunner:
     """Test the S3 Stalker Runner functionalities."""
 
@@ -158,13 +136,11 @@ class TestS3StalkerRunner:
         s3_fs.return_value.ls.return_value = self.ls_output
         s3_fs.return_value.to_json.return_value = fs_json
 
-        startup_timedelta_seconds = 2000
-
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
+        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG.copy())
 
         s3runner._timedelta = {'seconds': self.delta_sec}
-
-        result_msgs = create_messages_for_recent_files(s3runner.bucket, s3runner.config, s3runner._timedelta)
+        last_fetch_time = datetime.datetime.now(UTC) - datetime.timedelta(**s3runner._timedelta)
+        result_msgs = create_messages_for_recent_files(s3runner.bucket, s3runner.config, last_fetch_time)
 
         assert len(result_msgs) == 2
         msg = result_msgs[0]
@@ -180,9 +156,9 @@ class TestS3StalkerRunner:
         """Test get seconds back in time to search for new files."""
         startup_timedelta_seconds = 2000
 
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-        s3runner._timedelta = {'seconds': self.delta_sec}
+        config = S3_STALKER_CONFIG.copy()
+        config["fetch_back_to"] = {"seconds": startup_timedelta_seconds}
+        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG.copy())
 
         result = s3runner._get_seconds_back_to_search(None)
         assert result == 120.0
@@ -199,28 +175,26 @@ class TestS3StalkerRunner:
         s3_fs.return_value.ls.return_value = self.ls_output[:2]
         s3_fs.return_value.to_json.return_value = fs_json
 
-        publisher = FakePublish("fake_publisher")
+        publisher = FakePublisher("fake_publisher")
         create_publisher.return_value = publisher
         before_files_arrived = datetime.datetime(2022, 12, 20, 12, 0, 0, tzinfo=UTC)
         from pytroll_collectors.s3stalker import set_last_fetch
         set_last_fetch(before_files_arrived)
 
         stalker_config = S3_STALKER_CONFIG.copy()
-        stalker_config["timedelta"] = dict(seconds=.5)
+        stalker_config["polling_interval"] = dict(seconds=.5)
 
-        startup_timedelta_seconds = 3600
-        from datetime import timedelta
-        s3runner = S3StalkerRunner(self.bucket, stalker_config, startup_timedelta_seconds)
+        s3runner = S3StalkerRunner(self.bucket, stalker_config)
         try:
 
-            with freeze_time(before_files_arrived + timedelta(hours=1)):
+            with freeze_time(before_files_arrived + datetime.timedelta(hours=1)):
                 s3runner.start()
                 time.sleep(.1)
                 assert len(publisher.messages_sent) == 2
                 first_messages_sent = publisher.messages_sent
                 publisher.clear_sent_messages()
 
-            with freeze_time(before_files_arrived + timedelta(hours=2)):
+            with freeze_time(before_files_arrived + datetime.timedelta(hours=2)):
                 s3_fs.return_value.ls.return_value = self.ls_output
                 time.sleep(.4)
                 assert len(publisher.messages_sent) == 2

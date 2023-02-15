@@ -24,15 +24,12 @@
 import datetime
 from unittest import mock
 from copy import deepcopy
+from contextlib import contextmanager
+from freezegun import freeze_time
 
 from dateutil.tz import tzutc
 
 import pytroll_collectors.fsspec_to_message
-
-FAKE_MESSAGES = []
-FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 30, 56), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 27), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124753607778'}""")  # noqa
-FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 31, 28), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 59), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124754976465'}""")  # noqa
-
 
 subject = "/my/great/subject/"
 
@@ -1062,3 +1059,73 @@ def filelist_unzip_to_messages(fs, files):
         zip_fs.return_value.return_value.find.return_value = zip_content
         zip_fs.return_value.return_value.to_json.return_value = zip_json
         return pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+
+
+S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_url': 'https://xxx.yyy.zz',
+                                                                    'aws_access_key_id': 'my_accesskey',
+                                                                    'aws_secret_access_key': 'my_secret_key'}},
+                     "fetch_back_to": {"hours": 20},
+                     "subject": "/segment/2/safe-olci/S3/",
+                     "file_pattern": ("{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_"
+                                      "{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_"
+                                      "{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_"
+                                      "{collection:3s}.zip")}
+
+
+@contextmanager
+def FakePublish(topic, publisher):
+    """Make a fake Publish context."""
+    yield publisher
+
+
+@mock.patch('s3fs.S3FileSystem')
+def test_publish_new_files(s3_fs):
+    """Test that publish_new_files actually publishes files."""
+    publisher = FakePublisher("fake publisher")
+    from functools import partial
+    fake_publish = partial(FakePublish, publisher=publisher)
+    with mock.patch('pytroll_collectors.s3stalker.Publish', new=fake_publish):
+        s3_fs.return_value.to_json.return_value = fs_json
+        s3_fs.return_value.ls.return_value = deepcopy(ls_output)
+        with mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class') as zip_fs:
+            zip_fs.return_value.return_value.find.return_value = zip_content
+            zip_fs.return_value.return_value.to_json.return_value = zip_json
+            from pytroll_collectors.s3stalker import publish_new_files
+            with freeze_time('2020-11-21 14:00:00'):
+                publish_new_files("sentinel-s3-ol2wfr-zips/2020/11/21",
+                                  S3_STALKER_CONFIG.copy(),
+                                  publisher_ready_time=0)
+                assert len(publisher.messages_sent) == 8
+            with freeze_time('2020-11-24 14:00:00'):
+                publisher.clear_sent_messages()
+                publish_new_files("sentinel-s3-ol2wfr-zips/2020/11/21",
+                                  S3_STALKER_CONFIG.copy(),
+                                  publisher_ready_time=0)
+                assert len(publisher.messages_sent) == 0
+
+
+class FakePublisher:
+    """A fake publish class with a dummy send method."""
+
+    def __init__(self, _dummy):
+        """Initialize the fake publisher class."""
+        self.messages_sent = []
+
+    def send(self, msg):
+        """Faking the sending of a message."""
+        self.messages_sent.append(msg)
+        return msg
+
+    def __call__(self, msg):
+        """Faking a call method."""
+        return self.send(msg)
+
+    def clear_sent_messages(self):
+        """Clear the sent messages."""
+        self.messages_sent = []
+
+    def start(self):
+        """Start the publisher."""
+
+    def stop(self):
+        """Stop the publisher."""

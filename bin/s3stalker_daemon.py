@@ -42,10 +42,6 @@ def arg_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("bucket", help="The bucket to retrieve from.")
     parser.add_argument("config", help="Config file to be used")
-    parser.add_argument("-s", "--startup_timedelta_seconds",
-                        type=int,
-                        help="The time window in seconds back in time on start up (default=3600)",
-                        default=3600)
     parser.add_argument("-l", "--log",
                         help="Log configuration file",
                         default=None)
@@ -59,7 +55,6 @@ def main():
 
     bucket = args.bucket
     config = read_yaml(args.config)
-    startup_timedelta_seconds = args.startup_timedelta_seconds
 
     if args.log is not None:
         with open(args.log) as fd:
@@ -68,7 +63,7 @@ def main():
 
     logger.info("Try start the s3-stalker runner:")
     try:
-        s3runner = S3StalkerRunner(bucket, config, startup_timedelta_seconds)
+        s3runner = S3StalkerRunner(bucket, config)
         s3runner.start()
         s3runner.join()
     except KeyboardInterrupt:

@@ -96,24 +96,26 @@ def get_last_fetch():
     return DatetimeHolder.last_fetch
 
 
-def publish_new_files(bucket, config):
+def publish_new_files(bucket, config, publisher_ready_time=2.5):
     """Publish files newly arrived in bucket."""
-    time_back = config['timedelta']
+    time_back = config.pop('fetch_back_to')
+    fetch_epoch = datetime.now(tz.UTC) - timedelta(**time_back)
     with Publish("s3_stalker") as pub:
-        with sleeper(2.5):
-            messages = create_messages_for_recent_files(bucket, config, time_back)
+        with sleeper(publisher_ready_time):
+            messages = create_messages_for_recent_files(bucket, config, fetch_epoch)
         for message in messages:
             logger.info("Publishing %s", str(message))
             pub.send(str(message))
 
 
-def create_messages_for_recent_files(bucket, config, time_back):
+def create_messages_for_recent_files(bucket, config, last_fetch_time):
     """Create messages for recent files and return."""
     logger.debug("Create messages for recent files...")
-    logger.debug("time_back = %s", str(time_back))
+
+    logger.debug(f"Setting last fetch to {last_fetch_time}")
     subject = config['subject']
     pattern = config.get('file_pattern')
-    set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+    set_last_fetch(last_fetch_time)
     s3_kwargs = config['s3_kwargs']
     fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
     messages = filelist_unzip_to_messages(fs_, files, subject)
