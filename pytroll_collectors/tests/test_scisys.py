@@ -33,7 +33,7 @@ from copy import deepcopy
 import tempfile
 
 from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
-from pytroll_collectors.scisys import _get_subject_from_msg2send
+from pytroll_collectors.scisys import get_subject_from_msg2send
 
 hostname = 'localhost'
 
@@ -291,7 +291,7 @@ def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name):
     topic_postfix = None
     station = 'nrk'
     environment = 'dev'
-    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
 
     assert subject == "/{sensor}/RDR/0/nrk/dev/polar/direct_readout".format(sensor=sensor_name)
 
@@ -311,7 +311,7 @@ def test_get_subject_from_msg2send_with_postfix_topic(sensor, sensor_name):
     station = 'nrk'
     environment = 'dev'
     topic_postfix = 'my_topic'
-    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
 
     assert subject == "/{sensor}/RDR/0/my_topic".format(sensor=sensor_name)
 
@@ -329,7 +329,7 @@ def test_get_subject_from_msg2send_empty_postfix_topic():
     station = 'nrk'
     environment = 'dev'
     topic_postfix = ''
-    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
 
     assert subject == "/atms/RDR/0/"
 
@@ -348,5 +348,5 @@ def test_get_subject_from_msg2send_avhrr3():
     environment = 'dev'
     topic_postfix = ''
 
-    subject = _get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
     assert subject == "/HRPT/0/"
