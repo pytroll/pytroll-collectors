@@ -22,26 +22,14 @@
 """Tests for s3stalker."""
 
 import datetime
-import unittest
 from unittest import mock
 from copy import deepcopy
+from contextlib import contextmanager
 from freezegun import freeze_time
 
 from dateutil.tz import tzutc
-from dateutil import tz as tzone
 
-import logging
 import pytroll_collectors.fsspec_to_message
-
-from pytroll_collectors.s3stalker import S3StalkerRunner
-from pytroll_collectors.s3stalker import set_last_fetch, get_last_fetch
-from pytroll_collectors.s3stalker import _match_files_to_pattern
-from pytroll_collectors.s3stalker import create_messages_for_recent_files
-
-FAKE_MESSAGES = []
-FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 30, 56), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 27), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124753607778'}""")  # noqa
-FAKE_MESSAGES.append("""pytroll://yuhu file unknown@fake.server 2023-02-13T18:24:52.207612 v1.01 application/json {'filesystem': {'cls': 's3fs.core.S3FileSystem', 'protocol': 's3', 'args': [], 'anon': True}, 'uri': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'uid': 's3://atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5', 'platform_name': 'j01', 'start_time': datetime.datetime(2022, 12, 20, 12, 31, 28), 'frac': '0', 'end_time': datetime.datetime(1900, 1, 1, 12, 31, 59), 'frac_end': '6', 'orbit_number': '26363', 'process_time': '20221220124754976465'}""")  # noqa
-
 
 subject = "/my/great/subject/"
 
@@ -923,37 +911,33 @@ zip_content = {
         'type': 'file'}}
 
 
-class TestLastFilesGetter(unittest.TestCase):
+class TestLastFilesGetter:
     """Test case for files getter."""
 
-    def setUp(self):
+    def setup_method(self):
         """Set up the test case."""
         from pytroll_collectors import s3stalker
         s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
-        self.ls_output = deepcopy(ls_output)
 
     @mock.patch('s3fs.S3FileSystem')
     def test_get_last_files_returns_files(self, s3_fs):
         """Test files are returned."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = self.ls_output
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        assert list(files) == self.ls_output
+        fs, files = get_last_files_from_stalker()
+        assert list(files) == ls_output
 
     @mock.patch('s3fs.S3FileSystem')
     def test_get_last_files_returns_incrementally(self, s3_fs):
         """Test files are newer than epoch."""
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        sorted_output = sorted(self.ls_output, key=(lambda x: x['LastModified']))
+        sorted_output = sorted(ls_output, key=(lambda x: x['LastModified']))
         s3_fs.return_value.ls.return_value = sorted_output[:8]
 
         fs, files = s3stalker.get_last_files(path, anon=True)
         assert len(files) == 8
         fetch_date = sorted_output[7]['LastModified']
 
-        s3_fs.return_value.ls.return_value = self.ls_output
+        s3_fs.return_value.ls.return_value = ls_output
         fs, newer_files = s3stalker.get_last_files(path, anon=True)
         assert all(new_file['LastModified'] > fetch_date for new_file in newer_files)
         assert len(newer_files) == 8
@@ -961,36 +945,37 @@ class TestLastFilesGetter(unittest.TestCase):
     @mock.patch('s3fs.S3FileSystem')
     def test_get_last_files_returns_fs(self, s3_fs):
         """Test fs is returned."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.to_json.return_value = fs_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
+        fs, files = get_last_files_from_stalker()
         assert fs.to_json() == fs_json
 
     @mock.patch('s3fs.S3FileSystem')
     def test_get_last_files_filters_according_to_pattern(self, s3_fs):
         """Test fs is returned."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21/"
-        s3_fs.return_value.ls.return_value = self.ls_output
-        fs, files = s3stalker.get_last_files(path, pattern=zip_pattern, anon=True)
+        fs, files = get_last_files_from_stalker(pattern=zip_pattern)
         assert len(list(files)) == len(ls_output) / 2
 
-    @mock.patch('s3fs.S3FileSystem')
-    def test_get_last_files_with_pattern_add_metadata(self, s3_fs):
+    def test_get_last_files_with_pattern_add_metadata(self):
         """Test fs is returned."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21/"
-        s3_fs.return_value.ls.return_value = self.ls_output
-        fs, files = s3stalker.get_last_files(path, pattern=zip_pattern, anon=True)
+        fs, files = get_last_files_from_stalker(pattern=zip_pattern)
         assert 'metadata' in files[0]
         assert files[0]['metadata']['platform_name'] == 'S3A'
 
 
-class TestFileListToMessages(unittest.TestCase):
+def get_last_files_from_stalker(*args, **kwargs):
+    """Get the last files using an instantiated stalker."""
+    with mock.patch('s3fs.S3FileSystem') as s3_fs:
+        from pytroll_collectors import s3stalker
+        path = "sentinel-s3-ol2wfr-zips/2020/11/21/"
+        s3_fs.return_value.to_json.return_value = fs_json
+        s3_fs.return_value.ls.return_value = deepcopy(ls_output)
+        fs, files = s3stalker.get_last_files(path, *args, anon=True, **kwargs)
+    return fs, files
+
+
+class TestFileListToMessages:
     """Test case for filelist_to_messages."""
 
-    def setUp(self):
+    def setup_method(self):
         """Set up the test case."""
         from pytroll_collectors import s3stalker
         s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
@@ -998,339 +983,149 @@ class TestFileListToMessages(unittest.TestCase):
     @mock.patch('s3fs.S3FileSystem')
     def test_file_list_to_messages_returns_right_number_of_messages(self, s3_fs):
         """Test the right number of messages is returned."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
+        fs, files = get_last_files_from_stalker()
         message_list = pytroll_collectors.fsspec_to_message.filelist_to_messages(fs, files, subject)
         assert len(message_list) == len(files)
 
     @mock.patch('s3fs.S3FileSystem')
     def test_file_list_to_messages_returns_messages_containing_uris(self, s3_fs):
         """Test uris are in the messages."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
+        fs, files = get_last_files_from_stalker()
         message_list = pytroll_collectors.fsspec_to_message.filelist_to_messages(fs, files, subject)
         assert 'uri' in message_list[0].data
 
 
-class TestFileListUnzipToMessages(unittest.TestCase):
+class TestFileListUnzipToMessages:
     """Test filelist_unzip_to_messages."""
 
-    def setUp(self):
+    def setup_method(self):
         """Set up the test case."""
         from pytroll_collectors import s3stalker
         s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_right_number_of_messages(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_right_number_of_messages(self):
         """Test there are as many messages as files."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         assert len(message_list) == len(files)
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_datasets_when_zip_file_is_source(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_datasets_when_zip_file_is_source(self):
         """Test messages are of type dataset."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         assert 'dataset' in message_list[1].data
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_right_amount_of_files(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_right_amount_of_files(self):
         """Test right amount of files is present in messages."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.return_value.find.return_value = zip_content
-        zip_fs.return_value.return_value.to_json.return_value = zip_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         exp_file_list = [file['name'] for file in zip_content.values()]
         file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert len(file_list) == len(exp_file_list)
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uid(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uid(self):
         """Test zip content is included in messages."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.return_value.find.return_value = zip_content
-        zip_fs.return_value.return_value.to_json.return_value = zip_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         exp_file_list = ['zip://' + file['name'] for file in zip_content.values()]
         file_list = [file['uid'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uri(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_returns_messages_with_list_of_zip_content_in_uri(self):
         """Test zip content is included in messages."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.return_value.find.return_value = zip_content
-        zip_fs.return_value.return_value.to_json.return_value = zip_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         zip_file = ls_output[1]['name']
         exp_file_list = ['zip://' + file['name'] + '::s3://' + zip_file for file in zip_content.values()]
         file_list = [file['uri'] for file in message_list[1].data['dataset']]
         assert file_list == exp_file_list
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_has_correct_subject(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_has_correct_subject(self):
         """Test filelist_unzip_to_messages has correct subject."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-        zip_fs.return_value.return_value.find.return_value = zip_content
-        zip_fs.return_value.return_value.to_json.return_value = zip_json
-        fs, files = s3stalker.get_last_files(path, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
+        fs, files = get_last_files_from_stalker()
+        message_list = filelist_unzip_to_messages(fs, files)
         assert message_list[1].subject == subject
 
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class')
-    def test_file_list_unzip_to_messages_has_metadata(self, zip_fs, s3_fs):
+    def test_file_list_unzip_to_messages_has_metadata(self):
         """Test filelist_unzip_to_messages has correct subject."""
-        from pytroll_collectors import s3stalker
-        path = "sentinel-s3-ol2wfr-zips/2020/11/21"
-        s3_fs.return_value.ls.return_value = ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
+        fs, files = get_last_files_from_stalker(pattern=zip_pattern)
+        message_list = filelist_unzip_to_messages(fs, files)
+        assert message_list[0].data['platform_name'] == 'S3A'
+
+
+def filelist_unzip_to_messages(fs, files):
+    """Get the message from the list of zipped files."""
+    with mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class') as zip_fs:
         zip_fs.return_value.return_value.find.return_value = zip_content
         zip_fs.return_value.return_value.to_json.return_value = zip_json
-        fs, files = s3stalker.get_last_files(path, pattern=zip_pattern, anon=True)
-        message_list = pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
-        assert message_list[0].data['platform_name'] == 'S3A'
+        return pytroll_collectors.fsspec_to_message.filelist_unzip_to_messages(fs, files, subject)
 
 
 S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_url': 'https://xxx.yyy.zz',
                                                                     'aws_access_key_id': 'my_accesskey',
                                                                     'aws_secret_access_key': 'my_secret_key'}},
-                     'timedelta': {'minutes': 2},
-                     'subject': '/yuhu',
-                     'file_pattern': 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5',  # noqa
-                     'publisher': {'name': 's3stalker_runner'}}
-
-ATMS_FILES = [{'Key': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5',
-               'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 173000, tzinfo=tzutc()),
-               'ETag': '"bb037828c47d28a30ce6d49e719b6c64"',
-               'Size': 155964,
-               'StorageClass': 'STANDARD',
-               'type': 'file',
-               'size': 155964,
-               'name': 'atms-sdr/GATMO_j01_d20221220_t1230560_e1231276_b26363_c20221220124753607778_cspp_dev.h5'},
-              {'Key': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5',
-               'LastModified': datetime.datetime(2022, 12, 20, 12, 48, 25, 834000, tzinfo=tzutc()),
-               'ETag': '"327b7e1300700f55268cc1f4dc133459"',
-               'Size': 156172,
-               'StorageClass': 'STANDARD',
-               'type': 'file',
-               'size': 156172,
-               'name': 'atms-sdr/GATMO_j01_d20221220_t1231280_e1231596_b26363_c20221220124754976465_cspp_dev.h5'},
-              {'Key': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5',
-               'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 86000, tzinfo=tzutc()),
-               'ETag': '"2fe59174e29627acd82a28716b18d92a"',
-               'Size': 168096,
-               'StorageClass': 'STANDARD',
-               'type': 'file',
-               'size': 168096,
-               'name': 'atms-sdr/SATMS_npp_d20221220_t1330400_e1331116_b57761_c20221220133901538622_cspp_dev.h5'},
-              {'Key': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5',
-               'LastModified': datetime.datetime(2022, 12, 20, 13, 39, 33, 798000, tzinfo=tzutc()),
-               'ETag': '"ffff983cdf767ab635a7ae51dc7d0626"',
-               'Size': 167928,
-               'StorageClass': 'STANDARD',
-               'type': 'file',
-               'size': 167928,
-               'name': 'atms-sdr/SATMS_npp_d20221220_t1331120_e1331436_b57761_c20221220133902730925_cspp_dev.h5'}]
+                     "fetch_back_to": {"hours": 20},
+                     "subject": "/segment/2/safe-olci/S3/",
+                     "file_pattern": ("{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_"
+                                      "{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_"
+                                      "{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_"
+                                      "{collection:3s}.zip")}
 
 
-@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-def test_s3stalker_runner_ini(_set_signal_shutdown):
-    """Test initialize/instanciate the S3StalkerRunner class."""
-    _set_signal_shutdown.return_value = None
-
-    startup_timedelta_seconds = 1800
-    bucket = 'atms-sdr'
-
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-    assert s3runner.bucket == 'atms-sdr'
-    assert s3runner.config == S3_STALKER_CONFIG
-    assert s3runner.startup_timedelta_seconds == startup_timedelta_seconds
-    assert s3runner.time_back == {'minutes': 2}
-    assert s3runner._timedelta == {'minutes': 2}
-    assert s3runner._wait_seconds == 120.0
-    assert s3runner.publisher is None
-    assert s3runner.loop is False
+@contextmanager
+def FakePublish(topic, publisher):
+    """Make a fake Publish context."""
+    yield publisher
 
 
-@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-def test_s3stalker_runner_get_timedelta(signal_shutdown):
-    """Test getting the delta time defining the how far back in time to search for new files in the bucket."""
-    signal_shutdown.return_value = None
-
-    startup_timedelta_seconds = 2000
-    bucket = 'atms-sdr'
-
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-    last_fetch_time = None
-    first_run = True
-    result = s3runner._get_timedelta(last_fetch_time, is_first_run=first_run)
-
-    assert result == {'seconds': 2000}
-
-
-@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-@mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_process_messages')
-@freeze_time('2022-12-20 10:10:0')
-def test_do_fetch_most_recent(process_messages, signal_shutdown):
-    """Test getting the time of the last files fetch."""
-    signal_shutdown.return_value = None
-    process_messages.return_value = None
-
-    startup_timedelta_seconds = 3600
-    bucket = 'atms-sdr'
-
-    s3runner = S3StalkerRunner(bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-    set_last_fetch(datetime.datetime.now(tzone.UTC) - datetime.timedelta(seconds=startup_timedelta_seconds))
-
-    first_run = False
-    last_fetch_time = get_last_fetch()
-    s3runner._set_timedelta(last_fetch_time, first_run)
-    result = get_last_fetch()
-
-    assert result.strftime('%Y%m%d-%H%M') == '20221220-0910'
+@mock.patch('s3fs.S3FileSystem')
+def test_publish_new_files(s3_fs):
+    """Test that publish_new_files actually publishes files."""
+    publisher = FakePublisher("fake publisher")
+    from functools import partial
+    fake_publish = partial(FakePublish, publisher=publisher)
+    with mock.patch('pytroll_collectors.s3stalker.Publish', new=fake_publish):
+        s3_fs.return_value.to_json.return_value = fs_json
+        s3_fs.return_value.ls.return_value = deepcopy(ls_output)
+        with mock.patch('pytroll_collectors.fsspec_to_message.get_filesystem_class') as zip_fs:
+            zip_fs.return_value.return_value.find.return_value = zip_content
+            zip_fs.return_value.return_value.to_json.return_value = zip_json
+            from pytroll_collectors.s3stalker import publish_new_files
+            with freeze_time('2020-11-21 14:00:00'):
+                publish_new_files("sentinel-s3-ol2wfr-zips/2020/11/21",
+                                  S3_STALKER_CONFIG.copy(),
+                                  publisher_ready_time=0)
+                assert len(publisher.messages_sent) == 8
+            with freeze_time('2020-11-24 14:00:00'):
+                publisher.clear_sent_messages()
+                publish_new_files("sentinel-s3-ol2wfr-zips/2020/11/21",
+                                  S3_STALKER_CONFIG.copy(),
+                                  publisher_ready_time=0)
+                assert len(publisher.messages_sent) == 0
 
 
-def test_match_files_to_pattern():
-    """Test matching files to pattern."""
-    path = 'atms-sdr'
-    pattern = 'GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5'  # noqa
-
-    res_files = _match_files_to_pattern(ATMS_FILES, path, pattern)
-
-    assert res_files == ATMS_FILES[0:2]
-
-
-class FakePublish:
+class FakePublisher:
     """A fake publish class with a dummy send method."""
 
-    def __init__(self, dummy):
+    def __init__(self, _dummy):
         """Initialize the fake publisher class."""
-        return
+        self.messages_sent = []
 
     def send(self, msg):
         """Faking the sending of a message."""
+        self.messages_sent.append(msg)
         return msg
 
     def __call__(self, msg):
         """Faking a call method."""
         return self.send(msg)
 
+    def clear_sent_messages(self):
+        """Clear the sent messages."""
+        self.messages_sent = []
 
-class TestS3StalkerRunner:
-    """Test the S3 Stalker Runner functionalities."""
+    def start(self):
+        """Start the publisher."""
 
-    def setup_method(self):
-        """Set up the test case."""
-        # s3stalker.set_last_fetch(datetime.datetime(2000, 1, 1, 0, 0, tzinfo=tzutc()))
-        self.ls_output = deepcopy(ATMS_FILES)
-        start_time = datetime.datetime(2022, 12, 20, 12, 0)
-        now = datetime.datetime.utcnow()
-        self.delta_sec = (now - start_time).total_seconds()
-        self.bucket = 'atms-sdr'
-        self.config = S3_STALKER_CONFIG
-
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-    def test_create_messages_for_recent_files(self, signal_shutdown, s3_fs):
-        """Test create messages for recent files arriving in the bucket."""
-        signal_shutdown.return_value = None
-        s3_fs.return_value.ls.return_value = self.ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-
-        startup_timedelta_seconds = 2000
-
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-        s3runner._timedelta = {'seconds': self.delta_sec}
-
-        result_msgs = create_messages_for_recent_files(s3runner.bucket, s3runner.config, s3runner._timedelta)
-
-        assert len(result_msgs) == 2
-        msg = result_msgs[0]
-        assert msg.data['orbit_number'] == '26363'
-        assert msg.data['platform_name'] == 'j01'
-        assert msg.data['frac_end'] == '6'
-        assert msg.data['start_time'] == datetime.datetime(2022, 12, 20, 12, 30, 56)
-        assert msg.data['end_time'] == datetime.datetime(1900, 1, 1, 12, 31, 27)
-        assert msg.data["process_time"] == "20221220124753607778"
-
-    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-    @freeze_time('2022-12-20 10:10:0')
-    def test_get_seconds_back_to_search(self, signal_shutdown):
-        """Test get seconds back in time to search for new files."""
-        signal_shutdown.return_value = None
-        startup_timedelta_seconds = 2000
-
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-        s3runner._timedelta = {'seconds': self.delta_sec}
-
-        result = s3runner._get_seconds_back_to_search(None)
-        assert result == 120.0
-
-        set_last_fetch(datetime.datetime.now(tzone.UTC) - datetime.timedelta(seconds=startup_timedelta_seconds))
-        last_fetch_time = get_last_fetch()
-        result = s3runner._get_seconds_back_to_search(last_fetch_time)
-        assert result == 2000.0
-
-    @mock.patch('s3fs.S3FileSystem')
-    @mock.patch.object(pytroll_collectors.s3stalker.S3StalkerRunner, '_set_signal_shutdown')
-    def test_process_messages(self, signal_shutdown, s3_fs, caplog):
-        """Test process the messages."""
-        signal_shutdown.return_value = None
-        s3_fs.return_value.ls.return_value = self.ls_output
-        s3_fs.return_value.to_json.return_value = fs_json
-
-        startup_timedelta_seconds = 2000
-
-        s3runner = S3StalkerRunner(self.bucket, S3_STALKER_CONFIG, startup_timedelta_seconds)
-
-        s3runner.publisher = FakePublish('fake_publisher')
-
-        with caplog.at_level(logging.DEBUG):
-            s3runner._process_messages()
-
-        res = caplog.text.strip().split('\n')
-        assert 'Create messages for recent files...' in res[0]
-        assert "time_back = {'minutes': 2}" in res[1]
-        assert "waiting time:" in res[2]
+    def stop(self):
+        """Stop the publisher."""

@@ -456,6 +456,21 @@ trollstalker2
 New, alternative implementation of trollstalker.  Not really needed,
 as trollstalker works fine and is actively maintained.
 
+
+s3stalker
+^^^^^^^^^
+
+A counterpart to trollstalker for polling for new files on an s3 bucket.
+This is though to be run regularly from eg. cron. For a daemon version of
+this, check the next item.
+
+s3stalker_daemon
+^^^^^^^^^^^^^^^^
+
+The daemon version of s3stalker, that stays on and polls until stopped
+(preferably with a SIGTERM).
+
+
 zipcollector_runner
 ^^^^^^^^^^^^^^^^^^^
 
