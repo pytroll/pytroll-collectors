@@ -126,7 +126,6 @@ def create_messages_for_recent_files(bucket, config):
     """Create messages for recent files and return."""
     logger.debug("Create messages for recent files...")
 
-    logger.debug(f"Last fetch is {get_last_fetch()}")
     subject = config['subject']
     pattern = config.get('file_pattern')
     s3_kwargs = config['s3_kwargs']
