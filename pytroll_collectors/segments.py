@@ -167,7 +167,7 @@ class Message:
         self._posttroll_message = posttroll_message
         self.metadata = pattern.parser.parse(self.message_data)
         self._time_name = self.pattern.time_name
-        self._adjust_time_by_flooring()
+        self.adjust_time_by_flooring()
 
     @property
     def id_time(self):
@@ -178,27 +178,28 @@ class Message:
         """Get a unique id for the message."""
         return self.pattern.parser.uid(self.message_data)
 
-    def _adjust_time_by_flooring(self):
+    def adjust_time_by_flooring(self):
         """Floor time to full minutes."""
-        group_by_minutes = self.pattern.group_by_minutes
+        self._adjust_time_by_flooring(self.metadata, self.pattern.group_by_minutes, self.pattern.time_name)
+
+    def _adjust_time_by_flooring(self, metadata, group_by_minutes, time_name):
         if group_by_minutes is None:
-            return self.metadata
-
-        start_time = self.metadata[self.pattern.time_name]
-        minutes = start_time.minute
+            return
+        time_item = metadata[time_name]
+        minutes = time_item.minute
         floor_minutes = int(minutes / group_by_minutes) * group_by_minutes
-        start_time = dt.datetime(start_time.year, start_time.month,
-                                 start_time.day, start_time.hour, floor_minutes, 0)
-        self.metadata[self.pattern.time_name] = start_time
-
-        return self.metadata
+        time_item = dt.datetime(time_item.year, time_item.month,
+                                time_item.day, time_item.hour, floor_minutes, 0)
+        metadata[time_name] = time_item
 
     @property
     def filtered_metadata(self):
         """Merge the metadata."""
-        return filter_metadata(self.metadata, self.message_data,
+        meta = filter_metadata(self.metadata, self.message_data,
                                keep_parsed_keys=self.pattern._global_keep_parsed_keys,
                                local_keep_parsed_keys=self.pattern._local_keep_parsed_keys)
+        self._adjust_time_by_flooring(meta, self.pattern.group_by_minutes, self.pattern.time_name)
+        return meta
 
 
 class Slot:
@@ -206,7 +207,7 @@ class Slot:
 
     def __init__(self, timestamp, metadata, patterns, timeliness, num_files_premature_publish):
         """Set up the slot."""
-        self.timestamp = timestamp
+        self.timestamp = str(timestamp)
         self._info = dict()
         self._timeliness = timeliness
         self._num_files_premature_publish = num_files_premature_publish
@@ -791,12 +792,12 @@ class SegmentGatherer(object):
 
     def _create_slot(self, message):
         """Init wanted, all and critical files."""
-        timestamp = str(message.id_time)
-        logger.debug("Adding new slot: %s", timestamp)
+        timestamp = message.id_time
+        logger.debug(f"Adding new slot: {timestamp}")
 
         slot = Slot(timestamp, message.filtered_metadata, self._patterns, self._timeliness,
                     self._num_files_premature_publish)
-        self.slots[timestamp] = slot
+        self.slots[str(timestamp)] = slot
         return slot
 
     def check_if_time_is_in_interval(self, time_range, raw_start_time):
