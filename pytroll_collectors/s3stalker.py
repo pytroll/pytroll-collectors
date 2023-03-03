@@ -73,9 +73,9 @@ def get_last_fetch():
     return DatetimeHolder.last_fetch
 
 
-def get_last_files(path, *args, pattern=None, **s3_kwargs):
+def get_last_files(path, pattern=None, **s3_kwargs):
     """Get the last files from path (s3 bucket and directory)."""
-    fs = s3fs.S3FileSystem(*args, **s3_kwargs)
+    fs = s3fs.S3FileSystem(**s3_kwargs)
     files = _get_files_since_last_fetch(fs, path)
     files = _match_files_to_pattern(files, path, pattern)
     _reset_last_fetch_from_file_list(files)
@@ -126,9 +126,10 @@ def create_messages_for_recent_files(bucket, config):
     """Create messages for recent files and return."""
     logger.debug("Create messages for recent files...")
 
-    subject = config['subject']
     pattern = config.get('file_pattern')
     s3_kwargs = config['s3_kwargs']
     fs_, files = get_last_files(bucket, pattern=pattern, **s3_kwargs)
+
+    subject = config['subject']
     messages = filelist_unzip_to_messages(fs_, files, subject)
     return messages

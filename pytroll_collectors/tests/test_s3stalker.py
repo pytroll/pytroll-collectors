@@ -961,14 +961,14 @@ class TestLastFilesGetter:
         assert files[0]['metadata']['platform_name'] == 'S3A'
 
 
-def get_last_files_from_stalker(*args, **kwargs):
+def get_last_files_from_stalker(**s3_kwargs):
     """Get the last files using an instantiated stalker."""
     with mock.patch('s3fs.S3FileSystem') as s3_fs:
         from pytroll_collectors import s3stalker
         path = "sentinel-s3-ol2wfr-zips/2020/11/21/"
         s3_fs.return_value.to_json.return_value = fs_json
         s3_fs.return_value.ls.return_value = deepcopy(ls_output)
-        fs, files = s3stalker.get_last_files(path, *args, anon=True, **kwargs)
+        fs, files = s3stalker.get_last_files(path, anon=True, **s3_kwargs)
     return fs, files
 
 
