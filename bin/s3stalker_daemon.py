@@ -18,7 +18,7 @@
 
 """S3stalker daemon/runner.
 
-This is a daemon supposed to stay up and running "forever". It will continously
+This is a daemon supposed to stay up and running "forever". It will regularly
 fetch fresh filenames from an S3 object store and publish the urls of those new
 filenames. It is a daemon version of the s3stalker.py script which needs to be
 run as a cronjob.
