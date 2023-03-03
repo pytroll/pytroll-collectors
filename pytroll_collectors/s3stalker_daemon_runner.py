@@ -48,7 +48,7 @@ class S3StalkerRunner(Thread):
         super().__init__()
 
         self.bucket = bucket
-        startup_time = timedelta(**config.pop("fetch_back_to"))
+        fetch_back_time = timedelta(**config.pop("fetch_back_to"))
 
         self._wait_seconds = timedelta(**config.pop('polling_interval')).total_seconds()
 
@@ -59,7 +59,7 @@ class S3StalkerRunner(Thread):
         self.loop = True
         self._set_signal_shutdown()
 
-        last_fetch_time = datetime.now(UTC) - startup_time
+        last_fetch_time = datetime.now(UTC) - fetch_back_time
         set_last_fetch(last_fetch_time)
 
     def _set_signal_shutdown(self):
