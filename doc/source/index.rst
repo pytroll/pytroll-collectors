@@ -461,7 +461,7 @@ s3stalker
 ^^^^^^^^^
 
 A counterpart to trollstalker for polling for new files on an s3 bucket.
-This is though to be run regularly from eg. cron. For a daemon version of
+This is thought to be run regularly from eg. cron. For a daemon version of
 this, check the next item.
 
 s3stalker_daemon
