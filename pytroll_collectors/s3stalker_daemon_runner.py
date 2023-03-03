@@ -30,7 +30,6 @@ The contents of the yaml configuration file should look like this::
     subject: /segment/2/safe-olci/S3/
 """  # noqa
 import signal
-import time
 from datetime import timedelta, datetime
 from threading import Thread
 
@@ -79,15 +78,8 @@ class S3StalkerRunner(Thread):
         self._start_communication()
 
         while self.loop:
-            self._fetch_bucket_content_and_publish_new_files()
-
-            self._wait_until_next_poll()
-
-    def _wait_until_next_poll(self):
-        """Wait until it's time for next poll."""
-        wait_time = max(self._wait_seconds, 0)
-        logger.debug(f"Waiting {wait_time} seconds to poll again.")
-        time.sleep(wait_time)
+            with sleeper(self._wait_seconds):
+                self._fetch_bucket_content_and_publish_new_files()
 
     def _fetch_bucket_content_and_publish_new_files(self):
         """Go through all messages in list and publish them one after the other."""
