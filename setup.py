@@ -93,5 +93,5 @@ setup(name="pytroll_collectors",
                      'pyinotify', 's3fs', 'freezegun',
                      'pyresample', 'python-dateutil', 'posttroll', 'pytest'],
       extras_require=extras_require,
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       )
