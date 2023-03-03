@@ -73,10 +73,9 @@ def get_last_fetch():
     return DatetimeHolder.last_fetch
 
 
-def get_last_files(path, *args, pattern=None, **kwargs):
+def get_last_files(path, *args, pattern=None, **s3_kwargs):
     """Get the last files from path (s3 bucket and directory)."""
-    kwargs['skip_instance_cache'] = True
-    fs = s3fs.S3FileSystem(*args, **kwargs)
+    fs = s3fs.S3FileSystem(*args, **s3_kwargs)
     files = _get_files_since_last_fetch(fs, path)
     files = _match_files_to_pattern(files, path, pattern)
     _reset_last_fetch_from_file_list(files)
