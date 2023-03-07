@@ -634,7 +634,6 @@ class TestSegmentGatherer(unittest.TestCase):
         fs_ = MagicMock()
         fs_.glob = glob
         filesystem.return_value = fs_
-        glob.glob.return_value = existing_files
         mda = self.mda_msg0deg.copy()
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
