@@ -1034,7 +1034,16 @@ class TestSegmentGathererCollections(unittest.TestCase):
 
         assert len(self.collection_gatherer.slots) == 1
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
-        assert slot.output_metadata['collection']['pps']['dataset'] != []
+        expected_collection = [
+            {'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+             'uid': 'S_NWC_CMA_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+            {'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+             'uid': 'S_NWC_CTTH_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+            {'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+             'uid': 'S_NWC_CT_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'},
+            {'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
+             'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}]
+        assert slot.output_metadata['collection']['pps']['dataset'] == expected_collection
         # assert slot.get_status() == Status.SLOT_READY
 
     @pytest.fixture(autouse=True)
