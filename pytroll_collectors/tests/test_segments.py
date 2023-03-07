@@ -88,6 +88,8 @@ class TestSegmentGatherer(unittest.TestCase):
         """Set up the testing."""
         self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+        self.mda_msg0deg_s3 = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "s3://bucket-name/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
         self.mda_msg0deg_south_segment = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
@@ -493,6 +495,18 @@ class TestSegmentGatherer(unittest.TestCase):
         meta = col.slots[time_slot].output_metadata
         self.assertTrue(meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/'))
 
+    def test_add_single_s3_file(self):
+        """Test adding a file that is in S3 storage."""
+        msg = FakeMessage(self.mda_msg0deg_s3)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        assert meta['dataset'][0]['uri'] == msg.data['uri']
+
     def test_add_two_files(self):
         """Test adding two files."""
         msg_data = {'msg': self.mda_msg0deg.copy(), 'iodc': self.mda_iodc.copy()}
@@ -607,49 +621,83 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
 
     @patch("pytroll_collectors.segments.logging")
-    @patch("pytroll_collectors.segments.glob")
-    def test_check_and_add_existing_files(self, glob, logging):
-        """Test that existing matching files are added to the slot."""
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_first_message(self, filesystem, logging):
+        """Test that existing matching files are added to the slot when the first message is received."""
         existing_files = [
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
             # A file that should not match
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
-        glob.glob.return_value = existing_files
-        mda = self.mda_msg0deg.copy()
-        fake_message = FakeMessage(mda)
-        message = Message(fake_message, self.msg0deg._patterns['msg'])
-        self.msg0deg._create_slot(message)
-        slot_str = str(mda["start_time"])
-        slot = self.msg0deg.slots[slot_str]
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
         self.msg0deg._config['check_existing_files_after_start'] = True
 
         self.msg0deg.check_and_add_existing_files(slot, message)
         assert call(logging.DEBUG) in logging.disable.mock_calls
         assert call(logging.NOTSET) in logging.disable.mock_calls
-        assert logging.disable.call_count == 2
         for fname in existing_files[:-1]:
             assert os.path.basename(fname) in slot._info['msg']['received_files']
         assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
 
-        # For the next message(s) the existing files should not be handled
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_not_first_message(self, filesystem, logging):
+        """Test that existing files are not checked/added after the first message."""
         existing_files = [
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000005___-201611281100-__",
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000006___-201611281100-__"]
-        glob.glob.return_value = existing_files
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        # Clear the received files and rerun, now the files should not be added
+        slot._info['msg']['received_files'] = {}
         self.msg0deg.check_and_add_existing_files(slot, message)
         for fname in existing_files[:-1]:
             assert os.path.basename(fname) not in slot._info['msg']['received_files']
-        assert logging.disable.call_count == 2
 
-        # Messages with other types than 'file' should be ignored
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_ignore_collection_messages(self, filesystem, logging):
+        """Test that messages with other types than 'file' are ignored."""
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
         message.type = "collection"
         self.msg0deg._is_first_message_after_start = True
+
         with self._caplog.at_level(LOGGING_ERROR):
             self.msg0deg.check_and_add_existing_files(slot, message)
             logs = [rec.message for rec in self._caplog.records]
             assert "Only 'file' messages are supported." in logs
-        assert logging.disable.call_count == 2
+
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_s3_files(self, filesystem, logging):
+        """Test that existing matching files are added to the slot in S3 storage."""
+        # There's no 's3://' in the glob result of fsspec.filesystem("s3").glob() call
+        existing_files = [
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            # A file that should not match
+            "bucket-name/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg_s3, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        mask_call = 's3://bucket-name/H-000-????__-????________-?????????-?????????-????????????-__'
+        filesystem.return_value.glob.assert_called_with(mask_call)
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) in slot._info['msg']['received_files']
+        assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
+        for dset in slot.output_metadata['dataset']:
+            assert dset['uri'].startswith('s3://')
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
@@ -684,6 +732,25 @@ class TestSegmentGatherer(unittest.TestCase):
         with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
             self.msg0deg._setup_listener()
         assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
+
+
+def _get_message_from_metadata_and_patterns(mda, patterns):
+    fake_message = FakeMessage(mda)
+    return Message(fake_message, patterns)
+
+
+def _get_filesystem_return_value(existing_files):
+    glob = MagicMock()
+    glob.return_value = existing_files
+    fs_ = MagicMock()
+    fs_.glob = glob
+    return fs_
+
+
+def _create_and_get_slot(gatherer, message):
+    gatherer._create_slot(message)
+    slot_str = str(message.metadata["start_time"])
+    return gatherer.slots[slot_str]
 
 
 def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):

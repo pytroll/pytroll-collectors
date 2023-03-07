@@ -40,14 +40,13 @@ import logging.handlers
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
-import glob
 import os
 
 import trollsift
 from posttroll import message as pmessage
 from posttroll.listener import ListenerContainer
 from queue import Empty
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
@@ -852,10 +851,32 @@ class SegmentGatherer(object):
 
 def _get_existing_files_from_message(message):
     mask = message.pattern.parser.globify({})
-    path = urlparse(message.message_data["uri"]).path
-    base_dir = os.path.dirname(path)
+    url_parts = urlparse(message.message_data["uri"])
 
-    return glob.glob(os.path.join(base_dir, mask))
+    return _fsspec_glob(url_parts, mask)
+
+
+def _fsspec_glob(url_parts, mask):
+    import fsspec
+
+    pattern = urlunparse(
+        (
+            url_parts.scheme,
+            url_parts.netloc,
+            '/'.join(url_parts.path.split('/')[:-1]) + '/' + mask,
+            '',
+            '',
+            ''
+        )
+    )
+
+    fs_ = fsspec.filesystem(url_parts.scheme)
+    files = fs_.glob(pattern)
+    # There might be no scheme in the returned filenames, so add it if scheme is defined
+    if url_parts.scheme:
+        files = [url_parts.scheme + '://' + f for f in files if not f.startswith(
+            url_parts.scheme + '://')]
+    return files
 
 
 def _copy_without_ignore_items(the_dict, ignored_keys='ignore'):
