@@ -37,7 +37,7 @@ import os.path
 from posttroll.publisher import NoisyPublisher
 from posttroll.message import Message
 from trollsift import Parser
-from pytroll_collectors.trigger import AbstractWatchDogProcessor
+from pytroll_collectors.triggers._watchdog import AbstractWatchDogProcessor
 
 logger = logging.getLogger(__name__)
 

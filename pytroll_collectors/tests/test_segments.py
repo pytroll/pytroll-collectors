@@ -87,6 +87,8 @@ class TestSegmentGatherer(unittest.TestCase):
         """Set up the testing."""
         self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
+        self.mda_msg0deg_s3 = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
+            2016, 11, 28, 11, 0, 0), "uri": "s3://bucket-name/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
         self.mda_msg0deg_south_segment = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
@@ -492,6 +494,18 @@ class TestSegmentGatherer(unittest.TestCase):
         meta = col.slots[time_slot].output_metadata
         self.assertTrue(meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/'))
 
+    def test_add_single_s3_file(self):
+        """Test adding a file that is in S3 storage."""
+        msg = FakeMessage(self.mda_msg0deg_s3)
+        col = self.msg0deg
+        message = Message(msg, col._patterns['msg'])
+        col._create_slot(message)
+        time_slot = list(col.slots.keys())[0]
+        slot = col.slots[time_slot]
+        _ = slot.add_file(message)
+        meta = col.slots[time_slot].output_metadata
+        assert meta['dataset'][0]['uri'] == msg.data['uri']
+
     def test_add_two_files(self):
         """Test adding two files."""
         msg_data = {'msg': self.mda_msg0deg.copy(), 'iodc': self.mda_iodc.copy()}
@@ -606,49 +620,83 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
 
     @patch("pytroll_collectors.segments.logging")
-    @patch("pytroll_collectors.segments.glob")
-    def test_check_and_add_existing_files(self, glob, logging):
-        """Test that existing matching files are added to the slot."""
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_first_message(self, filesystem, logging):
+        """Test that existing matching files are added to the slot when the first message is received."""
         existing_files = [
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
             # A file that should not match
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
-        glob.glob.return_value = existing_files
-        mda = self.mda_msg0deg.copy()
-        fake_message = FakeMessage(mda)
-        message = Message(fake_message, self.msg0deg._patterns['msg'])
-        self.msg0deg._create_slot(message)
-        slot_str = str(mda["start_time"])
-        slot = self.msg0deg.slots[slot_str]
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
         self.msg0deg._config['check_existing_files_after_start'] = True
 
         self.msg0deg.check_and_add_existing_files(slot, message)
         assert call(logging.DEBUG) in logging.disable.mock_calls
         assert call(logging.NOTSET) in logging.disable.mock_calls
-        assert logging.disable.call_count == 2
         for fname in existing_files[:-1]:
             assert os.path.basename(fname) in slot._info['msg']['received_files']
         assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
 
-        # For the next message(s) the existing files should not be handled
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_not_first_message(self, filesystem, logging):
+        """Test that existing files are not checked/added after the first message."""
         existing_files = [
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000005___-201611281100-__",
             "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-VIS006___-000006___-201611281100-__"]
-        glob.glob.return_value = existing_files
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        # Clear the received files and rerun, now the files should not be added
+        slot._info['msg']['received_files'] = {}
         self.msg0deg.check_and_add_existing_files(slot, message)
         for fname in existing_files[:-1]:
             assert os.path.basename(fname) not in slot._info['msg']['received_files']
-        assert logging.disable.call_count == 2
 
-        # Messages with other types than 'file' should be ignored
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_files_ignore_collection_messages(self, filesystem, logging):
+        """Test that messages with other types than 'file' are ignored."""
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
         message.type = "collection"
         self.msg0deg._is_first_message_after_start = True
+
         with self._caplog.at_level(LOGGING_ERROR):
             self.msg0deg.check_and_add_existing_files(slot, message)
             logs = [rec.message for rec in self._caplog.records]
             assert "Only 'file' messages are supported." in logs
-        assert logging.disable.call_count == 2
+
+    @patch("pytroll_collectors.segments.logging")
+    @patch("fsspec.filesystem")
+    def test_check_and_add_existing_s3_files(self, filesystem, logging):
+        """Test that existing matching files are added to the slot in S3 storage."""
+        # There's no 's3://' in the glob result of fsspec.filesystem("s3").glob() call
+        existing_files = [
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__",
+            "bucket-name/H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__",
+            # A file that should not match
+            "bucket-name/H-000-MSG4__-MSG4________-VIS006___-000008___-201611281100-__"]
+        filesystem.return_value = _get_filesystem_return_value(existing_files)
+        message = _get_message_from_metadata_and_patterns(self.mda_msg0deg_s3, self.msg0deg._patterns['msg'])
+        slot = _create_and_get_slot(self.msg0deg, message)
+        self.msg0deg._config['check_existing_files_after_start'] = True
+
+        self.msg0deg.check_and_add_existing_files(slot, message)
+        mask_call = 's3://bucket-name/H-000-????__-????________-?????????-?????????-????????????-__'
+        filesystem.return_value.glob.assert_called_with(mask_call)
+        for fname in existing_files[:-1]:
+            assert os.path.basename(fname) in slot._info['msg']['received_files']
+        assert os.path.basename(existing_files[-1]) not in slot._info['msg']['received_files']
+        for dset in slot.output_metadata['dataset']:
+            assert dset['uri'].startswith('s3://')
 
     def test_messaging(self):
         """Test that messaging is initialized correctly."""
@@ -683,6 +731,25 @@ class TestSegmentGatherer(unittest.TestCase):
         with patch('pytroll_collectors.segments.ListenerContainer') as ListenerContainer:
             self.msg0deg._setup_listener()
         assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
+
+
+def _get_message_from_metadata_and_patterns(mda, patterns):
+    fake_message = FakeMessage(mda)
+    return Message(fake_message, patterns)
+
+
+def _get_filesystem_return_value(existing_files):
+    glob = MagicMock()
+    glob.return_value = existing_files
+    fs_ = MagicMock()
+    fs_.glob = glob
+    return fs_
+
+
+def _create_and_get_slot(gatherer, message):
+    gatherer._create_slot(message)
+    slot_str = str(message.metadata["start_time"])
+    return gatherer.slots[slot_str]
 
 
 def assert_messaging(name, port, publisher_nameservers, listener_nameserver, creator, listener_container):
@@ -1267,7 +1334,7 @@ class TestFlooring(unittest.TestCase):
 
     def test_floor_time_10_minutes(self):
         """Test flooring 10 minutes."""
-        self.himawari_ini_message._adjust_time_by_flooring()
+        self.himawari_ini_message.adjust_time_by_flooring()
         self.assertEqual(20, self.himawari_ini_message.metadata['start_time'].minute)
 
     def test_floor_time_15_minutes(self):
@@ -1276,7 +1343,7 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
 
-            self.himawari_ini_message._adjust_time_by_flooring()
+            self.himawari_ini_message.adjust_time_by_flooring()
             self.assertEqual(15, self.himawari_ini_message.metadata['start_time'].minute)
 
     def test_floor_time_2_minutes(self):
@@ -1285,7 +1352,7 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
 
-            self.himawari_ini_message._adjust_time_by_flooring()
+            self.himawari_ini_message.adjust_time_by_flooring()
             self.assertEqual(28, self.himawari_ini_message.metadata['start_time'].minute)
 
     def test_floor_time_2_minutes_with_seconds(self):
@@ -1298,7 +1365,7 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini_message.metadata['start_time'] = dt.datetime(start_time.year, start_time.month,
                                                                            start_time.day, start_time.hour,
                                                                            start_time.minute, 42)
-            self.himawari_ini_message._adjust_time_by_flooring()
+            self.himawari_ini_message.adjust_time_by_flooring()
             self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 28)
             self.assertEqual(self.himawari_ini_message.metadata['start_time'].second, 0)
 
@@ -1307,7 +1374,7 @@ class TestFlooring(unittest.TestCase):
         with patch.dict(CONFIG_INI_HIMAWARI, {'group_by_minutes': None}):
             self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
-            self.himawari_ini_message._adjust_time_by_flooring()
+            self.himawari_ini_message.adjust_time_by_flooring()
             self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 29)
 
 
@@ -1329,7 +1396,7 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
 
     def test_floor_10_minutes(self):
         """Test flooring by 10 minutes."""
-        self.himawari_message._adjust_time_by_flooring()
+        self.himawari_message.adjust_time_by_flooring()
         self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
 
     def test_floor_10_minutes_with_seconds_zeroed(self):
@@ -1338,7 +1405,7 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
         self.himawari_message.metadata['start_time'] = dt.datetime(start_time.year, start_time.month,
                                                                    start_time.day, start_time.hour,
                                                                    start_time.minute, 42)
-        self.himawari_message._adjust_time_by_flooring()
+        self.himawari_message.adjust_time_by_flooring()
         self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
         self.assertEqual(self.himawari_message.metadata['start_time'].second, 0)
 
@@ -1347,24 +1414,82 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
         with patch.dict(CONFIG_DOUBLE_DIFFERENT['patterns']['himawari'], {'group_by_minutes': None}):
             self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
             self.himawari_message = self.iodc_himawari.message_from_posttroll(self.himawari_msg)
-            self.himawari_message._adjust_time_by_flooring()
+            self.himawari_message.adjust_time_by_flooring()
             self.assertEqual(29, self.himawari_message.metadata['start_time'].minute)
 
     def test_floor_grouping_does_not_affect_other_pattern(self):
         """Test that `group_by_minutes` for one pattern doesn't leak to the other patterns."""
         self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
-        self.iodc_message._adjust_time_by_flooring()
+        self.iodc_message.adjust_time_by_flooring()
         self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
 
 
-def suite():
-    """Test suite for test_trollduction."""
-    loader = unittest.TestLoader()
-    mysuite = unittest.TestSuite()
-    mysuite.addTest(loader.loadTestsFromTestCase(TestSegmentGatherer))
+fci_message_1 = ('pytroll://segment/fci_nc file mraspaud@4730366dc313 2023-02-21T13:45:47.413168 v1.01 application/json'
+                 ' {"path": "", "platform_name": "MTI1", "segment_type": "BODY", "processing_time": "20170920134515", '
+                 '"start_time": "2017-09-20T13:40:08", "end_time": "2017-09-20T13:40:15", "special_compression": "JLS",'
+                 ' "repeat_cycle_in_day": 83, "segment": "1", "uri": '
+                 '"/mnt/input/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY---NC4E_C_EUMT_20170920134515_GTT_DEV_20170920134008_20170920134015_N_JLS_T_0083_0001.nc", '  # noqa
+                 '"uid": "W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY---NC4E_C_EUMT_20170920134515_GTT_DEV_20170920134008_20170920134015_N_JLS_T_0083_0001.nc", '  # noqa
+                 '"sensor": ["fci"]}')
 
-    return mysuite
+
+fci_message_2 = ('pytroll://segment/fci_nc file mraspaud@4730366dc313 2023-02-21T15:35:53.301660 v1.01 application/json'
+                 ' {"path": "", "platform_name": "MTI1", "segment_type": "BODY", "processing_time": "20170920153527", '
+                 '"start_time": "2017-09-20T15:30:09", "end_time": "2017-09-20T15:30:27", "special_compression": "JLS",'
+                 ' "repeat_cycle_in_day": 83, "segment": "2", "uri": '
+                 '"/mnt/input/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY---NC4E_C_EUMT_20170920134527_GTT_DEV_20170920134009_20170920134027_N_JLS_T_0083_0002.nc",'  # noqa
+                 ' "uid": "W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY---NC4E_C_EUMT_20170920134527_GTT_DEV_20170920134009_20170920134027_N_JLS_T_0083_0002.nc",'  # noqa
+                 ' "sensor": ["fci"]}')
 
 
-if __name__ == "__main__":
-    unittest.TextTestRunner(verbosity=2).run(suite())
+FCI_CONFIG = """patterns:
+  fci_nc:
+    pattern:
+      "W_XX-EUMETSAT-Darmstadt,IMG+SAT,{platform_name:4s}+FCI-1C-RRAD-FDHSI-FD--CHK-{segment_type}---NC4E_C_EUMT_{processing_time}_GTT_DEV_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}_N_{special_compression}_T_{repeat_cycle_in_day:>04d}_{segment:0>4s}.nc"
+    critical_files:
+    wanted_files: :0001-0040
+    all_files: :0001-0040
+    variable_tags: ["processing_time", "end_time", "segment_type"]
+    group_by_minutes: 10
+    time_tolerance: 600
+
+timeliness:
+  6000000
+
+time_name:
+  start_time
+
+posttroll:
+  topics:
+    - /segment/fci_nc
+  publish_topic:
+    /dataset/fci_nc
+
+"""
+
+
+class TestSegmentGathererFCI:
+    """Tests for the segment gatherer for FCI data."""
+
+    def test_process_message_fci_with_nonzero_seconds(self, caplog):
+        """Test processing a message."""
+        from posttroll.message import Message as Message_p
+        import yaml
+
+        segment_gatherer = SegmentGatherer(yaml.safe_load(FCI_CONFIG))
+
+        expected_uids = set()
+
+        for fci_message in [fci_message_1, fci_message_2]:
+            fci_msg = Message_p(rawstr=fci_message)
+            expected_uids.add(fci_msg.data['uid'])
+            msg = FakeMessage(fci_msg.data)
+            segment_gatherer.process(msg)
+
+        timestamp = '2017-09-20 13:40:00'
+        assert timestamp in segment_gatherer.slots
+        slot = segment_gatherer.slots[timestamp]
+        assert len(slot["fci_nc"]["received_files"]) == 2
+        assert len(slot.output_metadata["dataset"]) == 2
+        uids = set(info["uid"] for info in slot.output_metadata["dataset"])
+        assert uids == expected_uids

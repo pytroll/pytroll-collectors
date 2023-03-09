@@ -395,6 +395,25 @@ Example yaml config:
 .. literalinclude:: ../../examples/segment_gatherer_msg_and_iodc.yaml_template
    :language: yaml
 
+If the collected segments are in an S3 object store, the
+``check_existing_files_after_start`` feature needs some additional
+configuration. All the connection configurations and such are done
+using the `fsspec`_ configuration system.
+
+An example configuration could be for example placed in `~/.config/fsspec/s3.json`::
+
+        {
+            "s3": {
+                "client_kwargs": {"endpoint_url": "https://s3.server.foo.com"},
+                "secret": "VERYBIGSECRET",
+                "key": "ACCESSKEY"
+            }
+        }
+
+
+.. _fsspec: https://filesystem-spec.readthedocs.io/en/latest/features.html#configuration
+
+
 .. _trollstalker:
 
 trollstalker
