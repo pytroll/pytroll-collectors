@@ -12,8 +12,6 @@ handlers:
 loggers:
   posttroll:
     level: INFO
-    propagate: false
-    handlers: [console]
 root:
   level: DEBUG
   handlers: [console]
