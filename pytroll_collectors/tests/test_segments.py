@@ -1111,7 +1111,6 @@ class TestSegmentGathererCollections(unittest.TestCase):
             {'uri': '/san1/polar_out/direct_readout/lvl2/S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc',  # noqa
              'uid': 'S_NWC_CPP_noaa20_14587_20200911T1205084Z_20200911T1206312Z.nc'}]
         assert slot.output_metadata['collection']['pps']['dataset'] == expected_collection
-        # assert slot.get_status() == Status.SLOT_READY
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
