@@ -167,7 +167,7 @@ class Message:
         self._posttroll_message = posttroll_message
         self.metadata = pattern.parser.parse(self.message_data)
         self._time_name = self.pattern.time_name
-        self._adjust_time_by_flooring()
+        self.adjust_time_by_flooring()
         self.slot_time = None  # Might differ by tolerance (s) from time_name
 
     @property
