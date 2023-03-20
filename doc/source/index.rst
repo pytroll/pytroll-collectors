@@ -474,6 +474,8 @@ The daemon version of s3stalker, that stays on and polls until stopped
 Example configuration:
 https://github.com/pytroll/pytroll-collectors/blob/main/examples/s3stalker_runner.yaml_template
 
+See also https://s3fs.readthedocs.io/en/latest/#credentials on options how to define the S3 credentials.
+
 zipcollector_runner
 ^^^^^^^^^^^^^^^^^^^
 
