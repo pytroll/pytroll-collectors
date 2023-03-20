@@ -475,6 +475,26 @@ trollstalker2
 New, alternative implementation of trollstalker.  Not really needed,
 as trollstalker works fine and is actively maintained.
 
+
+s3stalker
+^^^^^^^^^
+
+A counterpart to trollstalker for polling for new files on an s3 bucket.
+This is thought to be run regularly from eg. cron. For a daemon version of
+this, check the next item.
+Example configuration:
+https://github.com/pytroll/pytroll-collectors/blob/main/examples/s3stalker.yaml
+
+s3stalker_daemon
+^^^^^^^^^^^^^^^^
+
+The daemon version of s3stalker, that stays on and polls until stopped
+(preferably with a SIGTERM).
+Example configuration:
+https://github.com/pytroll/pytroll-collectors/blob/main/examples/s3stalker_runner.yaml_template
+
+See also https://s3fs.readthedocs.io/en/latest/#credentials on options how to define the S3 credentials.
+
 zipcollector_runner
 ^^^^^^^^^^^^^^^^^^^
 
