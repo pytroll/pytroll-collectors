@@ -302,14 +302,9 @@ class Slot:
                         'segment' not in parser.fmt):
                     result.add(parser.globify(meta))
                 continue
-            segments = segments.split('-')
-            if len(segments) > 1:
-                format_string = '%d'
-                if len(segments[0]) > 1 and segments[0][0] == '0':
-                    format_string = '%0' + str(len(segments[0])) + 'd'
-                segments = [format_string % i
-                            for i in range(int(segments[0]),
-                                           int(segments[-1]) + 1)]
+
+            segments = _create_segment_list(segments)
+
             meta['channel_name'] = channel_name
             for seg in segments:
                 meta['segment'] = seg
@@ -476,6 +471,24 @@ class Slot:
             return Status.SLOT_NONCRITICAL_NOT_READY
         if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+
+def _create_segment_list(segments):
+    segments = segments.split('-')
+    if len(segments) == 2:
+        try:
+            range_start = int(segments[0])
+            range_end = int(segments[-1]) + 1
+        except ValueError:
+            segments = ['-'.join(segments)]
+        else:
+            format_string = '%d'
+            if len(segments[0]) > 1 and segments[0][0] == '0':
+                format_string = '%0' + str(len(segments[0])) + 'd'
+            segments = [format_string % i
+                        for i in range(range_start,
+                                       range_end)]
+    return segments
 
 
 class Pattern:

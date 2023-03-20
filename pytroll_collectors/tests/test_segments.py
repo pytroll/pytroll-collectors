@@ -50,6 +50,7 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                 "goes16")
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
+CONFIG_NWCSAF_GEO = ini_to_dict(os.path.join(THIS_DIR, "data/segments_nwcsaf_geo.ini"), "nwcsaf_geo")
 LOGGING_ERROR = logging.ERROR
 
 fake_config = {
@@ -121,6 +122,8 @@ class TestSegmentGatherer(unittest.TestCase):
         self.mda_msg0deg_file_scheme = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "file:///home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
+        self.mda_nwcsaf_geo = {"product": "CRR-Ph", "sensor": "nwc_saf_geo", "platform_name": "Meteosat-11", "start_time": dt.datetime(2023, 2, 14, 13, 0, 0), "uri": "file:///data/S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc", "uid": "S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc"}  # noqa
+
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
         self.msg0deg_iodc = SegmentGatherer(CONFIG_DOUBLE)
@@ -128,6 +131,7 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg_ini = SegmentGatherer(CONFIG_INI)
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
         self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
+        self.nwcsaf_geo = SegmentGatherer(CONFIG_NWCSAF_GEO)
 
     def test_init(self):
         """Test init."""
@@ -189,69 +193,69 @@ class TestSegmentGatherer(unittest.TestCase):
         self.assertEqual(len(slot['msg']['wanted_files']), 38)
         self.assertEqual(len(slot['msg']['all_files']), 114)
 
-    def test_compose_filenames(self):
-        """Test composing the filenames."""
+    def test_compose_filenames_explicit_segments(self):
+        """Test composing the filenames when segment names don't need expansion."""
         mda = self.mda_msg0deg.copy()
-        fake_message = FakeMessage(mda)
-        message = Message(fake_message, self.msg0deg._patterns['msg'])
-        self.msg0deg._create_slot(message)
-        slot_str = str(mda["start_time"])
-        slot = self.msg0deg.slots[slot_str]
-        parser = self.msg0deg._patterns['msg'].parser
-
-        fname_set = slot.compose_filenames(parser,
-                                           self.msg0deg._patterns['msg']['critical_files'])
+        segment_list = self.msg0deg._patterns['msg']['critical_files']
+        fname_set = self._get_filenames(self.msg0deg, mda, 'msg', segment_list)
         self.assertTrue(fname_set, set)
         self.assertEqual(len(fname_set), 2)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
         self.assertTrue("H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set)
-        fname_set = slot.compose_filenames(parser, None)
-        self.assertEqual(len(fname_set), 0)
-        # Check that MSG segments can be given as range, and the
-        # result is same as with explicit segment names
-        fname_set_range = slot.compose_filenames(
-            parser,
-            self.msg0deg._patterns['msg']['wanted_files'])
-        fname_set_explicit = slot.compose_filenames(
-            parser,
-            self.msg0deg._patterns['msg']['all_files'])
-        self.assertEqual(len(fname_set_range), len(fname_set_explicit))
-        self.assertEqual(len(fname_set_range.difference(fname_set_explicit)), 0)
 
-        # Tests using filesets with no segments
-        mda = self.mda_hrpt.copy()
+    @staticmethod
+    def _get_filenames(segment_gatherer, mda, section, segment_list):
         fake_message = FakeMessage(mda)
-        message = Message(fake_message, self.hrpt_pps._patterns['hrpt'])
-        self.hrpt_pps._create_slot(message)
+        message = Message(fake_message, segment_gatherer._patterns[section])
+        segment_gatherer._create_slot(message)
+        parser = segment_gatherer._patterns[section].parser
         slot_str = str(mda["start_time"])
-        slot = self.hrpt_pps.slots[slot_str]
-        parser = self.hrpt_pps._patterns['hrpt'].parser
+        slot = segment_gatherer.slots[slot_str]
+        return slot.compose_filenames(parser, segment_list)
 
-        fname_set = slot.compose_filenames(
-            parser,
-            self.hrpt_pps._patterns['hrpt']['critical_files'])
+    def test_compose_filenames_none(self):
+        """Test composing the filenames when no segments are defined in the config."""
+        mda = self.mda_msg0deg.copy()
+        fname_set = self._get_filenames(self.msg0deg, mda, 'msg', None)
+        self.assertEqual(len(fname_set), 0)
+
+    def test_compose_filenames_range_of_segments(self):
+        """Test that the segments can be defined with numeric ranges."""
+        mda = self.mda_msg0deg.copy()
+        segment_list = self.msg0deg._patterns['msg']['wanted_files']
+        fname_set = self._get_filenames(self.msg0deg, mda, 'msg', segment_list)
+        self.assertEqual(len(fname_set), 10)
+
+    def test_compose_filenames_no_segments_undefined_variable_tag(self):
+        """Test using filesets with no segments and a single un-typed variable tag."""
+        mda = self.mda_hrpt.copy()
+        segment_list = self.hrpt_pps._patterns['hrpt']['critical_files']
+        fname_set = self._get_filenames(self.hrpt_pps, mda, 'hrpt', segment_list)
         self.assertEqual(len(fname_set), 1)
         self.assertTrue("hrpt_*_20180319_0955_28538.l1b" in fname_set)
-        parser = self.hrpt_pps._patterns['pps'].parser
-        fname_set = slot.compose_filenames(
-            parser,
-            self.hrpt_pps._patterns['pps']['critical_files'])
+
+    def test_compose_filenames_no_segments_typed_variable_tags(self):
+        """Test using filesets with no segments and typed variable tags."""
+        mda = self.mda_pps.copy()
+        segment_list = self.hrpt_pps._patterns['pps']['critical_files']
+        fname_set = self._get_filenames(self.hrpt_pps, mda, 'pps', segment_list)
         self.assertEqual(len(fname_set), 1)
         self.assertTrue(
             "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in fname_set)
 
-        # Tests using filesets with no segments, INI config
+    def test_compose_filenames_no_segments_ini_config(self):
+        """Test using filesets with no segments, INI config."""
         mda = self.mda_goes16.copy()
-        fake_message = FakeMessage(mda)
-        message = Message(fake_message, self.goes_ini._patterns['goes16'])
-        self.goes_ini._create_slot(message)
-        slot_str = str(mda["start_time"])
-        slot = self.goes_ini.slots[slot_str]
-        parser = self.goes_ini._patterns['goes16'].parser
-        fname_set = slot.compose_filenames(
-            parser,
-            self.goes_ini._patterns['goes16']['critical_files'])
+        segment_list = self.goes_ini._patterns['goes16']['critical_files']
+        fname_set = self._get_filenames(self.goes_ini, mda, 'goes16', segment_list)
         self.assertEqual(len(fname_set), 0)
+
+    def test_compose_filenames_dash_in_segment_name(self):
+        """Test a segment name has a dash in it (CRR-Ph)."""
+        mda = self.mda_nwcsaf_geo.copy()
+        segment_list = self.nwcsaf_geo._patterns['nwcsaf_geo']['critical_files']
+        fname_set = self._get_filenames(self.nwcsaf_geo, mda, 'nwcsaf_geo', segment_list)
+        self.assertTrue("S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc" in fname_set)
 
     def test_update_timeout(self):
         """Test updating the timeout."""
