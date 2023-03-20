@@ -1,3 +1,29 @@
+###############################################################################
+## Version 0.14.0 (2023/03/20)
+
+### Issues Closed
+
+* [Issue 127](https://github.com/pytroll/pytroll-collectors/issues/127) - ImportError in bin/trollstalker2.py ([PR 128](https://github.com/pytroll/pytroll-collectors/pull/128) by [@paulovcmedeiros](https://github.com/paulovcmedeiros))
+
+In this release 1 issue was closed.
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 132](https://github.com/pytroll/pytroll-collectors/pull/132) - Fix group_by_minutes to include composed filenames
+* [PR 131](https://github.com/pytroll/pytroll-collectors/pull/131) - Bugfix segment gathering when segment name has a dash in it
+* [PR 128](https://github.com/pytroll/pytroll-collectors/pull/128) - Fix import error in bin/trollstalker2.py ([127](https://github.com/pytroll/pytroll-collectors/issues/127))
+
+#### Features added
+
+* [PR 131](https://github.com/pytroll/pytroll-collectors/pull/131) - Bugfix segment gathering when segment name has a dash in it
+* [PR 117](https://github.com/pytroll/pytroll-collectors/pull/117) - Check for existing segments on S3 storage
+* [PR 114](https://github.com/pytroll/pytroll-collectors/pull/114) - Add an s3stalker daemon
+
+In this release 6 pull requests were closed.
+
+
 ## Version 0.13.0 (2022/10/18)
 
 ### Issues Closed
