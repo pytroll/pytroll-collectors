@@ -27,38 +27,17 @@ So for now, this script is meant to be run at regular intervals, for example
 with a cronjob.
 """
 
-import argparse
 import logging.config
 
-import yaml
-
-from pytroll_collectors.helper_functions import read_yaml
-from pytroll_collectors.s3stalker import publish_new_files
-
-
-def arg_parse():
-    """Handle input arguments."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("bucket", help="The bucket to retrieve from.")
-    parser.add_argument("config", help="Config file to be used")
-    parser.add_argument("-l", "--log",
-                        help="Log configuration file",
-                        default=None)
-
-    return parser.parse_args()
+from pytroll_collectors.s3stalker import publish_new_files, get_configs_from_command_line
 
 
 def main():
     """Stalk an s3 bucket."""
-    args = arg_parse()
+    bucket, config, log_config = get_configs_from_command_line()
 
-    bucket = args.bucket
-    config = read_yaml(args.config)
-
-    if args.log is not None:
-        with open(args.log) as fd:
-            log_dict = yaml.safe_load(fd.read())
-            logging.config.dictConfig(log_dict)
+    if log_config:
+        logging.config.dictConfig(log_config)
 
     try:
         publish_new_files(bucket, config)

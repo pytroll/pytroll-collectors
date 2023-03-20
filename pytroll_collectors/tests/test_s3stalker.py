@@ -22,14 +22,19 @@
 """Tests for s3stalker."""
 
 import datetime
-from unittest import mock
-from copy import deepcopy
 from contextlib import contextmanager
+from copy import deepcopy
+from unittest import mock
+import os
+
+import pytest
+import yaml
+from dateutil.tz import tzutc
 from freezegun import freeze_time
 
-from dateutil.tz import tzutc
-
 import pytroll_collectors.fsspec_to_message
+from pytroll_collectors.s3stalker import arg_parse
+from pytroll_collectors.s3stalker import get_configs_from_command_line
 
 subject = "/my/great/subject/"
 
@@ -1064,6 +1069,7 @@ def filelist_unzip_to_messages(fs, files):
 S3_STALKER_CONFIG = {'s3_kwargs': {'anon': False, 'client_kwargs': {'endpoint_url': 'https://xxx.yyy.zz',
                                                                     'aws_access_key_id': 'my_accesskey',
                                                                     'aws_secret_access_key': 'my_secret_key'}},
+                     "s3_bucket": "s3://bucket_from_file/",
                      "fetch_back_to": {"hours": 20},
                      "subject": "/segment/2/safe-olci/S3/",
                      "file_pattern": ("{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_"
@@ -1129,3 +1135,72 @@ class FakePublisher:
 
     def stop(self):
         """Stop the publisher."""
+
+
+def test_arg_parse():
+    """Test the arg parsing."""
+    res = arg_parse(["s3://some_bucket", "my_config_file", "-l", "my_log_config"])
+    assert res.bucket == "s3://some_bucket"
+    assert res.config == "my_config_file"
+    assert res.log == "my_log_config"
+
+
+LOG_CONFIG = """version: 1
+formatters:
+  simple:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+    stream: ext://sys.stdout
+loggers:
+  simpleExample:
+    level: DEBUG
+    handlers: [console]
+    propagate: no
+root:
+  level: DEBUG
+  handlers: [console]
+"""
+
+
+def test_get_configs_from_command_line(fake_config_file, fake_log_config):
+    """Test get_configs_from_command_line."""
+    config_filename = fake_config_file
+    log_config_filename = fake_log_config
+    command_line = ["s3://some_bucket", os.fspath(config_filename), "-l", os.fspath(log_config_filename)]
+    bucket, config, log_config = get_configs_from_command_line(command_line)
+    assert config == S3_STALKER_CONFIG
+    assert bucket == "s3://some_bucket"
+    assert log_config["version"] == 1
+
+
+@pytest.fixture()
+def fake_log_config(tmp_path):
+    """Create a fake log config file."""
+    log_config_filename = tmp_path / "my_log_config"
+    with open(log_config_filename, "w") as fd:
+        fd.write(LOG_CONFIG)
+    return log_config_filename
+
+
+@pytest.fixture
+def fake_config_file(tmp_path):
+    """Create a fake config file."""
+    config_filename = tmp_path / "my_config_file"
+    with open(config_filename, "w") as fd:
+        fd.write(yaml.dump(S3_STALKER_CONFIG))
+    return config_filename
+
+
+def test_get_configs_from_command_line_gets_bucket_from_config_when_not_provided(fake_config_file):
+    """Test the function gets the bucket from the config file."""
+    config_filename = fake_config_file
+
+    command_line = [os.fspath(config_filename)]
+    bucket, config, log_config = get_configs_from_command_line(command_line)
+    assert config == S3_STALKER_CONFIG
+    assert bucket == "s3://bucket_from_file/"
+    assert log_config == {}

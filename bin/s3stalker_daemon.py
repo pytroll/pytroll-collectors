@@ -28,10 +28,9 @@ run as a cronjob.
 import argparse
 import logging
 import logging.config
-import yaml
 import sys
 
-from pytroll_collectors.helper_functions import read_yaml
+from pytroll_collectors.s3stalker import get_configs_from_command_line
 from pytroll_collectors.s3stalker_daemon_runner import S3StalkerRunner
 
 logger = logging.getLogger(__name__)
@@ -51,15 +50,10 @@ def arg_parse():
 
 def main():
     """Stalk an s3 bucket."""
-    args = arg_parse()
+    bucket, config, log_config = get_configs_from_command_line()
 
-    bucket = args.bucket
-    config = read_yaml(args.config)
-
-    if args.log is not None:
-        with open(args.log) as fd:
-            log_dict = yaml.safe_load(fd.read())
-            logging.config.dictConfig(log_dict)
+    if log_config:
+        logging.config.dictConfig(log_config)
 
     logger.info("Try start the s3-stalker runner:")
     try:
