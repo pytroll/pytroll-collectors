@@ -446,6 +446,16 @@ class TestSegmentGatherer:
             logs = [rec.message for rec in caplog.records]
             assert 'No parser matching message, skipping.' in logs
 
+    def test_process_message_force_local_files(self):
+        """Test processing message with scheme when config says files are local and existing files are checked."""
+        mda = self.mda_msg0deg.copy()
+        mda['uri'] = 'SCHEME://' + mda['uri']
+        msg = FakeMessage(mda)
+        col = SegmentGatherer(CONFIG_SINGLE)
+        col._config['check_existing_files_after_start'] = True
+        col._config['all_files_are_local'] = True
+        col.process(msg)
+
     def test_add_single_file(self):
         """Test adding a file."""
         msg = FakeMessage(self.mda_msg0deg)
