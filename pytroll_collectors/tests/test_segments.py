@@ -26,7 +26,6 @@ import datetime as dt
 import logging
 import os
 import os.path
-import unittest
 from unittest.mock import patch, MagicMock, call
 
 import pytest
@@ -77,15 +76,12 @@ class FakeMessage:
         self.subject = subject
 
 
-class TestSegmentGatherer(unittest.TestCase):
+@pytest.mark.usefixtures("caplog")
+class TestSegmentGatherer:
     """Tests for the segment gatherer."""
 
     @pytest.fixture(autouse=True)
-    def inject_fixtures(self, caplog):
-        """Inject fixtures."""
-        self._caplog = caplog
-
-    def setUp(self):
+    def setup(self):
         """Set up the testing."""
         self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
@@ -135,21 +131,21 @@ class TestSegmentGatherer(unittest.TestCase):
 
     def test_init(self):
         """Test init."""
-        self.assertTrue(self.msg0deg._subject is None)
-        self.assertEqual(list(self.msg0deg._patterns.keys()), ['msg'])
-        self.assertEqual(len(self.msg0deg.slots.keys()), 0)
-        self.assertEqual(self.msg0deg.time_name, 'start_time')
-        self.assertFalse(self.msg0deg._loop)
-        self.assertEqual(self.msg0deg._time_tolerance, 30)
-        self.assertEqual(self.msg0deg._timeliness.total_seconds(), 10)
-        self.assertEqual(self.msg0deg._listener, None)
-        self.assertEqual(self.msg0deg._publisher, None)
+        assert self.msg0deg._subject is None
+        assert list(self.msg0deg._patterns.keys()) == ['msg']
+        assert len(self.msg0deg.slots.keys()) == 0
+        assert self.msg0deg.time_name == 'start_time'
+        assert self.msg0deg._loop is False
+        assert self.msg0deg._time_tolerance == 30
+        assert self.msg0deg._timeliness.total_seconds() == 10
+        assert self.msg0deg._listener is None
+        assert self.msg0deg._publisher is None
 
         # Tests using two filesets start_time_pattern
-        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
-        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['msg'])
-        self.assertTrue('start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
-        self.assertTrue('_start_time_pattern' in self.msg0deg_iodc._patterns['iodc'])
+        assert 'start_time_pattern' in self.msg0deg_iodc._patterns['msg']
+        assert '_start_time_pattern' in self.msg0deg_iodc._patterns['msg']
+        assert 'start_time_pattern' in self.msg0deg_iodc._patterns['iodc']
+        assert '_start_time_pattern' in self.msg0deg_iodc._patterns['iodc']
 
     def test_init_data(self):
         """Test initializing the data."""
@@ -159,49 +155,48 @@ class TestSegmentGatherer(unittest.TestCase):
         self.msg0deg._create_slot(message)
 
         slot_str = str(mda["start_time"])
-        self.assertEqual(list(self.msg0deg.slots.keys())[0], slot_str)
+        assert list(self.msg0deg.slots.keys())[0] == slot_str
         slot = self.msg0deg.slots[slot_str]
         for key in mda:
             if key not in DO_NOT_COPY_KEYS:
-                self.assertEqual(slot.output_metadata[key], mda[key])
+                assert slot.output_metadata[key] == mda[key]
         assert slot['timeout'] is not None
-        self.assertEqual(slot['msg']['is_critical_set'],
-                         CONFIG_SINGLE['patterns']['msg']['is_critical_set'])
-        self.assertTrue('critical_files' in slot['msg'])
-        self.assertTrue('wanted_files' in slot['msg'])
-        self.assertTrue('all_files' in slot['msg'])
-        self.assertTrue('received_files' in slot['msg'])
-        self.assertTrue('delayed_files' in slot['msg'])
-        self.assertTrue('missing_files' in slot['msg'])
+        assert slot['msg']['is_critical_set'] == CONFIG_SINGLE['patterns']['msg']['is_critical_set']
+        assert 'critical_files' in slot['msg']
+        assert 'wanted_files' in slot['msg']
+        assert 'all_files' in slot['msg']
+        assert 'received_files' in slot['msg']
+        assert 'delayed_files' in slot['msg']
+        assert 'missing_files' in slot['msg']
 
-        self.assertEqual(len(slot['msg']['critical_files']), 2)
-        self.assertEqual(len(slot['msg']['wanted_files']), 10)
-        self.assertEqual(len(slot['msg']['all_files']), 10)
+        assert len(slot['msg']['critical_files']) == 2
+        assert len(slot['msg']['wanted_files']) == 10
+        assert len(slot['msg']['all_files']) == 10
 
         # Tests using two filesets
         self.msg0deg_iodc._create_slot(message)
         slot = self.msg0deg_iodc.slots[slot_str]
-        self.assertTrue('collection' in slot.output_metadata)
+        assert 'collection' in slot.output_metadata
         for key in self.msg0deg_iodc._patterns:
-            self.assertTrue('dataset' in slot.output_metadata['collection'][key])
-            self.assertTrue('sensor' in slot.output_metadata['collection'][key])
+            assert 'dataset' in slot.output_metadata['collection'][key]
+            assert 'sensor' in slot.output_metadata['collection'][key]
 
         # Test using .ini config
         self.msg_ini._create_slot(message)
         slot = self.msg_ini.slots[slot_str]
-        self.assertEqual(len(slot['msg']['critical_files']), 2)
-        self.assertEqual(len(slot['msg']['wanted_files']), 38)
-        self.assertEqual(len(slot['msg']['all_files']), 114)
+        assert len(slot['msg']['critical_files']), 2
+        assert len(slot['msg']['wanted_files']), 38
+        assert len(slot['msg']['all_files']), 114
 
     def test_compose_filenames_explicit_segments(self):
         """Test composing the filenames when segment names don't need expansion."""
         mda = self.mda_msg0deg.copy()
         segment_list = self.msg0deg._patterns['msg']['critical_files']
         fname_set = self._get_filenames(self.msg0deg, mda, 'msg', segment_list)
-        self.assertTrue(fname_set, set)
-        self.assertEqual(len(fname_set), 2)
-        self.assertTrue("H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set)
-        self.assertTrue("H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set)
+        assert isinstance(fname_set, set)
+        assert len(fname_set) == 2
+        assert "H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set
+        assert "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set
 
     @staticmethod
     def _get_filenames(segment_gatherer, mda, section, segment_list):
@@ -217,48 +212,49 @@ class TestSegmentGatherer(unittest.TestCase):
         """Test composing the filenames when no segments are defined in the config."""
         mda = self.mda_msg0deg.copy()
         fname_set = self._get_filenames(self.msg0deg, mda, 'msg', None)
-        self.assertEqual(len(fname_set), 0)
+        assert len(fname_set) == 0
 
     def test_compose_filenames_range_of_segments(self):
         """Test that the segments can be defined with numeric ranges."""
         mda = self.mda_msg0deg.copy()
         segment_list = self.msg0deg._patterns['msg']['wanted_files']
         fname_set = self._get_filenames(self.msg0deg, mda, 'msg', segment_list)
-        self.assertEqual(len(fname_set), 10)
+        assert len(fname_set) == 10
 
     def test_compose_filenames_no_segments_undefined_variable_tag(self):
         """Test using filesets with no segments and a single un-typed variable tag."""
         mda = self.mda_hrpt.copy()
         segment_list = self.hrpt_pps._patterns['hrpt']['critical_files']
         fname_set = self._get_filenames(self.hrpt_pps, mda, 'hrpt', segment_list)
-        self.assertEqual(len(fname_set), 1)
-        self.assertTrue("hrpt_*_20180319_0955_28538.l1b" in fname_set)
+        assert len(fname_set) == 1
+        assert "hrpt_*_20180319_0955_28538.l1b" in fname_set
 
     def test_compose_filenames_no_segments_typed_variable_tags(self):
         """Test using filesets with no segments and typed variable tags."""
         mda = self.mda_pps.copy()
         segment_list = self.hrpt_pps._patterns['pps']['critical_files']
         fname_set = self._get_filenames(self.hrpt_pps, mda, 'pps', segment_list)
-        self.assertEqual(len(fname_set), 1)
-        self.assertTrue(
-            "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in fname_set)
+        assert len(fname_set) == 1
+        assert "S_NWC_CMA_*_28538_20180319T0955???Z_????????T???????Z.nc" in fname_set
 
     def test_compose_filenames_no_segments_ini_config(self):
         """Test using filesets with no segments, INI config."""
         mda = self.mda_goes16.copy()
         segment_list = self.goes_ini._patterns['goes16']['critical_files']
         fname_set = self._get_filenames(self.goes_ini, mda, 'goes16', segment_list)
-        self.assertEqual(len(fname_set), 0)
+        assert len(fname_set) == 0
 
     def test_compose_filenames_dash_in_segment_name(self):
         """Test a segment name has a dash in it (CRR-Ph)."""
         mda = self.mda_nwcsaf_geo.copy()
         segment_list = self.nwcsaf_geo._patterns['nwcsaf_geo']['critical_files']
         fname_set = self._get_filenames(self.nwcsaf_geo, mda, 'nwcsaf_geo', segment_list)
-        self.assertTrue("S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc" in fname_set)
+        assert "S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc" in fname_set
 
     def test_update_timeout(self):
         """Test updating the timeout."""
+        import numpy as np
+
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
         fake_message = FakeMessage(mda)
@@ -268,7 +264,7 @@ class TestSegmentGatherer(unittest.TestCase):
         slot = self.msg0deg.slots[slot_str]
         slot.update_timeout()
         diff = slot['timeout'] - now
-        self.assertAlmostEqual(diff.total_seconds(), 10.0, places=3)
+        np.testing.assert_almost_equal(diff.total_seconds(), 10.0, decimal=3)
 
     def test_slot_is_ready(self):
         """Test if a slot is ready."""
@@ -281,17 +277,17 @@ class TestSegmentGatherer(unittest.TestCase):
         func = slot.get_status
 
         res = func()
-        self.assertEqual(res, Status.SLOT_NOT_READY)
+        assert res == Status.SLOT_NOT_READY
 
         slot['msg']['files_till_premature_publish'] = 8
 
         slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__'])
         res = func()
-        self.assertEqual(res, Status.SLOT_NOT_READY)
+        assert res == Status.SLOT_NOT_READY
 
         slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__'])
         res = func()
-        self.assertEqual(res, Status.SLOT_NOT_READY)
+        assert res == Status.SLOT_NOT_READY
 
         slot['msg']['is_critical_set'] = False
         slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__',
@@ -300,18 +296,18 @@ class TestSegmentGatherer(unittest.TestCase):
                                               'H-000-MSG3__-MSG3________-VIS006___-000004___-201611281100-__',
                                               'H-000-MSG3__-MSG3________-VIS006___-000005___-201611281100-__'])
         res = func()
-        self.assertEqual(res, Status.SLOT_NONCRITICAL_NOT_READY)
+        assert res == Status.SLOT_NONCRITICAL_NOT_READY
 
         slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000006___-201611281100-__'])
         res = func()
-        self.assertEqual(res, Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+        assert res == Status.SLOT_READY_BUT_WAIT_FOR_MORE
 
         slot['msg']['received_files'] |= set(['H-000-MSG3__-MSG3________-VIS006___-000007___-201611281100-__',
                                               'H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__',
                                               'H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__',
                                               'H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__'])
         res = func()
-        self.assertEqual(res, Status.SLOT_READY)
+        assert res == Status.SLOT_READY
 
     def test_get_collection_status(self):
         """Test getting the collection status."""
@@ -329,111 +325,104 @@ class TestSegmentGatherer(unittest.TestCase):
         func = slot.get_collection_status
 
         status = {}
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, past) == Status.SLOT_OBSOLETE_TIMEOUT
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY}
 
         slot['foo'] = {'received_files': [0, 1]}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_NONCRITICAL_NOT_READY)
+        assert func(status, past) == Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_NONCRITICAL_NOT_READY
 
         status = {'foo': Status.SLOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future), Status.SLOT_READY)
+        assert func(status, past) == Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_READY
 
         status = {'foo': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+        assert func(status, past) == Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_READY_BUT_WAIT_FOR_MORE
 
         # More than one fileset
 
         status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_NOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, past) == Status.SLOT_OBSOLETE_TIMEOUT
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, past) == Status.SLOT_OBSOLETE_TIMEOUT
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, past) == Status.SLOT_OBSOLETE_TIMEOUT
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NOT_READY, 'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), Status.SLOT_OBSOLETE_TIMEOUT)
-        self.assertEqual(func(status, future), Status.SLOT_NOT_READY)
+        assert func(status, past) == Status.SLOT_OBSOLETE_TIMEOUT
+        assert func(status, future) == Status.SLOT_NOT_READY
 
         status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY,
                   'bar': Status.SLOT_NONCRITICAL_NOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_NONCRITICAL_NOT_READY)
+        assert func(status, past) == Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_NONCRITICAL_NOT_READY
 
         status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY, 'bar': Status.SLOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_NONCRITICAL_NOT_READY)
+        assert func(status, past) == Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_NONCRITICAL_NOT_READY
 
         status = {'foo': Status.SLOT_NONCRITICAL_NOT_READY,
                   'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_NONCRITICAL_NOT_READY)
+        assert func(status, past), Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_NONCRITICAL_NOT_READY
 
         status = {'foo': Status.SLOT_READY, 'bar': Status.SLOT_READY}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future), Status.SLOT_READY)
+        assert func(status, past), Status.SLOT_READY
+        assert func(status, future), Status.SLOT_READY
 
         status = {'foo': Status.SLOT_READY, 'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+        assert func(status, past), Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_READY_BUT_WAIT_FOR_MORE
 
         status = {'foo': Status.SLOT_READY_BUT_WAIT_FOR_MORE,
                   'bar': Status.SLOT_READY_BUT_WAIT_FOR_MORE}
-        self.assertEqual(func(status, past), Status.SLOT_READY)
-        self.assertEqual(func(status, future),
-                         Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+        assert func(status, past), Status.SLOT_READY
+        assert func(status, future) == Status.SLOT_READY_BUT_WAIT_FOR_MORE
 
-    def test_process_message_without_uid(self):
+    def test_process_message_without_uid(self, caplog):
         """Test adding a file."""
         # Single fileset
         mda = self.mda_msg0deg.copy()
         del mda['uid']
         msg = FakeMessage(mda)
         col = self.msg0deg
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             col.process(msg)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert "No key 'uid' in message." in logs
 
-    def test_process_one_message_before_init(self):
+    def test_process_one_message_before_init(self, caplog):
         """Test adding a file."""
         mda = self.mda_msg0deg.copy()
         msg = FakeMessage(mda)
         col = self.msg0deg
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             col.process(msg)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert "Adding new slot:" in logs[0]
 
-    def test_process_one_message_outside_range_of_interest(self):
+    def test_process_one_message_outside_range_of_interest(self, caplog):
         """Test processing a file outside the range of interest."""
         mda = self.mda_msg0deg_south_segment.copy()
         msg = FakeMessage(mda)
         col = self.msg0deg_north
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             col.process(msg)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert "H-000-MSG3__-MSG3________-VIS006___-000008___-201611281100-__ not in " in logs[2]
 
-    def test_process_message_twice(self):
+    def test_process_message_twice(self, caplog):
         """Test processing a message."""
         mda = self.mda_msg0deg.copy()
         msg = FakeMessage(mda)
@@ -441,20 +430,20 @@ class TestSegmentGatherer(unittest.TestCase):
         message = Message(msg, col._patterns['msg'])
         col._create_slot(message)
         col.process(msg)
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             col.process(msg)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert 'File already received' in logs
 
-    def test_process_message_unknown_file(self):
+    def test_process_message_unknown_file(self, caplog):
         """Test processing a message with an unknown file uid."""
         mda = self.mda_msg0deg.copy()
         mda['uid'] = "blablabla"
         msg = FakeMessage(mda)
         col = self.msg0deg
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             col.process(msg)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert 'No parser matching message, skipping.' in logs
 
     def test_add_single_file(self):
@@ -467,13 +456,13 @@ class TestSegmentGatherer(unittest.TestCase):
         key = list(CONFIG_SINGLE['patterns'].keys())[0]
         slot = col.slots[time_slot]
         res = slot.add_file(message)
-        self.assertTrue(res is None)
-        self.assertEqual(len(col.slots[time_slot][key]['received_files']), 1)
+        assert res is None
+        assert len(col.slots[time_slot][key]['received_files']) == 1
         meta = col.slots[time_slot].output_metadata
-        self.assertEqual(len(meta['dataset']), 1)
-        self.assertTrue('uri' in meta['dataset'][0])
-        self.assertTrue('uid' in meta['dataset'][0])
-        self.assertTrue(meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/'))
+        assert len(meta['dataset']) == 1
+        assert 'uri' in meta['dataset'][0]
+        assert 'uid' in meta['dataset'][0]
+        assert meta['dataset'][0]['uri'].startswith('/home/lahtinep/data/satellite/geo/msg/')
 
     def test_add_single_file_s3_scheme(self):
         """Test adding a file that is in S3 storage."""
@@ -485,7 +474,7 @@ class TestSegmentGatherer(unittest.TestCase):
         slot = col.slots[time_slot]
         _ = slot.add_file(message)
         meta = col.slots[time_slot].output_metadata
-        self.assertTrue(meta['dataset'][0]['uri'].startswith('s3://bucket-name/'))
+        assert meta['dataset'][0]['uri'].startswith('s3://bucket-name/')
 
     def test_add_single_file_file_scheme(self):
         """Test adding a file that has file:// scheme in the URI."""
@@ -497,7 +486,7 @@ class TestSegmentGatherer(unittest.TestCase):
         slot = col.slots[time_slot]
         _ = slot.add_file(message)
         meta = col.slots[time_slot].output_metadata
-        self.assertTrue(meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/'))
+        assert meta['dataset'][0]['uri'].startswith('file:///home/lahtinep/data/satellite/geo/msg/')
 
     def test_add_single_s3_file(self):
         """Test adding a file that is in S3 storage."""
@@ -524,13 +513,12 @@ class TestSegmentGatherer(unittest.TestCase):
             message = Message(FakeMessage(msg_data[key]), col._patterns[key])
             slot = col.slots[time_slot]
             res = slot.add_file(message)
-            self.assertTrue(res is None)
-            self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             1)
+            assert res is None
+            assert len(col.slots[time_slot][key]['received_files']) == 1
             meta = col.slots[time_slot].output_metadata
-            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
-            self.assertTrue('uri' in meta['collection'][key]['dataset'][0])
-            self.assertTrue('uid' in meta['collection'][key]['dataset'][0])
+            assert len(meta['collection'][key]['dataset']) == 1
+            assert 'uri' in meta['collection'][key]['dataset'][0]
+            assert 'uid' in meta['collection'][key]['dataset'][0]
             i += 1
 
     def test_add_two_files_without_segments(self):
@@ -547,48 +535,47 @@ class TestSegmentGatherer(unittest.TestCase):
             message = Message(FakeMessage(msg_data[key]), col._patterns[key])
             slot = col.slots[time_slot]
             res = slot.add_file(message)
-            self.assertTrue(res is None)
-            self.assertEqual(len(col.slots[time_slot][key]['received_files']),
-                             1)
+            assert res is None
+            assert len(col.slots[time_slot][key]['received_files']) == 1
             meta = col.slots[time_slot].output_metadata
-            self.assertEqual(len(meta['collection'][key]['dataset']), 1)
+            assert len(meta['collection'][key]['dataset']) == 1
             i += 1
 
     def test_ini_to_dict(self):
         """Test ini conversion to dict."""
         config = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"), "msg")
-        self.assertTrue('patterns' in config)
-        self.assertTrue('posttroll' in config)
-        self.assertTrue('time_tolerance' in config)
-        self.assertTrue('timeliness' in config)
-        self.assertTrue('time_name' in config)
-        self.assertTrue('check_existing_files_after_start' in config)
+        assert 'patterns' in config
+        assert 'posttroll' in config
+        assert 'time_tolerance' in config
+        assert 'timeliness' in config
+        assert 'time_name' in config
+        assert 'check_existing_files_after_start' in config
 
-        self.assertTrue('topics' in config['posttroll'])
-        self.assertTrue('nameservers' in config['posttroll'])
-        self.assertTrue('addresses' in config['posttroll'])
-        self.assertTrue('topics' in config['posttroll'])
-        self.assertTrue('publish_port' in config['posttroll'])
-        self.assertTrue('publish_topic' in config['posttroll'])
+        assert 'topics' in config['posttroll']
+        assert 'nameservers' in config['posttroll']
+        assert 'addresses' in config['posttroll']
+        assert 'topics' in config['posttroll']
+        assert 'publish_port' in config['posttroll']
+        assert 'publish_topic' in config['posttroll']
 
-        self.assertTrue('msg' in config['patterns'])
-        self.assertTrue('pattern' in config['patterns']['msg'])
-        self.assertTrue('critical_files' in config['patterns']['msg'])
-        self.assertTrue('wanted_files' in config['patterns']['msg'])
-        self.assertTrue('all_files' in config['patterns']['msg'])
-        self.assertTrue('is_critical_set' in config['patterns']['msg'])
-        self.assertTrue('variable_tags' in config['patterns']['msg'])
+        assert 'msg' in config['patterns']
+        assert 'pattern' in config['patterns']['msg']
+        assert 'critical_files' in config['patterns']['msg']
+        assert 'wanted_files' in config['patterns']['msg']
+        assert 'all_files' in config['patterns']['msg']
+        assert 'is_critical_set' in config['patterns']['msg']
+        assert 'variable_tags' in config['patterns']['msg']
 
     def test_check_schedule_time(self):
         """Test Check Schedule Time."""
         hour = self.msg0deg_iodc._patterns['msg']['_start_time_pattern']
-        self.assertTrue(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(9, 0)))
-        self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(9, 30)))
-        self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(23, 0)))
+        assert self.msg0deg.check_if_time_is_in_interval(hour, dt.time(9, 0))
+        assert not self.msg0deg.check_if_time_is_in_interval(hour, dt.time(9, 30))
+        assert not self.msg0deg.check_if_time_is_in_interval(hour, dt.time(23, 0))
         hour = self.msg0deg_iodc._patterns['iodc']['_start_time_pattern']
-        self.assertTrue(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(4, 15)))
-        self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(4, 30)))
-        self.assertFalse(self.msg0deg.check_if_time_is_in_interval(hour, dt.time(11, 0)))
+        assert self.msg0deg.check_if_time_is_in_interval(hour, dt.time(4, 15))
+        assert not self.msg0deg.check_if_time_is_in_interval(hour, dt.time(4, 30))
+        assert not self.msg0deg.check_if_time_is_in_interval(hour, dt.time(11, 0))
 
     def test_copy_metadata(self):
         """Test combining metadata from a message and parsed from filename."""
@@ -599,21 +586,21 @@ class TestSegmentGatherer(unittest.TestCase):
         msg.data = {'a': 2, 'c': 3}
 
         res = filter_metadata(mda, msg.data)
-        self.assertEqual(res['a'], 2)
-        self.assertEqual(res['b'], 2)
-        self.assertEqual(res['c'], 3)
+        assert res['a'] == 2
+        assert res['b'] == 2
+        assert res['c'] == 3
 
         # Keep 'a' from parsed metadata
         res = filter_metadata(mda, msg.data, keep_parsed_keys=['a'])
-        self.assertEqual(res['a'], 1)
-        self.assertEqual(res['b'], 2)
-        self.assertEqual(res['c'], 3)
+        assert res['a'] == 1
+        assert res['b'] == 2
+        assert res['c'] == 3
 
         # Keep 'a' from parsed metadata configured for one of more patterns
         res = filter_metadata(mda, msg.data, local_keep_parsed_keys=['a'])
-        self.assertEqual(res['a'], 1)
-        self.assertEqual(res['b'], 2)
-        self.assertEqual(res['c'], 3)
+        assert res['a'] == 1
+        assert res['b'] == 2
+        assert res['c'] == 3
 
     def test_publish_service_name(self):
         """Test publish service name.
@@ -622,7 +609,7 @@ class TestSegmentGatherer(unittest.TestCase):
         """
         col = self.msg0deg_iodc
         publish_service_name = col._generate_publish_service_name()
-        self.assertEqual(publish_service_name, "segment_gatherer_iodc_msg")
+        assert publish_service_name == "segment_gatherer_iodc_msg"
 
     @patch("pytroll_collectors.segments.logging")
     @patch("fsspec.filesystem")
@@ -666,7 +653,7 @@ class TestSegmentGatherer(unittest.TestCase):
 
     @patch("pytroll_collectors.segments.logging")
     @patch("fsspec.filesystem")
-    def test_check_and_add_existing_files_ignore_collection_messages(self, filesystem, logging):
+    def test_check_and_add_existing_files_ignore_collection_messages(self, filesystem, logging, caplog):
         """Test that messages with other types than 'file' are ignored."""
         message = _get_message_from_metadata_and_patterns(self.mda_msg0deg, self.msg0deg._patterns['msg'])
         slot = _create_and_get_slot(self.msg0deg, message)
@@ -674,9 +661,9 @@ class TestSegmentGatherer(unittest.TestCase):
         message.type = "collection"
         self.msg0deg._is_first_message_after_start = True
 
-        with self._caplog.at_level(LOGGING_ERROR):
+        with caplog.at_level(LOGGING_ERROR):
             self.msg0deg.check_and_add_existing_files(slot, message)
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert "Only 'file' messages are supported." in logs
 
     @patch("pytroll_collectors.segments.logging")
@@ -1032,10 +1019,12 @@ new_pps_message_data = \
                     'sensor': ['viirs']}
 
 
-class TestSegmentGathererCollections(unittest.TestCase):
+@pytest.mark.usefixtures("caplog")
+class TestSegmentGathererCollections:
     """Test collections gathering."""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Set up the test case."""
         self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
 
@@ -1066,32 +1055,27 @@ class TestSegmentGathererCollections(unittest.TestCase):
 
         assert len(self.collection_gatherer.slots) == 2
 
-    @pytest.fixture(autouse=True)
-    def inject_fixtures(self, caplog):
-        """Inject fixtures."""
-        self._caplog = caplog
-
-    def test_add_message_twice(self):
+    def test_add_message_twice(self, caplog):
         """Test adding a message twice."""
         from posttroll.message import Message as Message_p
         viirs_msg = Message_p(rawstr=viirs_message)
         self.collection_gatherer.process(viirs_msg)
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             self.collection_gatherer.process(viirs_msg)
 
-            logs = [rec.message for rec in self._caplog.records]
+            logs = [rec.message for rec in caplog.records]
             assert 'File already received' in logs
 
-    def test_slot_is_ready(self):
+    def test_slot_is_ready(self, caplog):
         """Test when a slot is ready."""
         from posttroll.message import Message as Message_p
         viirs_msg = Message_p(rawstr=viirs_message)
         pps_msg = Message_p(rawstr=pps_message)
 
-        with self._caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG):
             self.collection_gatherer.process(viirs_msg)
             self.collection_gatherer.process(pps_msg)
-        assert "Found existing time slot at 2020-10-13 05:17:21.200000, using that" in self._caplog.text
+        assert "Found existing time slot at 2020-10-13 05:17:21.200000, using that" in caplog.text
 
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
         assert slot.get_status() == Status.SLOT_READY
@@ -1203,7 +1187,7 @@ pps_message2 = ('pytroll://segment/CF/2/CTTH/norrkoping/utv/polar/direct_readout
                 '"2", "format": "CF", "station": "norrkoping", "posttroll_topic": "PPSv2018", "variant": "DR"}')
 
 
-class TestStartTimes(unittest.TestCase):
+class TestStartTimes:
     """Test incomplete start times."""
 
     def test_incomplete_start_times(self):
@@ -1219,7 +1203,7 @@ class TestStartTimes(unittest.TestCase):
         assert len(list(collection_gatherer.slots.values())[0].output_metadata['dataset']) == 2
 
 
-class TestMessage(unittest.TestCase):
+class TestMessage:
     """Test the message object."""
 
     def test_create_message(self):
@@ -1275,10 +1259,11 @@ class TestMessage(unittest.TestCase):
         assert message.uid().startswith('NOAA-20_2020-10-13 05:17:21')
 
 
-class TestFlooring(unittest.TestCase):
+class TestFlooring:
     """Test flooring."""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Set up the test case."""
         self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
@@ -1288,7 +1273,7 @@ class TestFlooring(unittest.TestCase):
     def test_floor_time_10_minutes(self):
         """Test flooring 10 minutes."""
         self.himawari_ini_message.adjust_time_by_flooring()
-        self.assertEqual(20, self.himawari_ini_message.metadata['start_time'].minute)
+        assert self.himawari_ini_message.metadata['start_time'].minute == 20
 
     def test_floor_time_15_minutes(self):
         """Test flooring 15 minutes."""
@@ -1297,7 +1282,7 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
 
             self.himawari_ini_message.adjust_time_by_flooring()
-            self.assertEqual(15, self.himawari_ini_message.metadata['start_time'].minute)
+            assert self.himawari_ini_message.metadata['start_time'].minute == 15
 
     def test_floor_time_2_minutes(self):
         """Test flooring 2 minutes."""
@@ -1306,7 +1291,7 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
 
             self.himawari_ini_message.adjust_time_by_flooring()
-            self.assertEqual(28, self.himawari_ini_message.metadata['start_time'].minute)
+            assert self.himawari_ini_message.metadata['start_time'].minute == 28
 
     def test_floor_time_2_minutes_with_seconds(self):
         """Test flooring 2 minutes with zeroing of seconds."""
@@ -1319,8 +1304,8 @@ class TestFlooring(unittest.TestCase):
                                                                            start_time.day, start_time.hour,
                                                                            start_time.minute, 42)
             self.himawari_ini_message.adjust_time_by_flooring()
-            self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 28)
-            self.assertEqual(self.himawari_ini_message.metadata['start_time'].second, 0)
+            assert self.himawari_ini_message.metadata['start_time'].minute == 28
+            assert self.himawari_ini_message.metadata['start_time'].second == 0
 
     def test_floor_time_without_group_by_minutes_does_not_change_time(self):
         """Test that flooring the time without group_by_minutes defined keeps the time intact."""
@@ -1328,13 +1313,14 @@ class TestFlooring(unittest.TestCase):
             self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
             self.himawari_ini_message = self.himawari_ini.message_from_posttroll(self.himawari_msg)
             self.himawari_ini_message.adjust_time_by_flooring()
-            self.assertEqual(self.himawari_ini_message.metadata['start_time'].minute, 29)
+            assert self.himawari_ini_message.metadata['start_time'].minute == 29
 
 
-class TestFlooringMultiplePatterns(unittest.TestCase):
+class TestFlooringMultiplePatterns:
     """Test flooring."""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Set up the test case."""
         self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
 
@@ -1345,12 +1331,12 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
 
     def test_parsing_minutes(self):
         """Test parsing the minutes."""
-        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
+        assert self.iodc_message.metadata['start_time'].minute == 15
 
     def test_floor_10_minutes(self):
         """Test flooring by 10 minutes."""
         self.himawari_message.adjust_time_by_flooring()
-        self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
+        assert self.himawari_message.metadata['start_time'].minute == 20
 
     def test_floor_10_minutes_with_seconds_zeroed(self):
         """Test flooring by 10 minutes will zero seconds."""
@@ -1359,8 +1345,8 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
                                                                    start_time.day, start_time.hour,
                                                                    start_time.minute, 42)
         self.himawari_message.adjust_time_by_flooring()
-        self.assertEqual(self.himawari_message.metadata['start_time'].minute, 20)
-        self.assertEqual(self.himawari_message.metadata['start_time'].second, 0)
+        assert self.himawari_message.metadata['start_time'].minute == 20
+        assert self.himawari_message.metadata['start_time'].second == 0
 
     def test_floor_time_without_group_by_minutes_does_not_change_time(self):
         """Test that flooring the time without global group_by_minutes still works."""
@@ -1368,13 +1354,13 @@ class TestFlooringMultiplePatterns(unittest.TestCase):
             self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
             self.himawari_message = self.iodc_himawari.message_from_posttroll(self.himawari_msg)
             self.himawari_message.adjust_time_by_flooring()
-            self.assertEqual(29, self.himawari_message.metadata['start_time'].minute)
+            assert self.himawari_message.metadata['start_time'].minute == 29
 
     def test_floor_grouping_does_not_affect_other_pattern(self):
         """Test that `group_by_minutes` for one pattern doesn't leak to the other patterns."""
-        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
+        assert self.iodc_message.metadata['start_time'].minute == 15
         self.iodc_message.adjust_time_by_flooring()
-        self.assertEqual(self.iodc_message.metadata['start_time'].minute, 15)
+        assert self.iodc_message.metadata['start_time'].minute == 15
 
 
 fci_message_1 = ('pytroll://segment/fci_nc file mraspaud@4730366dc313 2023-02-21T13:45:47.413168 v1.01 application/json'
