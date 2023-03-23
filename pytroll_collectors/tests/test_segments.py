@@ -450,7 +450,7 @@ class TestSegmentGatherer:
         """Test processing message with scheme when config says files are local."""
         mda = self.mda_msg0deg.copy()
         expected_uri = mda['uri']
-        mda['uri'] = 'SCHEME://' + mda['uri']
+        mda['uri'] = 'SCHEME://host.foo.bar' + mda['uri']
         msg = FakeMessage(mda)
         col = SegmentGatherer(CONFIG_SINGLE)
         col._config['all_files_are_local'] = True
