@@ -459,6 +459,18 @@ class TestSegmentGatherer:
         uri = slot.output_metadata['dataset'][0]['uri']
         assert uri == expected_uri
 
+    def test_process_message_force_local_files_check_existing(self):
+        """Test processing message with scheme when config says files are local and existing files are checked."""
+        mda = self.mda_msg0deg.copy()
+        mda['uri'] = 'SCHEME://host.foo.bar' + mda['uri']
+        msg = FakeMessage(mda)
+        col = SegmentGatherer(CONFIG_SINGLE)
+        # Without forcing all files to be local the processing would fail with
+        # "ValueError: Protocol not known: scheme"
+        col._config['all_files_are_local'] = True
+        col._config['check_existing_files_after_start'] = True
+        col.process(msg)
+
     def test_add_single_file(self):
         """Test adding a file."""
         msg = FakeMessage(self.mda_msg0deg)
