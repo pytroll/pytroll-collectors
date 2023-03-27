@@ -378,6 +378,12 @@ check_existing_files_after_start
     that should also be added to this time slot. Currently does not support
     (remote) S3 filesystems. Defaults to False.
 
+all_files_are_local
+    Optional.  If set to ``True`` (defaults to ``False``), segment gatherer will handle
+    all files as locally accessible. That is, it will drop the transport protocol/scheme
+    and host name from the URI of the incoming messages. The use case is for protocols that
+    ``fsspec`` do not recognize and can't handle, such as ``scp://``.
+
 The YAML format supports collection of several different data together. As
 an example: SEVIRI data and NWC SAF GEO products.
 
