@@ -162,7 +162,7 @@ class Message:
         """Set up the message."""
         self.pattern = pattern
         self._drop_scheme = drop_scheme
-        posttroll_message = self._check_scheme(posttroll_message)
+        posttroll_message = self._handle_scheme(posttroll_message)
         self.message_data = posttroll_message.data
         self.type = posttroll_message.type
         self._posttroll_message = posttroll_message
@@ -193,7 +193,7 @@ class Message:
                                 time_item.day, time_item.hour, floor_minutes, 0)
         metadata[time_name] = time_item
 
-    def _check_scheme(self, posttroll_message):
+    def _handle_scheme(self, posttroll_message):
         message_data = posttroll_message.data.copy()
         if self._drop_scheme:
             url_parts = urlparse(message_data['uri'])
