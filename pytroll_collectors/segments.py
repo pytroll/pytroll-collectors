@@ -158,10 +158,12 @@ class MessageParser(Parser):
 class Message:
     """A message object."""
 
-    def __init__(self, posttroll_message, pattern):
+    def __init__(self, posttroll_message, pattern, drop_scheme=False):
         """Set up the message."""
         self.pattern = pattern
-        self.message_data = posttroll_message.data.copy()
+        self._drop_scheme = drop_scheme
+        posttroll_message = self._handle_scheme(posttroll_message)
+        self.message_data = posttroll_message.data
         self.type = posttroll_message.type
         self._posttroll_message = posttroll_message
         self.metadata = pattern.parser.parse(self.message_data)
@@ -190,6 +192,24 @@ class Message:
         time_item = dt.datetime(time_item.year, time_item.month,
                                 time_item.day, time_item.hour, floor_minutes, 0)
         metadata[time_name] = time_item
+
+    def _handle_scheme(self, posttroll_message):
+        message_data = posttroll_message.data.copy()
+        if self._drop_scheme:
+            url_parts = urlparse(message_data['uri'])
+            uri = urlunparse(
+                (
+                    '',
+                    '',
+                    url_parts.path,
+                    '',
+                    '',
+                    ''
+                )
+            )
+            message_data['uri'] = uri
+            posttroll_message.data = message_data
+        return posttroll_message
 
     @property
     def filtered_metadata(self):
@@ -782,7 +802,8 @@ class SegmentGatherer(object):
         for pattern in self._patterns.values():
             try:
                 if pattern.parser.matches(msg):
-                    return Message(msg, pattern)
+                    drop_scheme = self._config.get('all_files_are_local', False)
+                    return Message(msg, pattern, drop_scheme=drop_scheme)
             except KeyError as err:
                 logger.debug("No key %s in message.", str(err))
         raise TypeError
@@ -997,6 +1018,11 @@ def ini_to_dict(fname, section):
         conf['check_existing_files_after_start'] = config.getboolean(section, "check_existing_files_after_start")
     except (NoOptionError, ValueError):
         conf['check_existing_files_after_start'] = False
+
+    try:
+        conf['all_files_are_local'] = config.getboolean(section, "all_files_are_local")
+    except (NoOptionError, ValueError):
+        conf['all_files_are_local'] = False
 
     return conf
 
