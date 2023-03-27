@@ -76,7 +76,6 @@ class FakeMessage:
         self.subject = subject
 
 
-@pytest.mark.usefixtures("caplog")
 class TestSegmentGatherer:
     """Tests for the segment gatherer."""
 
