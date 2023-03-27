@@ -1046,8 +1046,7 @@ new_pps_message_data = \
 class TestSegmentGathererCollections:
     """Test collections gathering."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup_method(self):
         """Set up the test case."""
         self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
 
@@ -1285,8 +1284,7 @@ class TestMessage:
 class TestFlooring:
     """Test flooring."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup_method(self):
         """Set up the test case."""
         self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
 
@@ -1342,8 +1340,7 @@ class TestFlooring:
 class TestFlooringMultiplePatterns:
     """Test flooring."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup_method(self):
         """Set up the test case."""
         self.iodc_himawari = SegmentGatherer(CONFIG_DOUBLE_DIFFERENT)
 
