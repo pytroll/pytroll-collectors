@@ -80,8 +80,7 @@ class FakeMessage:
 class TestSegmentGatherer:
     """Tests for the segment gatherer."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup_method(self):
         """Set up the testing."""
         self.mda_msg0deg = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "/home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
