@@ -1,4 +1,19 @@
 ###############################################################################
+## Version 0.15.0 (2023/03/27)
+
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 133](https://github.com/pytroll/pytroll-collectors/pull/133) - Make it possible to tell segment gatherer that all the files are local
+
+#### Features added
+
+* [PR 133](https://github.com/pytroll/pytroll-collectors/pull/133) - Make it possible to tell segment gatherer that all the files are local
+
+In this release 2 pull requests were closed.
+
 ## Version 0.14.0 (2023/03/20)
 
 ### Issues Closed
