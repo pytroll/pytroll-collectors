@@ -85,7 +85,8 @@ setup(name="pytroll_collectors",
                'bin/catter.py',
                'bin/scisys_receiver.py',
                'bin/zipcollector_runner.py',
-               'bin/s3stalker.py'
+               'bin/s3stalker.py',
+               'bin/s3stalker_daemon.py'
                ],
       data_files=[],
       zip_safe=False,
