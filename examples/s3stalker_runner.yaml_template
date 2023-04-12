@@ -1,0 +1,13 @@
+s3_kwargs:
+  anon: False
+  client_kwargs:
+    endpoint_url: 'https://zzz.yyy.xx'
+    aws_access_key_id: 'my_access_key'
+    aws_secret_access_key: 'my_secret_access_key'
+timedelta:
+  minutes: 2
+subject:
+  /atms/sdr/mystation
+file_pattern: GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5
+publisher:
+  name: s3stalker_runner

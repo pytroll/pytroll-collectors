@@ -24,6 +24,8 @@ variable_tags = proctime,proc_decimal
 # addresses = tcp://192.168.0.101:12345 tcp://192.168.0.102:12345
 # Publish messages via this port.  If not set, random free port is used
 # publish_port = 12345
+# Force all files to be local. That is, drop scheme and host from the URIs before handling the messages
+# all_files_are_local = True
 
 # nameserver host to register publisher
 # WARNING: 

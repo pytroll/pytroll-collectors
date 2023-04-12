@@ -378,6 +378,12 @@ check_existing_files_after_start
     that should also be added to this time slot. Currently does not support
     (remote) S3 filesystems. Defaults to False.
 
+all_files_are_local
+    Optional.  If set to ``True`` (defaults to ``False``), segment gatherer will handle
+    all files as locally accessible. That is, it will drop the transport protocol/scheme
+    and host name from the URI of the incoming messages. The use case is for protocols that
+    ``fsspec`` do not recognize and can't handle, such as ``scp://``.
+
 The YAML format supports collection of several different data together. As
 an example: SEVIRI data and NWC SAF GEO products.
 
@@ -394,6 +400,25 @@ Example yaml config:
 
 .. literalinclude:: ../../examples/segment_gatherer_msg_and_iodc.yaml_template
    :language: yaml
+
+If the collected segments are in an S3 object store, the
+``check_existing_files_after_start`` feature needs some additional
+configuration. All the connection configurations and such are done
+using the `fsspec`_ configuration system.
+
+An example configuration could be for example placed in `~/.config/fsspec/s3.json`::
+
+        {
+            "s3": {
+                "client_kwargs": {"endpoint_url": "https://s3.server.foo.com"},
+                "secret": "VERYBIGSECRET",
+                "key": "ACCESSKEY"
+            }
+        }
+
+
+.. _fsspec: https://filesystem-spec.readthedocs.io/en/latest/features.html#configuration
+
 
 .. _trollstalker:
 
@@ -455,6 +480,26 @@ trollstalker2
 
 New, alternative implementation of trollstalker.  Not really needed,
 as trollstalker works fine and is actively maintained.
+
+
+s3stalker
+^^^^^^^^^
+
+A counterpart to trollstalker for polling for new files on an s3 bucket.
+This is thought to be run regularly from eg. cron. For a daemon version of
+this, check the next item.
+Example configuration:
+https://github.com/pytroll/pytroll-collectors/blob/main/examples/s3stalker.yaml
+
+s3stalker_daemon
+^^^^^^^^^^^^^^^^
+
+The daemon version of s3stalker, that stays on and polls until stopped
+(preferably with a SIGTERM).
+Example configuration:
+https://github.com/pytroll/pytroll-collectors/blob/main/examples/s3stalker_runner.yaml_template
+
+See also https://s3fs.readthedocs.io/en/latest/#credentials on options how to define the S3 credentials.
 
 zipcollector_runner
 ^^^^^^^^^^^^^^^^^^^

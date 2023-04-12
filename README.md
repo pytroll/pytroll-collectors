@@ -10,7 +10,6 @@ pytroll-collectors
 
 [![PyPI version](https://badge.fury.io/py/pytroll-collectors.svg)](https://badge.fury.io/py/pytroll-collectors)
 
-
 A set of modules and functions to support real-time processing of satellite
 data with pytroll. It requires the Posttroll library for messaging. Satellite
 data processing is often done in chunks, usually referred to as granules or
@@ -22,5 +21,4 @@ chunks in one batch once all relevant chunks are available. This is, however,
 only one example of what this package provides. There are also functionality to
 list and stalk files in an object store like AWS S3 for instance.
 
-
-Pytroll developers, Norrköping, August 17, 2022
+[Documentation on Readthedocs](https://pytroll-collectors.readthedocs.io/en/latest/).
