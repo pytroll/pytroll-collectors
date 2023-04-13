@@ -25,7 +25,6 @@ run as a cronjob.
 
 """
 
-import argparse
 import logging
 import logging.config
 import sys
@@ -34,18 +33,6 @@ from pytroll_collectors.s3stalker import get_configs_from_command_line
 from pytroll_collectors.s3stalker_daemon_runner import S3StalkerRunner
 
 logger = logging.getLogger(__name__)
-
-
-def arg_parse():
-    """Handle input arguments."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("bucket", help="The bucket to retrieve from.")
-    parser.add_argument("config", help="Config file to be used")
-    parser.add_argument("-l", "--log",
-                        help="Log configuration file",
-                        default=None)
-
-    return parser.parse_args()
 
 
 def main():
