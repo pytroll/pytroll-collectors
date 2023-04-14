@@ -1,0 +1,29 @@
+s3_kwargs:
+  anon: False
+  profile: my-aws-profile
+  client_kwargs:
+    endpoint_url: 'https://zzz.yyy.xx'
+    #
+    # In this example we do not expose the secret-key neither the access-key, but
+    # using a user specific config file with path relative to the users home like this:
+    # .aws/config
+    # The content of this file may then look like this:
+    # [default]
+    #
+    # [profile "my-aws-profile"]
+    # aws_access_key_id = <the-actual-access-key-for-the-s3-bucket>
+    # aws_secret_access_key = <the-actual-secret-key-for-the-s3-bucket>
+    #
+    # --- end of file ---
+    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file
+    #
+fetch_back_to:
+  hours: 6
+polling_interval:
+  minutes: 2
+
+subject:
+  /atms/sdr/mystation
+file_pattern: GATMO_{platform_name:3s}_d{start_time:%Y%m%d_t%H%M%S}{frac:1s}_e{end_time:%H%M%S}{frac_end:1s}_b{orbit_number:5s}_c{process_time:20s}_cspp_dev.h5
+publisher:
+  name: s3stalker_runner

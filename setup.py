@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2014 - 2021 Pytroll developers
+# Copyright (c) 2014 - 2022 Pytroll developers
 #
 # Author(s):
 #
@@ -47,6 +47,9 @@ extras_require = {
     ],
     'trollstalker': [
         'pyinotify',
+    ],
+    's3_segment_gatherer': [
+        'fsspec'
     ]
 }
 
@@ -82,15 +85,17 @@ setup(name="pytroll_collectors",
                'bin/catter.py',
                'bin/scisys_receiver.py',
                'bin/zipcollector_runner.py',
-               'bin/s3stalker.py'
+               'bin/s3stalker.py',
+               'bin/s3stalker_daemon.py'
                ],
       data_files=[],
       zip_safe=False,
       install_requires=['posttroll>=1.3.0',
                         'trollsift',
                         'pyyaml'],
-      tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml', 'pyinotify', 's3fs',
+      tests_require=['trollsift', 'netifaces', 'watchdog', 'posttroll', 'pyyaml',
+                     'pyinotify', 's3fs', 'freezegun',
                      'pyresample', 'python-dateutil', 'posttroll', 'pytest'],
       extras_require=extras_require,
-      python_requires='>=3.7',
+      python_requires='>=3.9',
       )

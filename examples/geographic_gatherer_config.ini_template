@@ -20,7 +20,9 @@ sensor = viirs
 timeliness = 10
 # duration of a granule in SECONDS
 duration = 180
-publish_topic = 
+publish_topic =
+# The topics to listen for:
+topics = /viirs/sdr/1
 
 [ears_viirs]
 pattern = /data/prod/satellit/ears/viirs/SVMC_{platform}_d{start_date:%Y%m%d}_t{start_time:%H%M%S%f}_e{end_time:%H%M%S%f}_b{orbit_number:5d}_c{proctime:%Y%m%d%H%M%S%f}_eum_ops.h5.bz2
@@ -32,7 +34,9 @@ sensor = viirs
 timeliness = 30
 duration = 85.4
 variant = EARS
-publish_topic = 
+publish_topic =
+# The topics to listen for:
+topics = /ears/viirs/sdr/1
 
 [ears_noaa18_avhrr]
 pattern = /data/prod/satellit/ears/avhrr/avhrr_{start_time:%Y%m%d_%H%M%S}_noaa18.hrp.bz2
@@ -44,7 +48,8 @@ platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
 variant = EARS
-publish_topic = 
+publish_topic =
+topics = /ears/avhrr/hrpt/1
 
 [ears_noaa19_avhrr]
 pattern = /data/prod/satellit/ears/avhrr/avhrr_{start_time:%Y%m%d_%H%M%S}_noaa18.hrp.bz2
@@ -56,7 +61,8 @@ platform_name = NOAA-18
 sensor = avhrr/3
 timeliness = 15
 variant = EARS
-publish_topic = 
+publish_topic =
+topics = /ears/avhrr/hrpt/1
 
 [ears_metop-b]
 pattern = /data/prod/satellit/ears/avhrr/AVHR_HRP_{data_processing_level:2s}_M01_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z.bz2
@@ -67,7 +73,8 @@ sensor = avhrr/3
 timeliness = 15
 level = 0
 variant = EARS
-publish_topic = 
+publish_topic =
+topics = /ears/avhrr/metop/eps/1
 
 [ears_metop-a]
 pattern = /data/prod/satellit/ears/avhrr/AVHR_HRP_{data_processing_level:2s}_M02_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z.bz2
@@ -79,6 +86,7 @@ timeliness = 15
 level = 0
 variant = EARS
 publish_topic = /EARS/Metop-B
+topics = /ears/avhrr/metop/eps/1
 
 [gds_metop-b]
 pattern = /data/prod/satellit/metop2/AVHR_xxx_{data_processing_level:2s}_M01_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
@@ -90,6 +98,7 @@ timeliness = 100
 variant = GDS
 orbit_type = polar
 publish_topic = /GDS/Metop-B
+topics = /gds/avhrr/metop/eps/1
 
 [gds_metop-a]
 pattern = /data/prod/satellit/metop2/AVHR_xxx_{level:2s}_M02_{start_time:%Y%m%d%H%M%S}Z_{end_time:%Y%m%d%H%M%S}Z_N_O_{proc_time:%Y%m%d%H%M%S}Z
@@ -100,6 +109,7 @@ sensor = avhrr/3
 timeliness = 100
 variant = GDS
 publish_topic = /GDS/Metop-A
+topics = /gds/avhrr/metop/eps/1
 
 [EARS_terra]
 pattern = /data/prod/satellit/modis/lvl1/thin_MOD021KM.A{start_time:%Y%j.%H%M}.005.{proc_time:%Y%j%H%M%S}.NRT.hdf
@@ -111,6 +121,7 @@ sensor = modis
 timeliness = 180
 duration = 300
 variant = EARS
+topics = /ears/modis/hdf4/1
 
 [EARS_aqua]
 pattern = /data/prod/satellit/modis/lvl1/thin_MYD021KM.A{start_time:%Y%j.%H%M}.005.{proc_time:%Y%j%H%M%S}.NRT.hdf
@@ -122,3 +133,4 @@ sensor = modis
 timeliness = 180
 duration = 300
 variant = EARS
+topics = /ears/modis/hdf4/1

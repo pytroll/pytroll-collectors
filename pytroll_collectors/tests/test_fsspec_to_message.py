@@ -296,6 +296,7 @@ class TestSingleFile:
                           "password": password,
                           "protocol": protocol,
                           "port": port}
+
         with pytest.raises(RuntimeError):
             _ = extract_local_files_to_message_for_remote_use(filename, topic,
                                                               target_options=target_options)

@@ -538,11 +538,10 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
             logger.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
+                
             subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
             logger.debug("Subject: %s", str(subject))
-            msg = Message(subject,
-                          "file",
-                          to_send).encode()
+            msg = Message(subject, "file", to_send).encode()
             logger.debug("publishing %s", str(msg))
             pub.send(msg)
             if days:
