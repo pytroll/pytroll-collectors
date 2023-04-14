@@ -28,6 +28,8 @@ The contents of the yaml configuration file should look like this::
       minutes: 2
     file_pattern: '{platform_name:3s}_OL_2_{datatype_id:_<6s}_{start_time:%Y%m%dT%H%M%S}_{end_time:%Y%m%dT%H%M%S}_{creation_time:%Y%m%dT%H%M%S}_{duration:4d}_{cycle:3d}_{relative_orbit:3d}_{frame:4d}_{centre:3s}_{mode:1s}_{timeliness:2s}_{collection:3s}.zip'
     subject: /segment/2/safe-olci/S3/
+    publisher:
+      name: s3stalker_runner
 """  # noqa
 import signal
 from datetime import timedelta, datetime
