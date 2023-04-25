@@ -92,7 +92,7 @@ def _reset_last_fetch_from_file_list(files):
 
 
 def _get_files_since_last_fetch(fs, path):
-    files = fs.ls(path, detail=True)
+    files = fs.ls(path, detail=True, refresh=True)
     logger.debug(f"Get files since {get_last_fetch()}")
     files = list(filter((lambda x: x['LastModified'] > get_last_fetch()), files))
     return files
