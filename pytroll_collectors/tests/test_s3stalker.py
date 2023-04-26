@@ -1204,3 +1204,13 @@ def test_get_configs_from_command_line_gets_bucket_from_config_when_not_provided
     assert config == S3_STALKER_CONFIG
     assert bucket == "s3://bucket_from_file/"
     assert log_config == {}
+
+
+@mock.patch('s3fs.S3FileSystem')
+def test_get_last_files_ls_args(S3FileSystem):
+    """Test that s3.ls() in get_last_files() is called with correct arguments."""
+    from pytroll_collectors.s3stalker import get_last_files
+
+    _ = get_last_files('path')
+
+    S3FileSystem.return_value.ls.assert_called_once_with('path', detail=True, refresh=True)
