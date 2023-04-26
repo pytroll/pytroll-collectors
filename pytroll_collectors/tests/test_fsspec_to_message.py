@@ -309,9 +309,14 @@ def test_message_has_no_filesystem():
     from pytroll_collectors.fsspec_to_message import create_message_with_json_fs
 
     jsn = ('{"cls": "s3fs.core.S3FileSystem", "protocol": "s3", "args": [], '
-           '"client_kwargs": {"endpoint_url": "https://lake.fmi.fi"}, "secret": "xxx", "key": "yyy", "anon": false}')
+           '"client_kwargs": {"endpoint_url": "https://lake.fmi.fi", '
+           '"aws_access_key_id": "xxx", "aws_secret_access_key": "yyy"}, '
+           '"secret": "xxx", "key": "yyy", "anon": false}')
     file_ = {'key': 'bucket/test.bin', 'LastModified': dt.datetime.now(tz.UTC),
              'name': 'bucket/test.bin', 'metadata': {}}
     msg = create_message_with_json_fs(jsn, file_, '/subject')
 
-    assert 'filesystem' not in msg.data
+    assert 'secret' not in msg.data['filesystem']
+    assert 'key' not in msg.data['filesystem']
+    assert 'aws_access_key_id' not in msg.data['filesystem']['client_kwargs']
+    assert 'aws_secret_access_key' not in msg.data['filesystem']['client_kwargs']

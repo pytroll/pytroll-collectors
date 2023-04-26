@@ -26,9 +26,14 @@ def create_message_with_json_fs(fs_to_json, file, subject, metadata=None):
 def _create_message_metadata(fs, file):
     """Create a message to send."""
     loaded_fs = json.loads(fs)
+    loaded_fs.pop('key', None)
+    loaded_fs.pop('secret', None)
+    if 'client_kwargs' in loaded_fs:
+        loaded_fs['client_kwargs'].pop('aws_access_key_id', None)
+        loaded_fs['client_kwargs'].pop('aws_secret_access_key', None)
     uid = _create_uid(file, loaded_fs)
     uri = _create_uri_from_uid(uid, loaded_fs)
-    base_data = {'uri': uri, 'uid': uid}
+    base_data = {'filesystem': loaded_fs, 'uri': uri, 'uid': uid}
     base_data.update(file.get('metadata', dict()))
     return base_data
 
