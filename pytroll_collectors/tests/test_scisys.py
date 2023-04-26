@@ -26,11 +26,9 @@
 # Test cases.
 
 import datetime
-import os
 from unittest import TestCase
 import pytest
 from copy import deepcopy
-import tempfile
 
 from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
 from pytroll_collectors.scisys import get_subject_from_msg2send
@@ -48,11 +46,6 @@ def create_input_dispatch_viirs_msg(dirname):
 def create_input_dispatch_atms_msg(dirname):
     """Create dispatch message for ATMS scene."""
     return '<message timestamp="2013-02-18T09:24:21" sequence="27100" severity="INFO" messageID="8250" type="2met.filehandler.sink.success" sourcePU="SMHI-Linux" sourceSU="GMCSERVER" sourceModule="GMCSERVER" sourceInstance="1"><body>FILDIS File Dispatch: /data/npp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5 ftp://{hostname}:21{path}/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5</body></message>'.format(hostname=hostname, path=dirname)  # noqa
-
-
-INPUT_DISPATCH = {}
-INPUT_DISPATCH['viirs'] = create_input_dispatch_viirs_msg('/tmp')
-INPUT_DISPATCH['atms'] = create_input_dispatch_atms_msg('/tmp')
 
 
 VIIRS = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
@@ -177,116 +170,104 @@ msg_m03_avhrr = {'start_time': datetime.datetime(2022, 12, 19, 18, 42, 26),
                  'uri': 'ssh://{hostname}/tmp/AVHR_HRP_00_M03_20221219184226Z_20221219185738Z_N_O_20221219184230Z'.format(hostname=hostname),  # noqa
                  'variant': 'DR'}
 
+INPUT_DISPATCH = {}
+INPUT_DISPATCH['viirs'] = create_input_dispatch_viirs_msg
+INPUT_DISPATCH['atms'] = create_input_dispatch_atms_msg
+INPUT_DISPATCH['EOS-Terra'] = create_fildis_terra
+INPUT_DISPATCH['NOAA-19'] = create_fildis_n19
+INPUT_DISPATCH['Metop-B'] = create_fildis_m01
 
-def touch(fname):
+STOP_MESSAGES = {}
+STOP_MESSAGES['EOS-Terra'] = stoprc_terra
+STOP_MESSAGES['NOAA-19'] = stoprc_n19
+STOP_MESSAGES['Metop-B'] = stoprc_m01
+
+CREATE_MESSAGES = {}
+CREATE_MESSAGES['EOS-Terra'] = create_msg_terra
+CREATE_MESSAGES['NOAA-19'] = create_msg_n19
+CREATE_MESSAGES['Metop-B'] = create_msg_m01
+
+
+def create_empty_file(filename):
     """Create an empty file."""
-    open(fname, 'a').close()
+    with open(filename, mode="a"):
+        pass
 
 
-class TestScisysReceiver:
-    """Testing the Scisys receiver."""
+def test_reception_to_send_stop_reception():
+    """Test message to send is none when the SCISYS receiver sends a stop reception message."""
+    msg_rec = MessageReceiver("nimbus")
 
-    def test_reception(self):
-        """Test the reception."""
-        msg_rec = MessageReceiver("nimbus")
-
-        # NPP
-
-        string = TwoMetMessage(input_stoprc)
-        to_send = msg_rec.receive(string)
-        assert to_send is None
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, VIIRS['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_input_dispatch_viirs_msg(tmp))
-            to_send = msg_rec.receive(string)
-            viirs_cpy = deepcopy(VIIRS)
-            viirs_cpy.pop('uri')
-            to_send.pop('uri')
-            TestCase().assertDictEqual(to_send, viirs_cpy)
-            os.remove(filename)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, ATMS['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_input_dispatch_atms_msg(tmp))
-            to_send = msg_rec.receive(string)
-
-            atms_cpy = deepcopy(ATMS)
-            atms_cpy.pop('uri')
-            to_send.pop('uri')
-            TestCase().assertDictEqual(to_send, atms_cpy)
-            os.remove(filename)
-
-        # # NPP with start
-
-        string = TwoMetMessage(startrc_npp2)
-        to_send = msg_rec.receive(string)
-        assert to_send is None
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, create_msg_npp2(tmp)['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_fildis_npp2(tmp))
-            to_send = msg_rec.receive(string)
-            TestCase().assertDictEqual(to_send, create_msg_npp2(tmp))
-            os.remove(filename)
-
-        # Terra
-
-        string = TwoMetMessage(stoprc_terra)
-        to_send = msg_rec.receive(string)
-        assert to_send is None
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, create_msg_terra(tmp)['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_fildis_terra(tmp))
-            to_send = msg_rec.receive(string)
-            TestCase().assertDictEqual(to_send, create_msg_terra(tmp))
-            os.remove(filename)
-
-        # # NOAA-19
-
-        string = TwoMetMessage(stoprc_n19)
-        to_send = msg_rec.receive(string)
-        assert to_send is None
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, create_msg_n19(tmp)['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_fildis_n19(tmp))
-            to_send = msg_rec.receive(string)
-            TestCase().assertDictEqual(to_send, create_msg_n19(tmp))
-            os.remove(filename)
-
-        # # Metop-B
-
-        string = TwoMetMessage(stoprc_m01)
-        to_send = msg_rec.receive(string)
-        assert to_send is None
-
-        with tempfile.TemporaryDirectory() as tmp:
-            filename = os.path.join(tmp, create_msg_m01(tmp)['uid'])
-            touch(filename)
-            string = TwoMetMessage(create_fildis_m01(tmp))
-            to_send = msg_rec.receive(string)
-            TestCase().assertDictEqual(to_send, create_msg_m01(tmp))
-            os.remove(filename)
+    string = TwoMetMessage(input_stoprc)
+    to_send = msg_rec.receive(string)
+    assert to_send is None
 
 
 @pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
                                                  (ATMS, 'atms')])
-def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name):
+def test_twomet_message(sensor, sensor_name, tmp_path):
+    """Test creating the 2met message."""
+    filename = tmp_path / sensor['uid']
+
+    create_empty_file(filename)
+    string = TwoMetMessage(INPUT_DISPATCH[sensor_name](tmp_path))
+
+    msg_rec = MessageReceiver("nimbus")
+    to_send = msg_rec.receive(string)
+
+    sensor_cpy = deepcopy(sensor)
+    sensor_cpy.pop('uri')
+    sensor_cpy.pop('orbit_number')
+    to_send.pop('uri')
+
+    TestCase().assertDictEqual(to_send, sensor_cpy)
+
+
+def test_twomet_messages_npp_with_start_reception(tmp_path):
+    """Test creating the 2met message."""
+    msg_rec = MessageReceiver("nimbus")
+
+    string = TwoMetMessage(startrc_npp2)
+    to_send = msg_rec.receive(string)
+    assert to_send is None
+
+    filename = tmp_path / create_msg_npp2(tmp_path)['uid']
+    create_empty_file(filename)
+
+    string = TwoMetMessage(create_fildis_npp2(tmp_path))
+    to_send = msg_rec.receive(string)
+    TestCase().assertDictEqual(to_send, create_msg_npp2(tmp_path))
+
+
+@pytest.mark.parametrize("platform_name", ['EOS-Terra',
+                                           'NOAA-19',
+                                           'Metop-B'])
+def test_twomet_messages_with_stop_reception_message(platform_name, tmp_path):
+    """Test creating the 2met message."""
+    msg_rec = MessageReceiver("nimbus")
+
+    string = TwoMetMessage(STOP_MESSAGES[platform_name])
+    to_send = msg_rec.receive(string)
+    assert to_send is None
+
+    filename = tmp_path / CREATE_MESSAGES[platform_name](tmp_path)['uid']
+    create_empty_file(filename)
+    string = TwoMetMessage(INPUT_DISPATCH[platform_name](tmp_path))
+    to_send = msg_rec.receive(string)
+    TestCase().assertDictEqual(to_send, CREATE_MESSAGES[platform_name](tmp_path))
+
+
+@pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
+                                                 (ATMS, 'atms')])
+def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name, tmp_path):
     """Test the get the subject from the message being send."""
     msg_rec = MessageReceiver("nimbus")
 
-    filename = os.path.join('/tmp', sensor['uid'])
-    touch(filename)
-    string = TwoMetMessage(INPUT_DISPATCH[sensor_name])
+    filename = tmp_path / sensor['uid']
+    create_empty_file(filename)
+
+    string = TwoMetMessage(INPUT_DISPATCH[sensor_name](str(filename.parent)))
     to_send = msg_rec.receive(string)
-    os.remove(filename)
 
     topic_postfix = None
     station = 'nrk'
@@ -298,15 +279,15 @@ def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name):
 
 @pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
                                                  (ATMS, 'atms')])
-def test_get_subject_from_msg2send_with_postfix_topic(sensor, sensor_name):
+def test_get_subject_from_msg2send_with_postfix_topic(sensor, sensor_name, tmp_path):
     """Test the get the subject from the message being send."""
     msg_rec = MessageReceiver("nimbus")
 
-    filename = os.path.join('/tmp', sensor['uid'])
-    touch(filename)
-    string = TwoMetMessage(INPUT_DISPATCH[sensor_name])
+    filename = tmp_path / sensor['uid']
+    create_empty_file(filename)
+
+    string = TwoMetMessage(INPUT_DISPATCH[sensor_name](str(filename.parent)))
     to_send = msg_rec.receive(string)
-    os.remove(filename)
 
     station = 'nrk'
     environment = 'dev'
@@ -316,15 +297,15 @@ def test_get_subject_from_msg2send_with_postfix_topic(sensor, sensor_name):
     assert subject == "/{sensor}/RDR/0/my_topic".format(sensor=sensor_name)
 
 
-def test_get_subject_from_msg2send_empty_postfix_topic():
+def test_get_subject_from_msg2send_empty_postfix_topic(tmp_path):
     """Test get the subject from the message being send - empty postfix topic."""
     msg_rec = MessageReceiver("nimbus")
 
-    filename = os.path.join('/tmp', ATMS['uid'])
-    touch(filename)
-    string = TwoMetMessage(INPUT_DISPATCH['atms'])
+    filename = tmp_path / ATMS['uid']
+    create_empty_file(filename)
+
+    string = TwoMetMessage(INPUT_DISPATCH['atms'](str(filename.parent)))
     to_send = msg_rec.receive(string)
-    os.remove(filename)
 
     station = 'nrk'
     environment = 'dev'
@@ -334,15 +315,15 @@ def test_get_subject_from_msg2send_empty_postfix_topic():
     assert subject == "/atms/RDR/0/"
 
 
-def test_get_subject_from_msg2send_avhrr3():
+def test_get_subject_from_msg2send_avhrr3(tmp_path):
     """Test get the subject from the message being send - avhrr data."""
     msg_rec = MessageReceiver("nimbus")
 
-    filename = os.path.join('/tmp', create_msg_n19('/tmp')['uid'])
-    touch(filename)
-    string = TwoMetMessage(create_fildis_n19('/tmp'))
+    filename = tmp_path / create_msg_n19(tmp_path)['uid']
+    create_empty_file(filename)
+
+    string = TwoMetMessage(create_fildis_n19(tmp_path))
     to_send = msg_rec.receive(string)
-    os.remove(filename)
 
     station = 'nrk'
     environment = 'dev'
