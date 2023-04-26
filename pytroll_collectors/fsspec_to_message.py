@@ -28,7 +28,7 @@ def _create_message_metadata(fs, file):
     loaded_fs = json.loads(fs)
     uid = _create_uid(file, loaded_fs)
     uri = _create_uri_from_uid(uid, loaded_fs)
-    base_data = {'filesystem': loaded_fs, 'uri': uri, 'uid': uid}
+    base_data = {'uri': uri, 'uid': uid}
     base_data.update(file.get('metadata', dict()))
     return base_data
 

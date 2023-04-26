@@ -300,3 +300,18 @@ class TestSingleFile:
         with pytest.raises(RuntimeError):
             _ = extract_local_files_to_message_for_remote_use(filename, topic,
                                                               target_options=target_options)
+
+
+def test_message_has_no_filesystem():
+    """Test that 'secret' and 'key' are stripped from the message."""
+    import datetime as dt
+    from dateutil import tz
+    from pytroll_collectors.fsspec_to_message import create_message_with_json_fs
+
+    jsn = ('{"cls": "s3fs.core.S3FileSystem", "protocol": "s3", "args": [], '
+           '"client_kwargs": {"endpoint_url": "https://lake.fmi.fi"}, "secret": "xxx", "key": "yyy", "anon": false}')
+    file_ = {'key': 'bucket/test.bin', 'LastModified': dt.datetime.now(tz.UTC),
+             'name': 'bucket/test.bin', 'metadata': {}}
+    msg = create_message_with_json_fs(jsn, file_, '/subject')
+
+    assert 'filesystem' not in msg.data
