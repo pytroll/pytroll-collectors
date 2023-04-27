@@ -1,4 +1,21 @@
 ###############################################################################
+## Version 0.15.1 (2023/04/27)
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 136](https://github.com/pytroll/pytroll-collectors/pull/136) - Drop S3 credentials from messages in S3Stalker (+ daemon)
+* [PR 135](https://github.com/pytroll/pytroll-collectors/pull/135) - Fix calling s3.ls() to get also new files for the daemon version
+
+#### Features added
+
+* [PR 125](https://github.com/pytroll/pytroll-collectors/pull/125) - Change publish topic to start with the instrument name
+
+In this release 3 pull requests were closed.
+
+
+###############################################################################
 ## Version 0.15.0 (2023/03/27)
 
 
