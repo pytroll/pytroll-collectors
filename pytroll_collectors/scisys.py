@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012 - 2022 Pytroll developers
+# Copyright (c) 2012 - 2023 Pytroll developers
 #
 # Author(s):
 #
@@ -493,6 +493,24 @@ class GMCSubscriber(object):
         self.loop = False
 
 
+def get_subject_from_msg2send(to_send, station, env, topic_postfix):
+    """Get the publish topic from the message to be send."""
+    if isinstance(to_send['sensor'], str):
+        prefix = '/' + to_send['sensor'].replace('/', '-')
+    else:
+        prefix = ''
+    if topic_postfix is not None:
+        subject = "/".join((prefix, to_send['format'],
+                            to_send['data_processing_level'],
+                            topic_postfix))
+    else:
+        subject = "/".join((prefix, to_send['format'],
+                            to_send['data_processing_level'],
+                            station, env,
+                            "polar", "direct_readout"))
+    return subject
+
+
 def receive_from_zmq(host, port, station, environment, excluded_platforms,
                      target_server, ftp_prefix, topic_postfix,
                      publish_port=0, nameservers=None, days=1):
@@ -520,19 +538,10 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
             logger.debug("to_send: %s", str(to_send))
             if to_send is None:
                 continue
-            if topic_postfix is not None:
-                subject = "/".join(("", to_send['format'],
-                                    to_send['data_processing_level'],
-                                    topic_postfix))
-            else:
-                subject = "/".join(("", to_send['format'],
-                                    to_send['data_processing_level'],
-                                    station, environment,
-                                    "polar", "direct_readout"))
+
+            subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
             logger.debug("Subject: %s", str(subject))
-            msg = Message(subject,
-                          "file",
-                          to_send).encode()
+            msg = Message(subject, "file", to_send).encode()
             logger.debug("publishing %s", str(msg))
             pub.send(msg)
             if days:
