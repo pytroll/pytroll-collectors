@@ -511,12 +511,8 @@ def receive_from_zmq(config_filename,
 
     config = read_config(config_filename)
 
-    excluded_platforms = config['excluded_satellites']
-    host = config['host']
-    port = config['port']
-
-    sock = GMCSubscriber(host, port)
-    msg_rec = MessageReceiver(host, excluded_platforms,
+    sock = GMCSubscriber(config['host'], config['port'])
+    msg_rec = MessageReceiver(config['host'], config['excluded_platforms'],
                               target_server, ftp_prefix)
 
     with Publish("receiver", port=publish_port,
