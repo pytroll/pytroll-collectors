@@ -31,7 +31,7 @@ import pytest
 from copy import deepcopy
 
 from pytroll_collectors.scisys import MessageReceiver, TwoMetMessage
-from pytroll_collectors.scisys import get_subject_from_msg2send
+from pytroll_collectors.scisys import get_subject_from_message_and_config
 
 hostname = 'localhost'
 
@@ -257,10 +257,28 @@ def test_twomet_messages_with_stop_reception_message(platform_name, tmp_path):
     TestCase().assertDictEqual(to_send, CREATE_MESSAGES[platform_name](tmp_path))
 
 
-@pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
-                                                 (ATMS, 'atms')])
-def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name, tmp_path):
-    """Test the get the subject from the message being send."""
+@pytest.mark.parametrize("sensor, sensor_name, topic_pattern, topic_result",
+                         [(VIIRS, 'viirs',
+                           '/{sensor}/{format}/{data_processing_level}/{platform_name}',
+                           '/viirs/RDR/0/Suomi-NPP'),
+                          (VIIRS, 'viirs',
+                           '/RDR/nrk/dev',
+                           '/RDR/nrk/dev'),
+                          (ATMS, 'atms',
+                           '/{sensor}/{data_processing_level}/{format}/{platform_name}/{type}',
+                           '/atms/0/RDR/Suomi-NPP/HDF5'),
+                          (ATMS, 'atms',
+                           '/{sensor}/{data_processing_level}/{format}/{platform_name}/{type}/nrk/dev',
+                           '/atms/0/RDR/Suomi-NPP/HDF5/nrk/dev'),
+                          ])
+def test_create_message_topic_from_message_and_config_pattern(sensor, sensor_name,
+                                                              topic_pattern, topic_result, tmp_path):
+    """Test create a message topic from the config pattern and the message."""
+    config = {'publish_topic_pattern': 'some-pattern-for-a-publish-topic',
+              'topic_postfix': 'my/cool/postfix/topic',
+              'host': 'merlin', 'port': 10600,
+              'station': 'nrk', 'environment': 'dev',
+              'excluded_satellites': ['fy3d']}
     msg_rec = MessageReceiver("nimbus")
 
     filename = tmp_path / sensor['uid']
@@ -269,65 +287,7 @@ def test_get_subject_from_msg2send_postfix_topic_is_none(sensor, sensor_name, tm
     string = TwoMetMessage(INPUT_DISPATCH[sensor_name](str(filename.parent)))
     to_send = msg_rec.receive(string)
 
-    topic_postfix = None
-    station = 'nrk'
-    environment = 'dev'
-    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+    config.update({'publish_topic_pattern': topic_pattern})
+    subject = get_subject_from_message_and_config(to_send, config)
 
-    assert subject == "/{sensor}/RDR/0/nrk/dev/polar/direct_readout".format(sensor=sensor_name)
-
-
-@pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
-                                                 (ATMS, 'atms')])
-def test_get_subject_from_msg2send_with_postfix_topic(sensor, sensor_name, tmp_path):
-    """Test the get the subject from the message being send."""
-    msg_rec = MessageReceiver("nimbus")
-
-    filename = tmp_path / sensor['uid']
-    create_empty_file(filename)
-
-    string = TwoMetMessage(INPUT_DISPATCH[sensor_name](str(filename.parent)))
-    to_send = msg_rec.receive(string)
-
-    station = 'nrk'
-    environment = 'dev'
-    topic_postfix = 'my_topic'
-    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
-
-    assert subject == "/{sensor}/RDR/0/my_topic".format(sensor=sensor_name)
-
-
-def test_get_subject_from_msg2send_empty_postfix_topic(tmp_path):
-    """Test get the subject from the message being send - empty postfix topic."""
-    msg_rec = MessageReceiver("nimbus")
-
-    filename = tmp_path / ATMS['uid']
-    create_empty_file(filename)
-
-    string = TwoMetMessage(INPUT_DISPATCH['atms'](str(filename.parent)))
-    to_send = msg_rec.receive(string)
-
-    station = 'nrk'
-    environment = 'dev'
-    topic_postfix = ''
-    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
-
-    assert subject == "/atms/RDR/0/"
-
-
-def test_get_subject_from_msg2send_avhrr3(tmp_path):
-    """Test get the subject from the message being send - avhrr data."""
-    msg_rec = MessageReceiver("nimbus")
-
-    filename = tmp_path / create_msg_n19(tmp_path)['uid']
-    create_empty_file(filename)
-
-    string = TwoMetMessage(create_fildis_n19(tmp_path))
-    to_send = msg_rec.receive(string)
-
-    station = 'nrk'
-    environment = 'dev'
-    topic_postfix = ''
-
-    subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
-    assert subject == "/HRPT/0/"
+    assert subject == topic_result

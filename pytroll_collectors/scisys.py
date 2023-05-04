@@ -44,6 +44,9 @@ from datetime import datetime, timedelta
 from time import sleep
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
+from trollsift import compose
+
+from pytroll_collectors.config import read_config
 from posttroll.message import Message
 from posttroll.publisher import Publish
 from pytroll_collectors.helper_functions import is_uri_on_server
@@ -493,35 +496,25 @@ class GMCSubscriber(object):
         self.loop = False
 
 
-def get_subject_from_msg2send(to_send, station, env, topic_postfix):
-    """Get the publish topic from the message to be send."""
-    if isinstance(to_send['sensor'], str):
-        prefix = '/' + to_send['sensor'].replace('/', '-')
-    else:
-        prefix = ''
-    if topic_postfix is not None:
-        subject = "/".join((prefix, to_send['format'],
-                            to_send['data_processing_level'],
-                            topic_postfix))
-    else:
-        subject = "/".join((prefix, to_send['format'],
-                            to_send['data_processing_level'],
-                            station, env,
-                            "polar", "direct_readout"))
-    return subject
+def get_subject_from_message_and_config(to_send, config):
+    """Get the publish topic from the message and the yaml configuration settings."""
+    return compose(config['publish_topic_pattern'], to_send)
 
 
-def receive_from_zmq(host, port, station, environment, excluded_platforms,
-                     target_server, ftp_prefix, topic_postfix,
+def receive_from_zmq(config_filename,
+                     target_server, ftp_prefix,
                      publish_port=0, nameservers=None, days=1):
     """Receive 2met! messages from zeromq."""
     logger.debug("target_server: %s", str(target_server))
     logger.debug("ftp_prefix: %s", str(ftp_prefix))
-    logger.debug("topic_postfix: %s", str(topic_postfix))
-    logger.debug("station %s", str(station))
     logger.debug(type(target_server))
 
-    # socket = Subscriber(["tcp://localhost:9331"], ["2met!"])
+    config = read_config(config_filename)
+
+    excluded_platforms = config['excluded_satellites']
+    host = config['host']
+    port = config['port']
+
     sock = GMCSubscriber(host, port)
     msg_rec = MessageReceiver(host, excluded_platforms,
                               target_server, ftp_prefix)
@@ -539,7 +532,7 @@ def receive_from_zmq(host, port, station, environment, excluded_platforms,
             if to_send is None:
                 continue
 
-            subject = get_subject_from_msg2send(to_send, station, environment, topic_postfix)
+            subject = get_subject_from_message_and_config(to_send, config)
             logger.debug("Subject: %s", str(subject))
             msg = Message(subject, "file", to_send).encode()
             logger.debug("publishing %s", str(msg))
