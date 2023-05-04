@@ -53,8 +53,6 @@ def parse_args():
     local_ips.remove('127.0.0.1')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("host", help="GMC host")
-    parser.add_argument("port", help="Port to listen to", type=int)
     parser.add_argument("-c", "--config",
                         help="YAML config file to use.")
     parser.add_argument("-P", "--publish-port", type=int, default=0,
@@ -62,17 +60,6 @@ def parse_args():
     parser.add_argument("-n", "--nameserver", nargs='+', default=[],
                         dest="nameservers",
                         help="Nameserver(s) to connect to")
-    parser.add_argument("-s", "--station", help="Name of the station",
-                        dest="station",
-                        default="unknown")
-    parser.add_argument("-x", "--excluded_satellites", nargs='*',
-                        help="List of platform names to exclude",
-                        dest="excluded_satellites",
-                        default=[])
-    parser.add_argument("-e", "--environment",
-                        help="Name of the environment (e.g. dev, test, oper)",
-                        dest="environment",
-                        default="dev")
     parser.add_argument("-l", "--log", help="File to log to",
                         dest="log", default=None)
     parser.add_argument("-f", "--ftp_prefix", dest="ftp_prefix",
@@ -85,11 +72,6 @@ def parse_args():
                         help="IP of the target server."
                         "In case of multiple dispatches in GMC."
                         "Defaults to the local host.")
-    # parser.add_argument("-T", "--topic_postfix",
-    #                     dest="topic_postfix",
-    #                     type=str,
-    #                     help="Publish topic postfix. "
-    #                          "Prefix will be /format/data_processing_level/")
 
     return parser.parse_args()
 
@@ -125,11 +107,6 @@ def main():
     setup_logging(log_file=opts.log)
 
     try:
-        # receive_from_zmq(opts.host, opts.port,
-        #                  opts.station, opts.environment, no_sats,
-        #                  opts.target_server, opts.ftp_prefix,
-        #                  opts.topic_postfix, publish_port=opts.publish_port,
-        #                  nameservers=opts.nameservers, days=1)
         receive_from_zmq(configfile,
                          opts.target_server, opts.ftp_prefix,
                          publish_port=opts.publish_port,
