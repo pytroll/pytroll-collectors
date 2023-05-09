@@ -58,6 +58,7 @@ JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
 JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
                       'jpss1': 'NOAA-20',
                       'noaa20': 'NOAA-20',
+                      'noaa21': 'NOAA-21',
                       'j01': 'NOAA-20',
                       'j02': 'NOAA-21'}
 
