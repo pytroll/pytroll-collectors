@@ -290,6 +290,9 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
 
     # Add directories and event masks to watch manager
     for monitored_dir in monitored_dirs:
+        # Create directory, if it does not exist
+        if not os.path.exists(monitored_dir):
+            os.makedirs(monitored_dir)
         manager.add_watch(monitored_dir, event_mask, rec=True)
 
     return notifier
