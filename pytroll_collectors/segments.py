@@ -617,11 +617,23 @@ class SegmentGatherer(object):
         if time_slot in self.slots:
             del self.slots[time_slot]
 
-    def _reinitialize_gatherer(self, time_slot, missing_files_check=True):
-        """Publish file dataset and reinitialize gatherer."""
+    def _log_and_publish(self, time_slot, missing_files_check=True):
+        """Log diagnostics and publish data."""
         slot = self.slots[time_slot]
 
-        # Diagnostic logging about delayed ...
+        # Some diagnostic logging
+        self._log_delayed(slot)
+        self._log_missing(slot, missing_files_check=missing_files_check)
+
+        # Remove tags that are not necessary for datasets or collections
+        output_metadata = self._get_cleaned_output_metadata(slot)
+
+        # Bundle collection datasets to one dataset if requested
+        output_metadata = self._bundle_collection_datasets(output_metadata)
+
+        self._publish(output_metadata)
+
+    def _log_delayed(self, slot):
         delayed_files = {}
         for key in self._elements:
             delayed_files.update(slot[key]['delayed_files'])
@@ -631,7 +643,7 @@ class SegmentGatherer(object):
                 file_str += "%s %f seconds, " % (key, value)
             logger.warning("Files received late: %s", file_str.strip(', '))
 
-        # ... and missing files
+    def _log_missing(self, slot, missing_files_check=True):
         if missing_files_check:
             missing_files = set([])
             for key in self._elements:
@@ -640,22 +652,21 @@ class SegmentGatherer(object):
             if len(missing_files) > 0:
                 logger.warning("Missing files: %s", ', '.join((str(missing) for missing in missing_files)))
 
-        # Remove tags that are not necessary for datasets
+    def _get_cleaned_output_metadata(self, slot):
         for tag in REMOVE_TAGS:
             try:
                 del slot.output_metadata[tag]
             except KeyError:
                 pass
+        return slot.output_metadata.copy()
 
-        output_metadata = slot.output_metadata.copy()
-
+    def _bundle_collection_datasets(self, output_metadata):
         if self._bundle_datasets and "dataset" not in output_metadata:
             output_metadata["dataset"] = []
             for collection in output_metadata["collection"].values():
                 output_metadata["dataset"].extend(collection['dataset'])
             del output_metadata["collection"]
-
-        self._publish(output_metadata)
+        return output_metadata
 
     def _publish(self, metadata):
         if "dataset" in metadata:
@@ -737,11 +748,11 @@ class SegmentGatherer(object):
             status = slot.get_status()
             if status == Status.SLOT_READY:
                 # Collection ready, publish and remove
-                self._reinitialize_gatherer(slot_time)
+                self._log_and_publish(slot_time)
                 self._clear_slot(slot_time)
             if status == Status.SLOT_READY_BUT_WAIT_FOR_MORE:
                 # Collection ready, publish and but wait for more
-                self._reinitialize_gatherer(slot_time, missing_files_check=False)
+                self._log_and_publish(slot_time, missing_files_check=False)
             elif status == Status.SLOT_OBSOLETE_TIMEOUT:
                 # Collection unfinished and obsolete, discard
                 self._clear_slot(slot_time)
