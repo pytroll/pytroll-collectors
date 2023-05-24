@@ -262,9 +262,20 @@ def create_notifier(topic, instrument, posttroll_port, filepattern,
 
     # Add directories and event masks to watch manager
     for monitored_dir in monitored_dirs:
+        # Create directory, if it does not exist
+        check_if_monitored_dir_exist(monitored_dir)
         manager.add_watch(monitored_dir, event_mask, rec=True)
 
     return notifier
+
+
+def check_if_monitored_dir_exist(directory):
+    """Create directory, if it does not exist."""
+    try:
+        os.makedirs(directory, exist_ok=True)
+    except PermissionError as err:
+        logger.error(f"Can't create monitored directory: {err}")
+        raise
 
 
 def parse_vars(config):

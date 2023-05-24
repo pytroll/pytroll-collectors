@@ -53,17 +53,20 @@ def test_trollstalker(tmp_path, caplog):
     assert message.data['uri'] == os.fspath(trigger_file)
 
 
-# def test_trollstalker_directory_does_not_exist(tmp_path, caplog):
-#     dir_to_watch = tmp_path / "to_watch"
-#
-#     config_file = create_config_file(dir_to_watch, tmp_path)
-#
-#     thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
-#     thread.start()
-#     time.sleep(.5)
-#     with open(dir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b", "w") as fd:
-#         fd.write("hej")
-#     time.sleep(.5)
-#     stop()
-#     thread.join()
-#     assert "Publishing message pytroll://HRPT/l1b/dev/mystation file " in caplog.text
+def test_trollstalker_directory_does_not_exist(tmp_path):
+    """Test that monitored directories are created."""
+    dir_to_watch = tmp_path / "to_watch"
+
+    config_file = create_config_file(dir_to_watch, tmp_path)
+
+    thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
+    thread.start()
+    time.sleep(.5)
+    trigger_file = dir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b"
+    with open(trigger_file, "w") as fd:
+        fd.write("hej")
+    time.sleep(.5)
+    stop()
+    thread.join()
+
+    assert os.path.exists(dir_to_watch)
