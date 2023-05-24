@@ -1454,6 +1454,20 @@ class TestSegmentGathererFCI:
         assert uids == expected_uids
 
 
+MULTICOLLECTION_MESSAGE_1 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                             ' {"start_time": "2023-05-24T06:00:00", "uid": "20230524_0600_file_1_1.nc",'
+                             ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"]}')
+MULTICOLLECTION_MESSAGE_2 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                             ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_1_1.nc",'
+                             ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"]}')
+MULTICOLLECTION_MESSAGE_3 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                             ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_1_1.nc",'
+                             ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"]}')
+MULTICOLLECTION_MESSAGE_4 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                             ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_1_1.nc",'
+                             ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"]}')
+
+
 class TestMultiCollection:
     """Test collecting and publishing of multiple segment collections."""
 
@@ -1501,3 +1515,53 @@ class TestMultiCollection:
 
         assert slot_keys[0] not in segment_gatherer.slots
         assert slot_keys[1] not in segment_gatherer.slots
+
+    def test_multicollection_publishing(self):
+        """Test that metadata for multicollection is collected and published correctly."""
+        from posttroll.message import Message as Message_p
+
+        msg_1 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_1)
+        msg_2 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_2)
+        msg_3 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_3)
+        msg_4 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_4)
+
+        config = {
+            "patterns": {
+                "foo": {
+                    "pattern": "{start_time:%Y%m%d_%H%M}_file_{number:1d}_{segment}.nc",
+                    "critical_files": ":1",
+                    "wanted_files": ":1",
+                    "all_files": ":1",
+                },
+            },
+            "posttroll": {
+                "topics": [
+                    "/foo/file",
+                ],
+                "publish_topic": "/foo/multicollection"
+            },
+            "time_name": "start_time",
+            "multicollection": [
+                {"min_age": 0, "max_age": 0},
+                {"min_age": 60, "max_age": 65},
+            ]
+        }
+
+        expected_message_data = ""
+
+        multicollector = SegmentGatherer(config)
+        multicollector.process(msg_1)
+        multicollector.process(msg_2)
+        multicollector.process(msg_3)
+        multicollector.process(msg_4)
+
+        multicollector._publisher = MagicMock()
+        multicollector._subject = multicollector._config['posttroll']['publish_topic']
+        multicollector.triage_slots()
+        # There should be three sets that match the criteria, so 3 messages should be sent
+        assert multicollector._publisher.send.call_count == 3
+        args, kwargs = multicollector._publisher.send.call_args_list[0]
+        message = Message_p(rawstr=args[0])
+        # Should have data from messages 1 and 2
+        assert message.data == expected_message_data
+        assert message.type == "multicollection"
