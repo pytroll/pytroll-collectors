@@ -20,20 +20,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import pytest
+import tempfile
+import os
 
-from bin.trollstalker import check_if_monitored_dir_exist
+from configparser import RawConfigParser
+from collections import OrderedDict
 
-class TestTrollStalkerFunctions:
+from bin.trollstalker import check_if_dir_exist, create_notifier
 
-    def test_monitored_dir_init():
-        assert check_if_monitored_dir_exist('data/monitored_dir_1') == True
-        assert check_if_monitored_dir_exist('data/monitored_dir_2') == True
 
-        # TEST invalids paths
-        assert check_if_monitored_dir_exist('data/monitored_d:ir_3') == False
-        assert check_if_monitored_dir_exist('data/monitored_d*ir_3') == False
-        assert check_if_monitored_dir_exist('data/monitored_d?ir_3') == False
-        assert check_if_monitored_dir_exist('data/monitored_d<ir_3') == False
-        assert check_if_monitored_dir_exist('data/monitored_d>ir_3') == False
-        assert check_if_monitored_dir_exist('data/monitored_d|ir_3') == False
+class TestTrollStalker:
+
+    def setup_method(self):
+        self.config_item = "hrit"
+        self.config = RawConfigParser()
+        self.config.read('data/trollstalker_config.ini')
+        self.config = OrderedDict(self.config.items(self.config_item))
+
+    def test_monitored_dir_exist(self):
+
+        temp_dir = tempfile.TemporaryDirectory()
+        monitored_dirs = [os.path.join(temp_dir.name, "folder_1")]
+
+        notifier = create_notifier(self.config['topic'],
+                                   self.config['instruments'],
+                                   self.config['posttroll_port'],
+                                   self.config['filepattern'],
+                                   self.config['event_names'],
+                                   monitored_dirs,
+                                   self.config_item)
+
+        for monitored_dir in monitored_dirs:
+            assert os.path.exists(monitored_dir)
+
+        notifier.start()
+        notifier.stop()
