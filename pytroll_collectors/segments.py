@@ -648,19 +648,24 @@ class SegmentGatherer(object):
 
     def _log_and_publish(self, time_slot, missing_files_check=True):
         """Log diagnostics and publish data."""
-        slot = self.slots[time_slot]
+        if self._multicollection is None:
+            slot = self.slots[time_slot]
+            # Some diagnostic logging
+            self._log_delayed(slot)
+            self._log_missing(slot, missing_files_check=missing_files_check)
+            output_metadata = self._get_single_slot_metadata(slot)
+        else:
+            output_metadata = self._get_multicollection_metadata(time_slot)
+        self._publish(output_metadata)
 
-        # Some diagnostic logging
-        self._log_delayed(slot)
-        self._log_missing(slot, missing_files_check=missing_files_check)
-
+    def _get_single_slot_metadata(self, slot):
         # Remove tags that are not necessary for datasets or collections
         output_metadata = self._get_cleaned_output_metadata(slot)
 
         # Bundle collection datasets to one dataset if requested
         output_metadata = self._bundle_collection_datasets(output_metadata)
 
-        self._publish(output_metadata)
+        return output_metadata
 
     def _log_delayed(self, slot):
         delayed_files = {}
@@ -696,6 +701,9 @@ class SegmentGatherer(object):
                 output_metadata["dataset"].extend(collection['dataset'])
             del output_metadata["collection"]
         return output_metadata
+
+    def _get_multicollection_metadata(time_slot):
+        raise NotImplementedError
 
     def _publish(self, metadata):
         if "dataset" in metadata:
