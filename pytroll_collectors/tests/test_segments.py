@@ -1469,3 +1469,35 @@ class TestMultiCollection:
         segment_gatherer = SegmentGatherer({'patterns': dict(), 'multicollection': multicollection})
 
         assert segment_gatherer._multicollection == multicollection
+
+    def test_clean_obsolete_slots(self, monkeypatch):
+        """Test that only slots that are not needed anymore are removed."""
+        class FakeSlot:
+
+            def __init__(self, *args, **kwargs):
+                self.output_metadata = dict()
+
+            def get_status(time_slot):
+                from pytroll_collectors.segments import Status
+
+                return Status.SLOT_READY
+
+        def _fake_log_and_publish(*args, **kwargs):
+            pass
+
+        monkeypatch.setattr(SegmentGatherer, "_log_and_publish", _fake_log_and_publish)
+
+        config = {
+            'patterns': dict(),
+            'multicollection': [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+        }
+        segment_gatherer = SegmentGatherer(config)
+        slot_keys = ['2023-05-24 06:00:00.000000', '2023-05-24 07:00:00.000000',
+                     '2023-05-24 08:00:00.000000', '2023-05-24 09:00:00.000000']
+        for key in slot_keys:
+            segment_gatherer.slots[key] = FakeSlot()
+
+        segment_gatherer.triage_slots()
+
+        assert slot_keys[0] not in segment_gatherer.slots
+        assert slot_keys[1] not in segment_gatherer.slots

@@ -68,6 +68,8 @@ class Status(Enum):
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 REMOVE_TAGS = {'path', 'segment'}
 
+SLOT_TIME_FMT = "%Y-%m-%d %H:%M:%S.%f"
+
 
 class Parser(metaclass=ABCMeta):
     """Abstract class for parsing messages."""
@@ -606,6 +608,7 @@ class SegmentGatherer(object):
         self.slots = OrderedDict()
         self._subject = None
         self._is_first_message_after_start = True
+        self._multicollection_max_age = None
         self._loop = False
 
     def _create_patterns(self):
@@ -615,16 +618,33 @@ class SegmentGatherer(object):
     def _clear_slots(self, time_slot):
         """Clear unneeded data."""
         if self._multicollection is None:
-            self._clear_current_slot(time_slot)
+            self._clear_slot(time_slot)
         else:
             self._clear_obsolete_slots(time_slot)
 
-    def _clear_current_slot(self, time_slot):
+    def _clear_slot(self, time_slot):
         if time_slot in self.slots:
             del self.slots[time_slot]
 
     def _clear_obsolete_slots(self, time_slot):
-        pass
+        slot_time = dt.datetime.strptime(time_slot, SLOT_TIME_FMT)
+        max_age = self._get_multicollection_max_age()
+        oldest_valid = slot_time - dt.timedelta(minutes=max_age)
+        time_keys = list(self.slots.keys())
+        for key in time_keys:
+            key_time = dt.datetime.strptime(key, SLOT_TIME_FMT)
+            if key_time < oldest_valid:
+                self._clear_slot(key)
+
+    def _get_multicollection_max_age(self):
+        if self._multicollection_max_age is None:
+            max_age = 0
+            for val in self._multicollection:
+                age = val['max_age']
+                if age > max_age:
+                    max_age = age
+            self._multicollection_max_age = max_age
+        return self._multicollection_max_age
 
     def _log_and_publish(self, time_slot, missing_files_check=True):
         """Log diagnostics and publish data."""
