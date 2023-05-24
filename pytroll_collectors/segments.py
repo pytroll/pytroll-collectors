@@ -588,30 +588,25 @@ class SegmentGatherer(object):
         """Initialize the segment gatherer."""
         self._config = config.copy()
         self._pattern_configs = self._config.pop('patterns')
-        self._subject = None
         self._timeliness = dt.timedelta(seconds=config.get("timeliness", 1200))
-
         # This get the 'keep_parsed_keys' valid for all patterns
         self._keep_parsed_keys = self._config.get('keep_parsed_keys', [])
-
-        self._patterns = self._create_patterns()
-
-        self._elements = list(self._patterns.keys())
-
         self._time_tolerance = self._config.get("time_tolerance", 30)
         self._bundle_datasets = self._config.get("bundle_datasets", False)
-
         self._num_files_premature_publish = self._config.get("num_files_premature_publish", -1)
-
-        self.slots = OrderedDict()
-
         self.time_name = self._config.get('time_name', 'start_time')
         # Floor the scene start time to the given full minutes
         self._group_by_minutes = self._config.get('group_by_minutes', None)
-
-        self._loop = False
         self._providing_server = self._config.get('providing_server')
+        self._multicollection = self._config.get('multicollection')
+
+        self._patterns = self._create_patterns()
+        self._elements = list(self._patterns.keys())
+
+        self.slots = OrderedDict()
+        self._subject = None
         self._is_first_message_after_start = True
+        self._loop = False
 
     def _create_patterns(self):
         return {key: Pattern(key, pattern_config, self._config)

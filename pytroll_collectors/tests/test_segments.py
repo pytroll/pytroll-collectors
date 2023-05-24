@@ -1452,3 +1452,20 @@ class TestSegmentGathererFCI:
         assert len(slot.output_metadata["dataset"]) == 2
         uids = set(info["uid"] for info in slot.output_metadata["dataset"])
         assert uids == expected_uids
+
+
+class TestMultiCollection:
+    """Test collecting and publishing of multiple segment collections."""
+
+    def test_empty_config(self):
+        """Test that the multicollection attribute exists and is set to None by default."""
+        segment_gatherer = SegmentGatherer({'patterns': dict()})
+
+        assert segment_gatherer._multicollection is None
+
+    def test_multicollection_is_set(self):
+        """Test that the multicollection config items are set correctly."""
+        multicollection = [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+        segment_gatherer = SegmentGatherer({'patterns': dict(), 'multicollection': multicollection})
+
+        assert segment_gatherer._multicollection == multicollection
