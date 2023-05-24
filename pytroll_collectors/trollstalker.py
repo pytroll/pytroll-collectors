@@ -289,7 +289,7 @@ def parse_vars(config):
 
 
 def main(command_args=None):
-    """Run Trollstakler.
+    """Run Trollstalker.
 
     Commandline parsing and stalker startup.
     """
