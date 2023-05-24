@@ -1,57 +1,69 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) 2018 - 2021 Pytroll developers
-#
-# Author(s):
-#
-#   Ruben Sala <rsala@tecnavia.com>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-import tempfile
+"""Tests for trollstalker."""
 import os
+import time
+from threading import Thread
 
-from configparser import RawConfigParser
-from collections import OrderedDict
-
-from bin.trollstalker import check_if_dir_exist, create_notifier
+from posttroll.message import Message
+from pytroll_collectors.trollstalker import main, stop
 
 
-class TestTrollStalker:
+def create_config_file(dir_to_watch, tmp_path):
+    """Create a config file for trollstalker."""
+    config = """# This config is used in Trollstalker.
 
-    def setup_method(self):
-        self.config_item = "hrit"
-        self.config = RawConfigParser()
-        self.config.read('data/trollstalker_config.ini')
-        self.config = OrderedDict(self.config.items(self.config_item))
+[noaa_hrpt]
+topic=/HRPT/l1b/dev/mystation
+directory=""" + os.fspath(dir_to_watch) + """
+filepattern={path}hrpt_{platform_name}_{start_time:%Y%m%d_%H%M}_{orbit_number:05d}.l1b
+instruments=avhrr/3,mhs,amsu-b,amsu-a,hirs/3,hirs/4
+#stalker_log_config=/usr/local/etc/pytroll/trollstalker_logging.ini
+loglevel=DEBUG
+event_names=IN_CLOSE_WRITE,IN_MOVED_TO
+posttroll_port=0
+alias_platform_name = noaa18:NOAA-18|noaa19:NOAA-19
+history=10"""
+    config_file = tmp_path / "config.ini"
+    with open(config_file, "w") as fd:
+        fd.write(config)
+    return config_file
 
-    def test_monitored_dir_exist(self):
 
-        temp_dir = tempfile.TemporaryDirectory()
-        monitored_dirs = [os.path.join(temp_dir.name, "folder_1")]
+def test_trollstalker(tmp_path, caplog):
+    """Test trollstalker functionality."""
+    dir_to_watch = tmp_path / "to_watch"
+    os.makedirs(dir_to_watch)
 
-        notifier = create_notifier(self.config['topic'],
-                                   self.config['instruments'],
-                                   self.config['posttroll_port'],
-                                   self.config['filepattern'],
-                                   self.config['event_names'],
-                                   monitored_dirs,
-                                   self.config_item)
+    config_file = create_config_file(dir_to_watch, tmp_path)
 
-        for monitored_dir in monitored_dirs:
-            assert os.path.exists(monitored_dir)
+    thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
+    thread.start()
+    time.sleep(.5)
+    trigger_file = dir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b"
+    with open(trigger_file, "w") as fd:
+        fd.write("hej")
+    time.sleep(.5)
+    stop()
+    thread.join()
+    assert "Publishing message pytroll://HRPT/l1b/dev/mystation file " in caplog.text
+    for line in caplog.text.split("\n"):
+        if "Publishing message" in line:
+            message = Message(rawstr=line.split("Publishing message ")[1])
 
-        notifier.start()
-        notifier.stop()
+    assert message.data['platform_name'] == "NOAA-18"
+    assert message.data['uri'] == os.fspath(trigger_file)
+
+
+# def test_trollstalker_directory_does_not_exist(tmp_path, caplog):
+#     dir_to_watch = tmp_path / "to_watch"
+#
+#     config_file = create_config_file(dir_to_watch, tmp_path)
+#
+#     thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
+#     thread.start()
+#     time.sleep(.5)
+#     with open(dir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b", "w") as fd:
+#         fd.write("hej")
+#     time.sleep(.5)
+#     stop()
+#     thread.join()
+#     assert "Publishing message pytroll://HRPT/l1b/dev/mystation file " in caplog.text
