@@ -702,7 +702,7 @@ class SegmentGatherer(object):
             del output_metadata["collection"]
         return output_metadata
 
-    def _get_multicollection_metadata(time_slot):
+    def _get_multicollection_metadata(self, time_slot):
         raise NotImplementedError
 
     def _publish(self, metadata):
