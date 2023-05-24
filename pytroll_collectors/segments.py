@@ -612,10 +612,19 @@ class SegmentGatherer(object):
         return {key: Pattern(key, pattern_config, self._config)
                 for key, pattern_config in self._pattern_configs.items()}
 
-    def _clear_slot(self, time_slot):
-        """Clear data."""
+    def _clear_slots(self, time_slot):
+        """Clear unneeded data."""
+        if self._multicollection is None:
+            self._clear_current_slot(time_slot)
+        else:
+            self._clear_obsolete_slots(time_slot)
+
+    def _clear_current_slot(self, time_slot):
         if time_slot in self.slots:
             del self.slots[time_slot]
+
+    def _clear_obsolete_slots(self, time_slot):
+        pass
 
     def _log_and_publish(self, time_slot, missing_files_check=True):
         """Log diagnostics and publish data."""
@@ -749,13 +758,13 @@ class SegmentGatherer(object):
             if status == Status.SLOT_READY:
                 # Collection ready, publish and remove
                 self._log_and_publish(slot_time)
-                self._clear_slot(slot_time)
+                self._clear_slots(slot_time)
             if status == Status.SLOT_READY_BUT_WAIT_FOR_MORE:
                 # Collection ready, publish and but wait for more
                 self._log_and_publish(slot_time, missing_files_check=False)
             elif status == Status.SLOT_OBSOLETE_TIMEOUT:
                 # Collection unfinished and obsolete, discard
-                self._clear_slot(slot_time)
+                self._clear_slots(slot_time)
             else:
                 # Collection unfinished, wait for more data
                 pass
