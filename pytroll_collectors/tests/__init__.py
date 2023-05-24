@@ -28,7 +28,8 @@ import unittest
 from pytroll_collectors.tests import (test_helper_functions,
                                       test_scisys,
                                       test_triggers,
-                                      test_segments)
+                                      test_segments,
+                                      test_trollstalker)
 
 
 def suite():
@@ -41,5 +42,6 @@ def suite():
     mysuite.addTests(test_scisys.suite())
     mysuite.addTests(test_triggers.suite())
     mysuite.addTests(test_segments.suite())
+    mysuite.addTests(test_trollstalker.suite())
 
     return mysuite
