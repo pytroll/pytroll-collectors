@@ -1454,35 +1454,35 @@ class TestSegmentGathererFCI:
         assert uids == expected_uids
 
 
-MULTICOLLECTION_MESSAGE_1 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                             ' {"start_time": "2023-05-24T06:00:00", "uid": "20230524_0600_file_1_1.nc",'
-                             ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"]}')
-MULTICOLLECTION_MESSAGE_2 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                             ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_1_1.nc",'
-                             ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"]}')
-MULTICOLLECTION_MESSAGE_3 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                             ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_1_1.nc",'
-                             ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"]}')
-MULTICOLLECTION_MESSAGE_4 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                             ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_1_1.nc",'
-                             ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"]}')
+TEMPORAL_COLLECTION_MESSAGE_1 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T06:00:00", "uid": "20230524_0600_file_1_1.nc",'
+                                 ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"]}')
+TEMPORAL_COLLECTION_MESSAGE_2 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_1_1.nc",'
+                                 ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"]}')
+TEMPORAL_COLLECTION_MESSAGE_3 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_1_1.nc",'
+                                 ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"]}')
+TEMPORAL_COLLECTION_MESSAGE_4 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_1_1.nc",'
+                                 ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"]}')
 
 
-class TestMultiCollection:
-    """Test collecting and publishing of multiple segment collections."""
+class TestTemporalCollection:
+    """Test collecting and publishing of temporal collections."""
 
     def test_empty_config(self):
-        """Test that the multicollection attribute exists and is set to None by default."""
+        """Test that the temporal_collection attribute exists and is set to None by default."""
         segment_gatherer = SegmentGatherer({'patterns': dict()})
 
-        assert segment_gatherer._multicollection is None
+        assert segment_gatherer._temporal_collection is None
 
-    def test_multicollection_is_set(self):
-        """Test that the multicollection config items are set correctly."""
-        multicollection = [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
-        segment_gatherer = SegmentGatherer({'patterns': dict(), 'multicollection': multicollection})
+    def test_temporal_collection_is_set(self):
+        """Test that the temporal collection config items are set correctly."""
+        temporal_collection = [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+        segment_gatherer = SegmentGatherer({'patterns': dict(), 'temporal_collection': temporal_collection})
 
-        assert segment_gatherer._multicollection == multicollection
+        assert segment_gatherer._temporal_collection == temporal_collection
 
     def test_clean_obsolete_slots(self, monkeypatch):
         """Test that only slots that are not needed anymore are removed."""
@@ -1503,7 +1503,7 @@ class TestMultiCollection:
 
         config = {
             'patterns': dict(),
-            'multicollection': [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+            'temporal_collection': [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
         }
         segment_gatherer = SegmentGatherer(config)
         slot_keys = ['2023-05-24 06:00:00.000000', '2023-05-24 07:00:00.000000',
@@ -1516,14 +1516,14 @@ class TestMultiCollection:
         assert slot_keys[0] not in segment_gatherer.slots
         assert slot_keys[1] not in segment_gatherer.slots
 
-    def test_multicollection_publishing(self):
-        """Test that metadata for multicollection is collected and published correctly."""
+    def test_temporal_collection_publishing(self):
+        """Test that metadata for temporal_collection is collected and published correctly."""
         from posttroll.message import Message as Message_p
 
-        msg_1 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_1)
-        msg_2 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_2)
-        msg_3 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_3)
-        msg_4 = Message_p(rawstr=MULTICOLLECTION_MESSAGE_4)
+        msg_1 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_1)
+        msg_2 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_2)
+        msg_3 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_3)
+        msg_4 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_4)
 
         config = {
             "patterns": {
@@ -1538,10 +1538,10 @@ class TestMultiCollection:
                 "topics": [
                     "/foo/file",
                 ],
-                "publish_topic": "/foo/multicollection"
+                "publish_topic": "/foo/temporal_collection"
             },
             "time_name": "start_time",
-            "multicollection": [
+            "temporal_collection": [
                 {"min_age": 0, "max_age": 0},
                 {"min_age": 60, "max_age": 65},
             ]
@@ -1549,19 +1549,19 @@ class TestMultiCollection:
 
         expected_message_data = ""
 
-        multicollector = SegmentGatherer(config)
-        multicollector.process(msg_1)
-        multicollector.process(msg_2)
-        multicollector.process(msg_3)
-        multicollector.process(msg_4)
+        temporal_collector = SegmentGatherer(config)
+        temporal_collector.process(msg_1)
+        temporal_collector.process(msg_2)
+        temporal_collector.process(msg_3)
+        temporal_collector.process(msg_4)
 
-        multicollector._publisher = MagicMock()
-        multicollector._subject = multicollector._config['posttroll']['publish_topic']
-        multicollector.triage_slots()
+        temporal_collector._publisher = MagicMock()
+        temporal_collector._subject = temporal_collector._config['posttroll']['publish_topic']
+        temporal_collector.triage_slots()
         # There should be three sets that match the criteria, so 3 messages should be sent
-        assert multicollector._publisher.send.call_count == 3
-        args, kwargs = multicollector._publisher.send.call_args_list[0]
+        assert temporal_collector._publisher.send.call_count == 3
+        args, kwargs = temporal_collector._publisher.send.call_args_list[0]
         message = Message_p(rawstr=args[0])
         # Should have data from messages 1 and 2
         assert message.data == expected_message_data
-        assert message.type == "multicollection"
+        assert message.type == "temporal_collection"

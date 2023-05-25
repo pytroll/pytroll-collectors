@@ -600,7 +600,7 @@ class SegmentGatherer(object):
         # Floor the scene start time to the given full minutes
         self._group_by_minutes = self._config.get('group_by_minutes', None)
         self._providing_server = self._config.get('providing_server')
-        self._multicollection = self._config.get('multicollection')
+        self._temporal_collection = self._config.get('temporal_collection')
 
         self._patterns = self._create_patterns()
         self._elements = list(self._patterns.keys())
@@ -608,7 +608,7 @@ class SegmentGatherer(object):
         self.slots = OrderedDict()
         self._subject = None
         self._is_first_message_after_start = True
-        self._multicollection_max_age = None
+        self._temporal_collection_max_age = None
         self._loop = False
 
     def _create_patterns(self):
@@ -617,7 +617,7 @@ class SegmentGatherer(object):
 
     def _clear_slots(self, time_slot):
         """Clear unneeded data."""
-        if self._multicollection is None:
+        if self._temporal_collection is None:
             self._clear_slot(time_slot)
         else:
             self._clear_obsolete_slots(time_slot)
@@ -628,7 +628,7 @@ class SegmentGatherer(object):
 
     def _clear_obsolete_slots(self, time_slot):
         slot_time = dt.datetime.strptime(time_slot, SLOT_TIME_FMT)
-        max_age = self._get_multicollection_max_age()
+        max_age = self._get_temporal_collection_max_age()
         oldest_valid = slot_time - dt.timedelta(minutes=max_age)
         time_keys = list(self.slots.keys())
         for key in time_keys:
@@ -636,26 +636,26 @@ class SegmentGatherer(object):
             if key_time < oldest_valid:
                 self._clear_slot(key)
 
-    def _get_multicollection_max_age(self):
-        if self._multicollection_max_age is None:
+    def _get_temporal_collection_max_age(self):
+        if self._temporal_collection_max_age is None:
             max_age = 0
-            for val in self._multicollection:
+            for val in self._temporal_collection:
                 age = val['max_age']
                 if age > max_age:
                     max_age = age
-            self._multicollection_max_age = max_age
-        return self._multicollection_max_age
+            self._temporal_collection_max_age = max_age
+        return self._temporal_collection_max_age
 
     def _log_and_publish(self, time_slot, missing_files_check=True):
         """Log diagnostics and publish data."""
-        if self._multicollection is None:
+        if self._temporal_collection is None:
             slot = self.slots[time_slot]
             # Some diagnostic logging
             self._log_delayed(slot)
             self._log_missing(slot, missing_files_check=missing_files_check)
             output_metadata = self._get_single_slot_metadata(slot)
         else:
-            output_metadata = self._get_multicollection_metadata(time_slot)
+            output_metadata = self._get_temporal_collection_metadata(time_slot)
         self._publish(output_metadata)
 
     def _get_single_slot_metadata(self, slot):
@@ -702,7 +702,7 @@ class SegmentGatherer(object):
             del output_metadata["collection"]
         return output_metadata
 
-    def _get_multicollection_metadata(self, time_slot):
+    def _get_temporal_collection_metadata(self, time_slot):
         raise NotImplementedError
 
     def _publish(self, metadata):
