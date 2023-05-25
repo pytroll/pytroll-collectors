@@ -1456,16 +1456,20 @@ class TestSegmentGathererFCI:
 
 TEMPORAL_COLLECTION_MESSAGE_1 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
                                  ' {"start_time": "2023-05-24T06:00:00", "uid": "20230524_0600_file_1_1.nc",'
-                                 ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"]}')
+                                 ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
 TEMPORAL_COLLECTION_MESSAGE_2 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                                 ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_1_1.nc",'
-                                 ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"]}')
+                                 ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_2_1.nc",'
+                                 ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
 TEMPORAL_COLLECTION_MESSAGE_3 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                                 ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_1_1.nc",'
-                                 ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"]}')
+                                 ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_3_1.nc",'
+                                 ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
 TEMPORAL_COLLECTION_MESSAGE_4 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
-                                 ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_1_1.nc",'
-                                 ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"]}')
+                                 ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_4_1.nc",'
+                                 ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
 
 
 class TestTemporalCollection:
@@ -1547,7 +1551,38 @@ class TestTemporalCollection:
             ]
         }
 
-        expected_message_data = ""
+        expected_message_data = {
+            "start_times": ["2023-05-24T06:00:00", "2023-05-24T07:00:00", "2023-05-24T08:00:00", "2023-05-24T09:00:00"],
+            "end_times": [],
+            "platform_name": "FOO-1",
+            "sensor": ["sensor"],
+            "temporal_collection": [
+                {
+                    "start_time": "2023-05-24T06:00:00",
+                    "uid": "20230524_0600_file_1_1.nc",
+                    "uri": "/data/20230524_0600_file_1_1.nc",
+                    "sensor": ["sensor"]
+                },
+                {
+                    "start_time": "2023-05-24T07:00:00",
+                    "uid": "20230524_0700_file_2_1.nc",
+                    "uri": "/data/20230524_0700_file_2_1.nc",
+                    "sensor": ["sensor"]
+                },
+                {
+                    "start_time": "2023-05-24T08:00:00",
+                    "uid": "20230524_0800_file_3_1.nc",
+                    "uri": "/data/20230524_0800_file_3_1.nc",
+                    "sensor": ["sensor"]
+                },
+                {
+                    "start_time": "2023-05-24T09:00:00",
+                    "uid": "20230524_0900_file_4_1.nc",
+                    "uri": "/data/20230524_0900_file_4_1.nc",
+                    "sensor": ["sensor"]
+                },
+            ]
+        }
 
         temporal_collector = SegmentGatherer(config)
         temporal_collector.process(msg_1)
