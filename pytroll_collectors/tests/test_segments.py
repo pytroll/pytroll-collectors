@@ -1519,6 +1519,8 @@ class TestTemporalCollection:
 
         assert slot_keys[0] not in segment_gatherer.slots
         assert slot_keys[1] not in segment_gatherer.slots
+        assert slot_keys[2] in segment_gatherer.slots
+        assert slot_keys[3] in segment_gatherer.slots
 
     def test_temporal_collection_publishing(self):
         """Test that metadata for temporal_collection is collected and published correctly."""
