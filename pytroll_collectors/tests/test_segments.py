@@ -1552,34 +1552,34 @@ class TestTemporalCollection:
         }
 
         expected_message_data = {
-            "start_times": ["2023-05-24T06:00:00", "2023-05-24T07:00:00", "2023-05-24T08:00:00", "2023-05-24T09:00:00"],
+            "start_times": [dt.datetime(2023, 5, 24, 6, 0, 0), dt.datetime(2023, 5, 24, 7, 0, 0)],
             "end_times": [],
             "platform_name": "FOO-1",
             "sensor": ["sensor"],
             "temporal_collection": [
                 {
-                    "start_time": "2023-05-24T06:00:00",
-                    "uid": "20230524_0600_file_1_1.nc",
-                    "uri": "/data/20230524_0600_file_1_1.nc",
-                    "sensor": ["sensor"]
+                    "start_time": dt.datetime(2023, 5, 24, 6, 0),
+                    "sensor": ["sensor"],
+                    "platform_name": "FOO-1",
+                    "number": 1,
+                    "dataset": [
+                        {
+                            "uid": "20230524_0600_file_1_1.nc",
+                            "uri": "/data/20230524_0600_file_1_1.nc",
+                        }
+                    ]
                 },
                 {
-                    "start_time": "2023-05-24T07:00:00",
-                    "uid": "20230524_0700_file_2_1.nc",
-                    "uri": "/data/20230524_0700_file_2_1.nc",
-                    "sensor": ["sensor"]
-                },
-                {
-                    "start_time": "2023-05-24T08:00:00",
-                    "uid": "20230524_0800_file_3_1.nc",
-                    "uri": "/data/20230524_0800_file_3_1.nc",
-                    "sensor": ["sensor"]
-                },
-                {
-                    "start_time": "2023-05-24T09:00:00",
-                    "uid": "20230524_0900_file_4_1.nc",
-                    "uri": "/data/20230524_0900_file_4_1.nc",
-                    "sensor": ["sensor"]
+                    "start_time": dt.datetime(2023, 5, 24, 7, 0),
+                    "sensor": ["sensor"],
+                    "platform_name": "FOO-1",
+                    "number": 2,
+                    "dataset": [
+                        {
+                            "uid": "20230524_0700_file_2_1.nc",
+                            "uri": "/data/20230524_0700_file_2_1.nc",
+                        }
+                    ]
                 },
             ]
         }

@@ -68,8 +68,6 @@ class Status(Enum):
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
 REMOVE_TAGS = {'path', 'segment'}
 
-SLOT_TIME_FMT = "%Y-%m-%d %H:%M:%S.%f"
-
 
 class Parser(metaclass=ABCMeta):
     """Abstract class for parsing messages."""
@@ -627,12 +625,12 @@ class SegmentGatherer(object):
             del self.slots[time_slot]
 
     def _clear_obsolete_slots(self, time_slot):
-        slot_time = dt.datetime.strptime(time_slot, SLOT_TIME_FMT)
+        slot_time = _parse_slot_time_string(time_slot)
         max_age = self._get_temporal_collection_max_age()
         oldest_valid = slot_time - dt.timedelta(minutes=max_age)
         time_keys = list(self.slots.keys())
         for key in time_keys:
-            key_time = dt.datetime.strptime(key, SLOT_TIME_FMT)
+            key_time = _parse_slot_time_string(key)
             if key_time < oldest_valid:
                 self._clear_slot(key)
 
@@ -656,7 +654,8 @@ class SegmentGatherer(object):
             output_metadata = self._get_single_slot_metadata(slot)
         else:
             output_metadata = self._get_temporal_collection_metadata(time_slot)
-        self._publish(output_metadata)
+        if output_metadata:
+            self._publish(output_metadata)
 
     def _get_single_slot_metadata(self, slot):
         # Remove tags that are not necessary for datasets or collections
@@ -703,13 +702,52 @@ class SegmentGatherer(object):
         return output_metadata
 
     def _get_temporal_collection_metadata(self, time_slot):
-        raise NotImplementedError
+        start_times = []
+        end_times = []
+        platform_name = None
+        sensor = None
+        temporal_collection = []
+
+        reference_time = _parse_slot_time_string(time_slot)
+        for slot_key, slot in self.slots.items():
+            metadata = slot.output_metadata
+            slot_time = _parse_slot_time_string(slot_key)
+            time_diff = reference_time - slot_time
+            if self._slot_part_of_temporal_collection(time_diff):
+                start_times.append(metadata['start_time'])
+                if 'end_time' in metadata:
+                    end_times.append(metadata['end_time'])
+                platform_name = metadata['platform_name']
+                sensor = metadata['sensor']
+                temporal_collection.append(metadata)
+
+        if len(temporal_collection) != len(self._temporal_collection):
+            return None
+
+        output_metadata = {
+            "start_times": start_times,
+            "end_times": end_times,
+            "platform_name": platform_name,
+            "sensor": sensor,
+            "temporal_collection": temporal_collection
+        }
+
+        return output_metadata
+
+    def _slot_part_of_temporal_collection(self, time_diff):
+        time_diff = time_diff.total_seconds()
+        for condition in self._temporal_collection:
+            if time_diff >= 60 * condition['min_age'] and time_diff <= 60 * condition['max_age']:
+                return True
+        return False
 
     def _publish(self, metadata):
+        msg_type = "temporal_collection"
         if "dataset" in metadata:
-            msg = pmessage.Message(self._subject, "dataset", metadata)
-        else:
-            msg = pmessage.Message(self._subject, "collection", metadata)
+            msg_type = "dataset"
+        elif "collection" in metadata:
+            msg_type = "collection"
+        msg = pmessage.Message(self._subject, msg_type, metadata)
         logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
 
@@ -1089,3 +1127,10 @@ def filter_metadata(mda, msg_data, keep_parsed_keys=None, local_keep_parsed_keys
             metadata[key] = msg_data[key]
 
     return metadata
+
+
+def _parse_slot_time_string(time_string):
+    try:
+        return dt.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        return dt.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
