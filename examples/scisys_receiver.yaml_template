@@ -1,0 +1,13 @@
+# Publish topic
+publish_topic_pattern: "/{sensor}/{format}/{data_processing_level}/{platform_name}"
+
+# GMC Server host
+host: my-reception-server-name
+# Port to listen to
+port: portnumber
+
+station: nrk
+environment: dev
+
+excluded_satellites:
+  - fy3d
