@@ -2,12 +2,22 @@
 import os
 import time
 from threading import Thread
+import pytest
 
 from posttroll.message import Message
 from pytroll_collectors.trollstalker import main, stop
 
 
-def create_config_file(dir_to_watch, tmp_path):
+@pytest.fixture
+def dir_to_watch(tmp_path):
+    """Create a dir to watch."""
+    dir_to_watch = tmp_path / "to_watch"
+    os.makedirs(dir_to_watch)
+    return dir_to_watch
+
+
+@pytest.fixture
+def config_file(tmp_path, dir_to_watch):
     """Create a config file for trollstalker."""
     config = """# This config is used in Trollstalker.
 
@@ -28,13 +38,8 @@ history=10"""
     return config_file
 
 
-def test_trollstalker(tmp_path, caplog):
+def test_trollstalker(config_file, dir_to_watch, caplog):
     """Test trollstalker functionality."""
-    dir_to_watch = tmp_path / "to_watch"
-    os.makedirs(dir_to_watch)
-
-    config_file = create_config_file(dir_to_watch, tmp_path)
-
     thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
     thread.start()
     time.sleep(.5)
@@ -53,12 +58,8 @@ def test_trollstalker(tmp_path, caplog):
     assert message.data['uri'] == os.fspath(trigger_file)
 
 
-def test_trollstalker_directory_does_not_exist(tmp_path):
+def test_trollstalker_directory_does_not_exist(config_file, dir_to_watch):
     """Test that monitored directories are created."""
-    dir_to_watch = tmp_path / "to_watch"
-
-    config_file = create_config_file(dir_to_watch, tmp_path)
-
     thread = Thread(target=main, args=[["-c", os.fspath(config_file), "-C", "noaa_hrpt"]])
     thread.start()
     time.sleep(.5)

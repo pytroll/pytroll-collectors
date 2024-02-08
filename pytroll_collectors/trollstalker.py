@@ -10,7 +10,7 @@ from configparser import RawConfigParser
 
 import pyinotify
 from posttroll.message import Message
-from posttroll.publisher import NoisyPublisher
+from posttroll.publisher import create_publisher_from_dict_config
 from pyinotify import ProcessEvent, ThreadedNotifier, WatchManager
 from pytroll_collectors import helper_functions
 from trollsift import Parser, compose
@@ -41,8 +41,12 @@ class EventHandler(ProcessEvent):
         """Set up the event handler."""
         super().__init__()
 
-        self._pub = NoisyPublisher("trollstalker_" + config_item, posttroll_port, topic,
-                                   nameservers=nameservers)
+        pub_settings = dict(name="trollstalker_" + config_item,
+                            port=posttroll_port,
+                            nameservers=nameservers)
+
+        self._pub = create_publisher_from_dict_config(pub_settings)
+
         self.pub = self._pub.start()
         self.topic = topic
         self.info = OrderedDict()
@@ -298,47 +302,7 @@ def main(command_args=None):
     os.environ["TZ"] = "UTC"
     time.tzset()
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("-d", "--monitored_dirs", dest="monitored_dirs",
-                        nargs='+',
-                        type=str,
-                        default=[],
-                        help="Names of the monitored directories "
-                        "separated by space")
-    parser.add_argument("-p", "--posttroll_port", dest="posttroll_port",
-                        default=0, type=int,
-                        help="Local port where messages are published")
-    parser.add_argument("-t", "--topic", dest="topic",
-                        type=str,
-                        default=None,
-                        help="Topic of the sent messages")
-    parser.add_argument("-c", "--configuration_file",
-                        type=str,
-                        help="Name of the config.ini configuration file")
-    parser.add_argument("-C", "--config_item",
-                        type=str,
-                        help="Name of the configuration item to use")
-    parser.add_argument("-e", "--event_names",
-                        type=str, default=None,
-                        help="Name of the pyinotify events to monitor")
-    parser.add_argument("-f", "--filepattern",
-                        type=str,
-                        help="Filepattern used to parse "
-                        "satellite/orbit/date/etc information")
-    parser.add_argument("-i", "--instrument",
-                        type=str, default=None,
-                        help="Instrument name in the satellite")
-    parser.add_argument("-n", "--nameservers",
-                        type=str, default=None,
-                        help="Posttroll nameservers to register own address,"
-                        " otherwise multicasting is used")
-
-    if len(sys.argv) <= 1:
-        parser.print_help()
-        sys.exit()
-    else:
-        args = parser.parse_args(command_args)
+    args = parse_args(command_args)
 
     # Parse commandline arguments.  If args are given, they override
     # the configuration file.
@@ -458,3 +422,45 @@ def main(command_args=None):
         logger.info("Stopping TrollStalker")
     finally:
         notifier.stop()
+
+
+def parse_args(command_args):
+    """Parse the command line arguments."""
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-d", "--monitored_dirs", dest="monitored_dirs",
+                        nargs='+',
+                        type=str,
+                        default=[],
+                        help="Names of the monitored directories "
+                        "separated by space")
+    parser.add_argument("-p", "--posttroll_port", dest="posttroll_port",
+                        default=0, type=int,
+                        help="Local port where messages are published")
+    parser.add_argument("-t", "--topic", dest="topic",
+                        type=str,
+                        default=None,
+                        help="Topic of the sent messages")
+    parser.add_argument("-c", "--configuration_file",
+                        type=str,
+                        help="Name of the config.ini configuration file")
+    parser.add_argument("-C", "--config_item",
+                        type=str,
+                        help="Name of the configuration item to use")
+    parser.add_argument("-e", "--event_names",
+                        type=str, default=None,
+                        help="Name of the pyinotify events to monitor")
+    parser.add_argument("-f", "--filepattern",
+                        type=str,
+                        help="Filepattern used to parse "
+                        "satellite/orbit/date/etc information")
+    parser.add_argument("-i", "--instrument",
+                        type=str, default=None,
+                        help="Instrument name in the satellite")
+    parser.add_argument("-n", "--nameservers",
+                        type=str, default=None,
+                        help="Posttroll nameservers to register own address,"
+                        " otherwise multicasting is used")
+
+    args = parser.parse_args(command_args)
+    return args
