@@ -61,12 +61,19 @@ JPSS_INSTRUMENTS_FROM_FILENAMES = {"RATMS-RNSCA_": "atms",
 JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
                       'jpss1': 'NOAA-20',
                       'noaa20': 'NOAA-20',
+                      'noaa21': 'NOAA-21',
+                      'noaa21': 'NOAA-22',
+                      'noaa21': 'NOAA-23',
                       'j01': 'NOAA-20',
-                      'j02': 'NOAA-21'}
+                      'j02': 'NOAA-21',
+                      'j03': 'NOAA-22',
+                      'j04': 'NOAA-23'}
 
 SCISYS_NAMES = {'Suomi-NPP': 'NPP',
                 'NOAA-20': 'NOAA 20',
-                'NOAA-21': 'NOAA 21'}
+                'NOAA-21': 'NOAA 21',
+                'NOAA-22': 'NOAA 22',
+                'NOAA-23': 'NOAA 23'}
 
 
 class TwoMetMessage(object):
