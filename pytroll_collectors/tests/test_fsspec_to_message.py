@@ -13,7 +13,7 @@ from pytroll_collectors.tests.test_s3stalker import ls_output, fs_json, subject,
 class TestMessageComposer:
     """Test case for the message composer."""
 
-    def setup(self):
+    def setup_method(self):
         """Set up message composer tests."""
         self.ls_output = deepcopy(ls_output)
 
