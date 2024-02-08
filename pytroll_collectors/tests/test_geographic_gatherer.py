@@ -123,7 +123,7 @@ class TestGeographicGatherer:
     """Test the top-level geographic gathering."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_config_file, tmp_config_parser):
+    def setup_method(self, tmp_config_file, tmp_config_parser):
         """Set up things."""
         self.config = tmp_config_parser
 
@@ -322,6 +322,7 @@ class TestGeographicGatherer:
         fake_create_publisher_from_dict_config.return_value.start.assert_called_once()
 
     def test_fails_unreadable_config(self, tmp_path):
+        """Test that it fails when the config is unreadable."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         opts = arg_parse(["/thıs/fıle/does/not/exıst"])
         with pytest.raises(
