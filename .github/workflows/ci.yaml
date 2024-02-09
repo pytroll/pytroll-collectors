@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install \
           --no-deps --pre --upgrade \
-          numpy; \
+          watchdog numpy; \
           python -m pip install \
           --no-deps --upgrade \
           git+https://github.com/pytroll/posttroll \

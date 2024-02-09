@@ -46,7 +46,7 @@ extras_require = {
         'netifaces',
     ],
     'trollstalker': [
-        'pyinotify',
+        'watchdog',
     ],
     's3_segment_gatherer': [
         'fsspec'
