@@ -247,6 +247,7 @@ class WatchdogHandler(FileSystemEventHandler):
     def on_closed(self, event):
         """Trigger processing on closed write."""
         self.processor.process(event)
+        print("yep, processed")
 
     def on_moved(self, event):
         """Trigger processing on move."""
@@ -280,7 +281,7 @@ class EventProcessor:
     def process(self, event):
         """Process the event."""
         try:
-            pathname = event.dest_path
+            pathname = event.dest_path or event.src_path
         except AttributeError:
             pathname = event.src_path
         logger.debug("processing %s", pathname)
