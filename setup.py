@@ -36,7 +36,6 @@ extras_require = {
         'pyresample',
         'pytroll-schedule',
         'watchdog',
-        'pyinotify',
     ],
     's3stalker': [
         's3fs',
@@ -46,7 +45,7 @@ extras_require = {
         'netifaces',
     ],
     'trollstalker': [
-        'watchdog',
+        'watchdog!=4.0.0',
     ],
     's3_segment_gatherer': [
         'fsspec'
