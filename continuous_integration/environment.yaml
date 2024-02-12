@@ -22,7 +22,7 @@ dependencies:
   - paramiko
   - responses
   - netifaces
-  - watchdog
+  - watchdog!=4.0.0
   - s3fs
   - pyinotify
   - requests
