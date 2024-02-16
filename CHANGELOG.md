@@ -1,4 +1,31 @@
 ###############################################################################
+## Version 0.16.0 (2024/02/16)
+
+### Issues Closed
+
+* [Issue 147](https://github.com/pytroll/pytroll-collectors/issues/147) - Installing fails on Python 3.12; versioneer update needed?
+
+In this release 1 issue was closed.
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 144](https://github.com/pytroll/pytroll-collectors/pull/144) - Update versioneer
+
+#### Features added
+
+* [PR 153](https://github.com/pytroll/pytroll-collectors/pull/153) - Update CI Python versions
+* [PR 152](https://github.com/pytroll/pytroll-collectors/pull/152) - Use factory function for publisher creation in trollstalker and switch to Watchdog
+* [PR 141](https://github.com/pytroll/pytroll-collectors/pull/141) - Add tests and refactor trollstalker a bit
+* [PR 139](https://github.com/pytroll/pytroll-collectors/pull/139) - Create monitored directory if does not exist
+* [PR 138](https://github.com/pytroll/pytroll-collectors/pull/138) - Fix noaa21
+* [PR 137](https://github.com/pytroll/pytroll-collectors/pull/137) - Create publish topic in scisys-receiver from config-pattern and message
+
+In this release 7 pull requests were closed.
+
+
+###############################################################################
 ## Version 0.15.1 (2023/04/27)
 
 ### Pull Requests Merged
