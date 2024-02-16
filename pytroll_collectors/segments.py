@@ -588,45 +588,85 @@ class SegmentGatherer(object):
         """Initialize the segment gatherer."""
         self._config = config.copy()
         self._pattern_configs = self._config.pop('patterns')
-        self._subject = None
         self._timeliness = dt.timedelta(seconds=config.get("timeliness", 1200))
-
         # This get the 'keep_parsed_keys' valid for all patterns
         self._keep_parsed_keys = self._config.get('keep_parsed_keys', [])
-
-        self._patterns = self._create_patterns()
-
-        self._elements = list(self._patterns.keys())
-
         self._time_tolerance = self._config.get("time_tolerance", 30)
         self._bundle_datasets = self._config.get("bundle_datasets", False)
-
         self._num_files_premature_publish = self._config.get("num_files_premature_publish", -1)
-
-        self.slots = OrderedDict()
-
         self.time_name = self._config.get('time_name', 'start_time')
         # Floor the scene start time to the given full minutes
         self._group_by_minutes = self._config.get('group_by_minutes', None)
-
-        self._loop = False
         self._providing_server = self._config.get('providing_server')
+        self._temporal_collection = self._config.get('temporal_collection')
+
+        self._patterns = self._create_patterns()
+        self._elements = list(self._patterns.keys())
+
+        self.slots = OrderedDict()
+        self._subject = None
         self._is_first_message_after_start = True
+        self._temporal_collection_max_age = None
+        self._loop = False
 
     def _create_patterns(self):
         return {key: Pattern(key, pattern_config, self._config)
                 for key, pattern_config in self._pattern_configs.items()}
 
+    def _clear_slots(self, time_slot):
+        """Clear unneeded data."""
+        if self._temporal_collection is None:
+            self._clear_slot(time_slot)
+        else:
+            self._clear_obsolete_slots(time_slot)
+
     def _clear_slot(self, time_slot):
-        """Clear data."""
         if time_slot in self.slots:
             del self.slots[time_slot]
 
-    def _reinitialize_gatherer(self, time_slot, missing_files_check=True):
-        """Publish file dataset and reinitialize gatherer."""
-        slot = self.slots[time_slot]
+    def _clear_obsolete_slots(self, time_slot):
+        slot_time = _parse_slot_time_string(time_slot)
+        max_age = self._get_temporal_collection_max_age()
+        oldest_valid = slot_time - dt.timedelta(minutes=max_age)
+        time_keys = list(self.slots.keys())
+        for key in time_keys:
+            key_time = _parse_slot_time_string(key)
+            if key_time < oldest_valid:
+                self._clear_slot(key)
 
-        # Diagnostic logging about delayed ...
+    def _get_temporal_collection_max_age(self):
+        if self._temporal_collection_max_age is None:
+            max_age = 0
+            for val in self._temporal_collection:
+                age = val['max_age']
+                if age > max_age:
+                    max_age = age
+            self._temporal_collection_max_age = max_age
+        return self._temporal_collection_max_age
+
+    def _log_and_publish(self, time_slot, missing_files_check=True):
+        """Log diagnostics and publish data."""
+        if self._temporal_collection is None:
+            slot = self.slots[time_slot]
+            # Some diagnostic logging
+            self._log_delayed(slot)
+            self._log_missing(slot, missing_files_check=missing_files_check)
+            output_metadata = self._get_single_slot_metadata(slot)
+        else:
+            output_metadata = self._get_temporal_collection_metadata(time_slot)
+        if output_metadata:
+            self._publish(output_metadata)
+
+    def _get_single_slot_metadata(self, slot):
+        # Remove tags that are not necessary for datasets or collections
+        output_metadata = self._get_cleaned_output_metadata(slot)
+
+        # Bundle collection datasets to one dataset if requested
+        output_metadata = self._bundle_collection_datasets(output_metadata)
+
+        return output_metadata
+
+    def _log_delayed(self, slot):
         delayed_files = {}
         for key in self._elements:
             delayed_files.update(slot[key]['delayed_files'])
@@ -636,7 +676,7 @@ class SegmentGatherer(object):
                 file_str += "%s %f seconds, " % (key, value)
             logger.warning("Files received late: %s", file_str.strip(', '))
 
-        # ... and missing files
+    def _log_missing(self, slot, missing_files_check=True):
         if missing_files_check:
             missing_files = set([])
             for key in self._elements:
@@ -645,28 +685,69 @@ class SegmentGatherer(object):
             if len(missing_files) > 0:
                 logger.warning("Missing files: %s", ', '.join((str(missing) for missing in missing_files)))
 
-        # Remove tags that are not necessary for datasets
+    def _get_cleaned_output_metadata(self, slot):
         for tag in REMOVE_TAGS:
             try:
                 del slot.output_metadata[tag]
             except KeyError:
                 pass
+        return slot.output_metadata.copy()
 
-        output_metadata = slot.output_metadata.copy()
-
+    def _bundle_collection_datasets(self, output_metadata):
         if self._bundle_datasets and "dataset" not in output_metadata:
             output_metadata["dataset"] = []
             for collection in output_metadata["collection"].values():
                 output_metadata["dataset"].extend(collection['dataset'])
             del output_metadata["collection"]
+        return output_metadata
 
-        self._publish(output_metadata)
+    def _get_temporal_collection_metadata(self, time_slot):
+        start_times = []
+        end_times = []
+        platform_name = None
+        sensor = None
+        temporal_collection = []
+
+        reference_time = _parse_slot_time_string(time_slot)
+        for slot_key, slot in self.slots.items():
+            metadata = slot.output_metadata
+            slot_time = _parse_slot_time_string(slot_key)
+            time_diff = reference_time - slot_time
+            if self._slot_part_of_temporal_collection(time_diff):
+                start_times.append(metadata['start_time'])
+                if 'end_time' in metadata:
+                    end_times.append(metadata['end_time'])
+                platform_name = metadata['platform_name']
+                sensor = metadata['sensor']
+                temporal_collection.append(metadata)
+
+        if len(temporal_collection) != len(self._temporal_collection):
+            return None
+
+        output_metadata = {
+            "start_times": start_times,
+            "end_times": end_times,
+            "platform_name": platform_name,
+            "sensor": sensor,
+            "temporal_collection": temporal_collection
+        }
+
+        return output_metadata
+
+    def _slot_part_of_temporal_collection(self, time_diff):
+        time_diff = time_diff.total_seconds()
+        for condition in self._temporal_collection:
+            if time_diff >= 60 * condition['min_age'] and time_diff <= 60 * condition['max_age']:
+                return True
+        return False
 
     def _publish(self, metadata):
+        msg_type = "temporal_collection"
         if "dataset" in metadata:
-            msg = pmessage.Message(self._subject, "dataset", metadata)
-        else:
-            msg = pmessage.Message(self._subject, "collection", metadata)
+            msg_type = "dataset"
+        elif "collection" in metadata:
+            msg_type = "collection"
+        msg = pmessage.Message(self._subject, msg_type, metadata)
         logger.info("Sending: %s", str(msg))
         self._publisher.send(str(msg))
 
@@ -742,14 +823,14 @@ class SegmentGatherer(object):
             status = slot.get_status()
             if status == Status.SLOT_READY:
                 # Collection ready, publish and remove
-                self._reinitialize_gatherer(slot_time)
-                self._clear_slot(slot_time)
+                self._log_and_publish(slot_time)
+                self._clear_slots(slot_time)
             if status == Status.SLOT_READY_BUT_WAIT_FOR_MORE:
                 # Collection ready, publish and but wait for more
-                self._reinitialize_gatherer(slot_time, missing_files_check=False)
+                self._log_and_publish(slot_time, missing_files_check=False)
             elif status == Status.SLOT_OBSOLETE_TIMEOUT:
                 # Collection unfinished and obsolete, discard
-                self._clear_slot(slot_time)
+                self._clear_slots(slot_time)
             else:
                 # Collection unfinished, wait for more data
                 pass
@@ -1046,3 +1127,10 @@ def filter_metadata(mda, msg_data, keep_parsed_keys=None, local_keep_parsed_keys
             metadata[key] = msg_data[key]
 
     return metadata
+
+
+def _parse_slot_time_string(time_string):
+    try:
+        return dt.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        return dt.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
