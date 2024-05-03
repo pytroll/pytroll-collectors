@@ -504,11 +504,11 @@ class GMCSubscriber(object):
 
 
 def update_sensor_tuple_or_list(to_send, config):
-    """Update sensor tuples and lists to MULTIPLE_SENSORS."""
+    """Update sensor tuples and lists to multiple_sensors."""
     to_send_dict = to_send.copy()
     if "sensor" in to_send:
-        if type(to_send["sensor"]) is list or type(to_send["sensor"]) is tuple:
-            to_send_dict["sensor"] = "MULTIPLE_SENSORS"
+        if isinstance(to_send["sensor"], list) or isinstance(to_send["sensor"], tuple):
+            to_send_dict["sensor"] = "multiple_sensors"
     return to_send_dict
 
 

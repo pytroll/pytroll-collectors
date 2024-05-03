@@ -294,7 +294,7 @@ def test_create_message_topic_from_message_and_config_pattern(sensor, sensor_nam
 
 
 def test_no_sensor_list_in_sending_topic():
-    """Test that list of sensors are replaced with string MULTIPLE_SENSORS/."""
+    """Test that list of sensors are replaced with string multiple_sensors/."""
     to_send = {'start_time': datetime.datetime(2024, 4, 23, 5, 34, 4),
                'end_time': datetime.datetime(2024, 4, 23, 5, 39, 34),
                'orbit_number': 78360,
@@ -308,4 +308,4 @@ def test_no_sensor_list_in_sending_topic():
                'variant': 'DR'}
     my_config = ({'publish_topic_pattern': "/{sensor}/{format}/TEST/"})
     subject = get_subject_from_message_and_config(to_send, my_config)
-    assert subject == "/MULTIPLE_SENSORS/HRPT/TEST/"
+    assert subject == "/multiple_sensors/HRPT/TEST/"
