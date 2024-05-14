@@ -1452,3 +1452,153 @@ class TestSegmentGathererFCI:
         assert len(slot.output_metadata["dataset"]) == 2
         uids = set(info["uid"] for info in slot.output_metadata["dataset"])
         assert uids == expected_uids
+
+
+TEMPORAL_COLLECTION_MESSAGE_1 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T06:00:00", "uid": "20230524_0600_file_1_1.nc",'
+                                 ' "uri": "/data/20230524_0600_file_1_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
+TEMPORAL_COLLECTION_MESSAGE_2 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T07:00:00", "uid": "20230524_0700_file_2_1.nc",'
+                                 ' "uri": "/data/20230524_0700_file_2_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
+TEMPORAL_COLLECTION_MESSAGE_3 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T08:00:00", "uid": "20230524_0800_file_3_1.nc",'
+                                 ' "uri": "/data/20230524_0800_file_3_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
+TEMPORAL_COLLECTION_MESSAGE_4 = ('pytroll://foo/file file user@host 2023-02-21T13:15:47.413168 v1.01 application/json'
+                                 ' {"start_time": "2023-05-24T09:00:00", "uid": "20230524_0900_file_4_1.nc",'
+                                 ' "uri": "/data/20230524_0900_file_4_1.nc", "sensor": ["sensor"],'
+                                 ' "platform_name": "FOO-1"}')
+
+
+class TestTemporalCollection:
+    """Test collecting and publishing of temporal collections."""
+
+    def test_empty_config(self):
+        """Test that the temporal_collection attribute exists and is set to None by default."""
+        segment_gatherer = SegmentGatherer({'patterns': dict()})
+
+        assert segment_gatherer._temporal_collection is None
+
+    def test_temporal_collection_is_set(self):
+        """Test that the temporal collection config items are set correctly."""
+        temporal_collection = [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+        segment_gatherer = SegmentGatherer({'patterns': dict(), 'temporal_collection': temporal_collection})
+
+        assert segment_gatherer._temporal_collection == temporal_collection
+
+    def test_clean_obsolete_slots(self, monkeypatch):
+        """Test that only slots that are not needed anymore are removed."""
+        class FakeSlot:
+
+            def __init__(self, *args, **kwargs):
+                self.output_metadata = dict()
+
+            def get_status(time_slot):
+                from pytroll_collectors.segments import Status
+
+                return Status.SLOT_READY
+
+        def _fake_log_and_publish(*args, **kwargs):
+            pass
+
+        monkeypatch.setattr(SegmentGatherer, "_log_and_publish", _fake_log_and_publish)
+
+        config = {
+            'patterns': dict(),
+            'temporal_collection': [{'min_age': 0, 'max_age': 0}, {'min_age': 60, 'max_age': 65}]
+        }
+        segment_gatherer = SegmentGatherer(config)
+        slot_keys = ['2023-05-24 06:00:00.000000', '2023-05-24 07:00:00.000000',
+                     '2023-05-24 08:00:00.000000', '2023-05-24 09:00:00.000000']
+        for key in slot_keys:
+            segment_gatherer.slots[key] = FakeSlot()
+
+        segment_gatherer.triage_slots()
+
+        assert slot_keys[0] not in segment_gatherer.slots
+        assert slot_keys[1] not in segment_gatherer.slots
+        assert slot_keys[2] in segment_gatherer.slots
+        assert slot_keys[3] in segment_gatherer.slots
+
+    def test_temporal_collection_publishing(self):
+        """Test that metadata for temporal_collection is collected and published correctly."""
+        from posttroll.message import Message as Message_p
+
+        msg_1 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_1)
+        msg_2 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_2)
+        msg_3 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_3)
+        msg_4 = Message_p(rawstr=TEMPORAL_COLLECTION_MESSAGE_4)
+
+        config = {
+            "patterns": {
+                "foo": {
+                    "pattern": "{start_time:%Y%m%d_%H%M}_file_{number:1d}_{segment}.nc",
+                    "critical_files": ":1",
+                    "wanted_files": ":1",
+                    "all_files": ":1",
+                },
+            },
+            "posttroll": {
+                "topics": [
+                    "/foo/file",
+                ],
+                "publish_topic": "/foo/temporal_collection"
+            },
+            "time_name": "start_time",
+            "temporal_collection": [
+                {"min_age": 0, "max_age": 0},
+                {"min_age": 60, "max_age": 65},
+            ]
+        }
+
+        expected_message_data = {
+            "start_times": [dt.datetime(2023, 5, 24, 6, 0, 0), dt.datetime(2023, 5, 24, 7, 0, 0)],
+            "end_times": [],
+            "platform_name": "FOO-1",
+            "sensor": ["sensor"],
+            "temporal_collection": [
+                {
+                    "start_time": dt.datetime(2023, 5, 24, 6, 0),
+                    "sensor": ["sensor"],
+                    "platform_name": "FOO-1",
+                    "number": 1,
+                    "dataset": [
+                        {
+                            "uid": "20230524_0600_file_1_1.nc",
+                            "uri": "/data/20230524_0600_file_1_1.nc",
+                        }
+                    ]
+                },
+                {
+                    "start_time": dt.datetime(2023, 5, 24, 7, 0),
+                    "sensor": ["sensor"],
+                    "platform_name": "FOO-1",
+                    "number": 2,
+                    "dataset": [
+                        {
+                            "uid": "20230524_0700_file_2_1.nc",
+                            "uri": "/data/20230524_0700_file_2_1.nc",
+                        }
+                    ]
+                },
+            ]
+        }
+
+        temporal_collector = SegmentGatherer(config)
+        temporal_collector.process(msg_1)
+        temporal_collector.process(msg_2)
+        temporal_collector.process(msg_3)
+        temporal_collector.process(msg_4)
+
+        temporal_collector._publisher = MagicMock()
+        temporal_collector._subject = temporal_collector._config['posttroll']['publish_topic']
+        temporal_collector.triage_slots()
+        # There should be three sets that match the criteria, so 3 messages should be sent
+        assert temporal_collector._publisher.send.call_count == 3
+        args, kwargs = temporal_collector._publisher.send.call_args_list[0]
+        message = Message_p(rawstr=args[0])
+        # Should have data from messages 1 and 2
+        assert message.data == expected_message_data
+        assert message.type == "temporal_collection"
