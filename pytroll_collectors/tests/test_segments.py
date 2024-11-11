@@ -747,6 +747,57 @@ class TestSegmentGatherer:
             self.msg0deg._setup_listener()
         assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
 
+    def test_sigterm(self):
+        """Test that SIGTERM signal is handled."""
+        import os
+        import signal
+        import time
+        from multiprocessing import Process
+
+        with patch('pytroll_collectors.segments.ListenerContainer'):
+            col = SegmentGatherer(CONFIG_SINGLE)
+            proc = Process(target=col.run)
+            proc.start()
+            time.sleep(1)
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join()
+
+        assert proc.exitcode == 0
+
+    def test_sigterm_nonempty_slots(self):
+        """Test that SIGTERM signal is handled properly when there are active slots present."""
+        import os
+        import signal
+        import time
+        from multiprocessing import Process
+
+        with patch('pytroll_collectors.segments.ListenerContainer'):
+            with patch('pytroll_collectors.segments.SegmentGatherer.triage_slots',
+                       new=_fake_triage_slots):
+                col = SegmentGatherer(CONFIG_SINGLE)
+                proc = Process(target=col.run)
+                proc.start()
+                time.sleep(1)
+                tic = time.time()
+                os.kill(proc.pid, signal.SIGTERM)
+                proc.join()
+
+        assert proc.exitcode == 0
+        # Triage after the kill signal takes 1 s
+        assert time.time() - tic > 1.
+
+
+def _fake_triage_slots(self):
+    """Fake the triage_slots() method.
+
+    The fake triage adds a new slot if SIGTERM has not been caught, and removes it when the signal comes.
+    """
+    import time
+    self.slots["foo"] = "bar"
+    if self._sigterm_caught:
+        del self.slots["foo"]
+        time.sleep(1)
+
 
 def _get_message_from_metadata_and_patterns(mda, patterns):
     fake_message = FakeMessage(mda)
