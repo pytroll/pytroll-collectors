@@ -25,6 +25,7 @@
 """Geographic segment gathering."""
 
 import logging
+import signal
 import time
 
 from configparser import NoOptionError, ConfigParser
@@ -55,6 +56,8 @@ class GeographicGatherer:
         self.publisher = None
         self.triggers = []
         self.return_status = 0
+
+        self._sigterm_caught = False
 
         self._clean_config()
         self._setup_publisher()
@@ -103,8 +106,10 @@ class GeographicGatherer:
 
     def run(self):
         """Run granule triggers."""
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
         try:
             while True:
+                self._check_sigterm()
                 time.sleep(1)
                 for trigger in self.triggers:
                     if not trigger.is_alive():
@@ -118,6 +123,18 @@ class GeographicGatherer:
             self.stop()
 
         return self.return_status
+
+    def _handle_sigterm(self, signum, frame):
+        logger.info("Caught SIGTERM, shutting down when all collections are finished.")
+        self._sigterm_caught = True
+
+    def _check_sigterm(self):
+        if self._sigterm_caught:
+            for t in self.triggers:
+                for c in t.collectors:
+                    if c.granules:
+                        return
+            raise KeyboardInterrupt("No ongoing collections.")
 
     def stop(self):
         """Stop the gatherer."""

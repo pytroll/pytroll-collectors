@@ -527,3 +527,27 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
             assert snd_msg.data == expected_msg.data
         finally:
             gatherer.stop()
+
+
+def test_sigterm(tmp_config_file, tmp_config_parser):
+    """Test that SIGTERM signal is handled."""
+    import os
+    import signal
+    import time
+    from multiprocessing import Process
+
+    from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+    with open(tmp_config_file, mode="w") as fp:
+        tmp_config_parser.write(fp)
+
+    opts = arg_parse(["-c", "minimal_config", "-p", "40000", "-n", "false", "-i", "localhost:12345",
+                     str(tmp_config_file)])
+    gatherer = GeographicGatherer(opts)
+    proc = Process(target=gatherer.run)
+    proc.start()
+    time.sleep(1)
+    os.kill(proc.pid, signal.SIGTERM)
+    proc.join()
+
+    assert proc.exitcode == 0
