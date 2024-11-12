@@ -138,7 +138,7 @@ class GeographicGatherer:
 
     def stop(self):
         """Stop the gatherer."""
-        logger.info('Ending publication the gathering of granules...')
+        logger.info('Ending the gathering of granules...')
         for trigger in self.triggers:
             trigger.stop()
         self.publisher.stop()
