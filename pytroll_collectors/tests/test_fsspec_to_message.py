@@ -121,8 +121,8 @@ class TestUnpackMessage:
     @pytest.mark.parametrize(
         ("packing", "create_packfile", "filesystem_class"),
         [
-            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
-            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+            ("tar", create_tar_file, "fsspec.implementations.tar:TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip:ZipFileSystem"),
         ]
     )
     def test_pack_file_extract(self, packing, create_packfile, filesystem_class, tmp_path):
@@ -153,8 +153,8 @@ class TestUnpackMessage:
     @pytest.mark.parametrize(
         ("packing", "create_packfile", "filesystem_class"),
         [
-            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
-            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+            ("tar", create_tar_file, "fsspec.implementations.tar:TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip:ZipFileSystem"),
         ]
     )
     def test_pack_local_file_extract(self, packing, create_packfile, filesystem_class, tmp_path):
@@ -184,8 +184,8 @@ class TestUnpackMessage:
     @pytest.mark.parametrize(
         ("packing", "create_packfile", "filesystem_class"),
         [
-            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
-            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+            ("tar", create_tar_file, "fsspec.implementations.tar:TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip:ZipFileSystem"),
         ]
     )
     def test_pack_local_file_extract_filesystem(self, packing, create_packfile, filesystem_class, tmp_path):
@@ -211,8 +211,8 @@ class TestUnpackMessage:
     @pytest.mark.parametrize(
         ("packing", "create_packfile", "filesystem_class"),
         [
-            ("tar", create_tar_file, "fsspec.implementations.tar.TarFileSystem"),
-            ("zip", create_zip_file, "fsspec.implementations.zip.ZipFileSystem"),
+            ("tar", create_tar_file, "fsspec.implementations.tar:TarFileSystem"),
+            ("zip", create_zip_file, "fsspec.implementations.zip:ZipFileSystem"),
         ]
     )
     def test_pack_local_file_extract_with_custom_options(self, packing, create_packfile, filesystem_class, tmp_path):
