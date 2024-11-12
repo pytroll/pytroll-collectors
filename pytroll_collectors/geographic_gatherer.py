@@ -108,8 +108,7 @@ class GeographicGatherer:
         """Run granule triggers."""
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         try:
-            while True:
-                self._check_sigterm()
+            while self._keep_running():
                 time.sleep(1)
                 for trigger in self.triggers:
                     if not trigger.is_alive():
@@ -128,13 +127,15 @@ class GeographicGatherer:
         logger.info("Caught SIGTERM, shutting down when all collections are finished.")
         self._sigterm_caught = True
 
-    def _check_sigterm(self):
+    def _keep_running(self):
+        keep_running = True
         if self._sigterm_caught:
+            keep_running = False
             for t in self.triggers:
                 for c in t.collectors:
                     if c.granules:
-                        return
-            raise KeyboardInterrupt("No ongoing collections.")
+                        keep_running = True
+        return keep_running
 
     def stop(self):
         """Stop the gatherer."""
