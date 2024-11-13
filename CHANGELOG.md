@@ -1,4 +1,22 @@
 ###############################################################################
+## Version 0.17.0 (2024/11/13)
+
+### Issues Closed
+
+* [Issue 149](https://github.com/pytroll/pytroll-collectors/issues/149) - trollstalker seems to do nothing in current main
+
+In this release 1 issue was closed.
+
+### Pull Requests Merged
+
+#### Features added
+
+* [PR 157](https://github.com/pytroll/pytroll-collectors/pull/157) - Add SIGTERM handling to geographic gatherer
+* [PR 156](https://github.com/pytroll/pytroll-collectors/pull/156) - Add SIGTERM handling to segment gatherer
+
+In this release 2 pull requests were closed.
+
+###############################################################################
 ## Version 0.16.0 (2024/02/16)
 
 ### Issues Closed
