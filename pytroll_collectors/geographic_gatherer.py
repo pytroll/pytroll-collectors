@@ -130,12 +130,15 @@ class GeographicGatherer:
     def _keep_running(self):
         keep_running = True
         if self._sigterm_caught:
-            keep_running = False
-            for t in self.triggers:
-                for c in t.collectors:
-                    if c.granules:
-                        keep_running = True
+            keep_running = self._trigger_collectors_have_granules()
         return keep_running
+
+    def _trigger_collectors_have_granules(self):
+        for t in self.triggers:
+            for c in t.collectors:
+                if c.granules:
+                    return True
+        return False
 
     def stop(self):
         """Stop the gatherer."""
