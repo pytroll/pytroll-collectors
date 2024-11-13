@@ -37,10 +37,11 @@ reception system produces multiple files for the same overpass.
 
 import datetime as dt
 import logging.handlers
+import os
+import signal
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from enum import Enum
-import os
 
 import trollsift
 from posttroll import message as pmessage
@@ -610,6 +611,7 @@ class SegmentGatherer(object):
         self._group_by_minutes = self._config.get('group_by_minutes', None)
 
         self._loop = False
+        self._sigterm_caught = False
         self._providing_server = self._config.get('providing_server')
         self._is_first_message_after_start = True
 
@@ -711,9 +713,10 @@ class SegmentGatherer(object):
     def run(self):
         """Run SegmentGatherer."""
         self._setup_messaging()
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
 
         self._loop = True
-        while self._loop:
+        while self._keep_running():
             self.triage_slots()
 
             # Check listener for new messages
@@ -722,8 +725,7 @@ class SegmentGatherer(object):
             except AttributeError:
                 msg = self._listener.queue.get(True, 1)
             except KeyboardInterrupt:
-                self.stop()
-                continue
+                break
             except Empty:
                 continue
 
@@ -733,6 +735,16 @@ class SegmentGatherer(object):
                     continue
                 logger.info("New message received: %s", str(msg))
                 self.process(msg)
+        self.stop()
+
+    def _handle_sigterm(self, signum, frame):
+        logging.info("Caught SIGTERM, shutting down when all collections are finished.")
+        self._sigterm_caught = True
+
+    def _keep_running(self):
+        if not self._loop or (self._sigterm_caught and not self.slots):
+            return False
+        return True
 
     def triage_slots(self):
         """Check if there are slots ready for publication."""
