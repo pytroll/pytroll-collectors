@@ -716,10 +716,7 @@ class SegmentGatherer(object):
         signal.signal(signal.SIGTERM, self._handle_sigterm)
 
         self._loop = True
-        while self._loop:
-            if self._sigterm_caught and not self.slots:
-                self.stop()
-
+        while self._keep_running():
             self.triage_slots()
 
             # Check listener for new messages
@@ -728,8 +725,7 @@ class SegmentGatherer(object):
             except AttributeError:
                 msg = self._listener.queue.get(True, 1)
             except KeyboardInterrupt:
-                self.stop()
-                continue
+                break
             except Empty:
                 continue
 
@@ -739,10 +735,16 @@ class SegmentGatherer(object):
                     continue
                 logger.info("New message received: %s", str(msg))
                 self.process(msg)
+        self.stop()
 
     def _handle_sigterm(self, signum, frame):
         logging.info("Caught SIGTERM, shutting down when all collections are finished.")
         self._sigterm_caught = True
+
+    def _keep_running(self):
+        if not self._loop or (self._sigterm_caught and not self.slots):
+            return False
+        return True
 
     def triage_slots(self):
         """Check if there are slots ready for publication."""
