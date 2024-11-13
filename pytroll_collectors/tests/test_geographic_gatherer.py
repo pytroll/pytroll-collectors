@@ -543,7 +543,9 @@ def test_sigterm(tmp_config_file, tmp_config_parser):
 
     opts = arg_parse(["-c", "minimal_config", "-p", "40000", "-n", "false", "-i", "localhost:12345",
                      str(tmp_config_file)])
-    gatherer = GeographicGatherer(opts)
+    # We don't need the triggers here. They also interfere with completing the test (the test never exits)
+    with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"):
+        gatherer = GeographicGatherer(opts)
     proc = Process(target=gatherer.run)
     proc.start()
     time.sleep(1)
