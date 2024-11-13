@@ -553,3 +553,63 @@ def test_sigterm(tmp_config_file, tmp_config_parser):
     proc.join()
 
     assert proc.exitcode == 0
+
+
+def test_sigterm_with_collection(tmp_config_file, tmp_config_parser):
+    """Test that SIGTERM signal is handled when there is collection ongoing."""
+    import os
+    import signal
+    import time
+    from multiprocessing import Process
+
+    from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+    with open(tmp_config_file, mode="w") as fp:
+        tmp_config_parser.write(fp)
+
+    opts = arg_parse(["-c", "posttroll_section", "-p", "40000", "-n", "false", "-i", "localhost:12345",
+                     str(tmp_config_file)])
+    # Use a fake trigger that initially sets some granules and after a while clears them
+    with patch("pytroll_collectors.geographic_gatherer.PostTrollTrigger",
+               new=FakeTriggerWithGranules):
+        gatherer = GeographicGatherer(opts)
+    proc = Process(target=gatherer.run)
+    proc.start()
+    time.sleep(1)
+    os.kill(proc.pid, signal.SIGTERM)
+    proc.join()
+
+    assert proc.exitcode == 0
+
+
+class FakeTriggerWithGranules:
+    """Fake trigger class used in testing SIGTERM handling.
+
+    At creation, adds "foo" to collector granules. When is_alive() is called the second time, it clears the granules.
+    """
+
+    def __init__(self, collectors, *args, **kwargs):
+        """Initialize the trigger class."""
+        self.collectors = collectors
+        for col in self.collectors:
+            col.granules.append("foo")
+        self._args = args
+        self._kwargs = kwargs
+        self._counter = 0
+
+    def is_alive(self):
+        """Return True for alive thread."""
+        if self._counter > 0:
+            # On the second call clear the granules
+            for col in self.collectors:
+                col.granules = []
+        self._counter += 1
+        return True
+
+    def start(self):
+        """Start the trigger."""
+        pass
+
+    def stop(self):
+        """Stop the trigger."""
+        pass
