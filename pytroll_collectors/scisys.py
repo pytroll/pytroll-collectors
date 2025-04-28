@@ -62,8 +62,8 @@ JPSS_PLATFORM_NAME = {'npp': 'Suomi-NPP',
                       'jpss1': 'NOAA-20',
                       'noaa20': 'NOAA-20',
                       'noaa21': 'NOAA-21',
-                      'noaa21': 'NOAA-22',
-                      'noaa21': 'NOAA-23',
+                      'noaa22': 'NOAA-22',
+                      'noaa23': 'NOAA-23',
                       'j01': 'NOAA-20',
                       'j02': 'NOAA-21',
                       'j03': 'NOAA-22',
@@ -503,9 +503,19 @@ class GMCSubscriber(object):
         self.loop = False
 
 
+def update_sensor_tuple_or_list(to_send, config):
+    """Update sensor tuples and lists to multiple_sensors."""
+    to_send_dict = to_send.copy()
+    if "sensor" in to_send:
+        if isinstance(to_send["sensor"], list) or isinstance(to_send["sensor"], tuple):
+            to_send_dict["sensor"] = "multiple_sensors"
+    return to_send_dict
+
+
 def get_subject_from_message_and_config(to_send, config):
     """Get the publish topic from the message and the yaml configuration settings."""
-    return compose(config['publish_topic_pattern'], to_send)
+    to_send_dict = update_sensor_tuple_or_list(to_send, config)
+    return compose(config['publish_topic_pattern'], to_send_dict)
 
 
 def receive_from_zmq(config_filename,

@@ -291,3 +291,21 @@ def test_create_message_topic_from_message_and_config_pattern(sensor, sensor_nam
     subject = get_subject_from_message_and_config(to_send, config)
 
     assert subject == topic_result
+
+
+def test_no_sensor_list_in_sending_topic():
+    """Test that a list of sensors is replaced with string multiple_sensors/."""
+    to_send = {'start_time': datetime.datetime(2024, 4, 23, 5, 34, 4),
+               'end_time': datetime.datetime(2024, 4, 23, 5, 39, 34),
+               'orbit_number': 78360,
+               'platform_name': 'NOAA-19',
+               'type': 'binary',
+               'format': 'HRPT',
+               'sensor': ('avhrr/3', 'mhs', 'amsu-a', 'hirs/4'),
+               'data_processing_level': '0',
+               'uid': '20240423053404_NOAA_19.hmf',
+               'uri': '/path/to/dummy/hrpt/20240423053404_NOAA_19.hmf',
+               'variant': 'DR'}
+    my_config = ({'publish_topic_pattern': "/{sensor}/{format}/TEST/"})
+    subject = get_subject_from_message_and_config(to_send, my_config)
+    assert subject == "/multiple_sensors/HRPT/TEST/"
