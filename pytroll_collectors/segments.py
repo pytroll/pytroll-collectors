@@ -196,7 +196,7 @@ class Message:
 
     def _handle_scheme(self, posttroll_message):
         message_data = posttroll_message.data.copy()
-        if self._drop_scheme:
+        if self._drop_scheme and posttroll_message.type == "file":
             url_parts = urlparse(message_data['uri'])
             uri = urlunparse(
                 (
