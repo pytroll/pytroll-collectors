@@ -1455,7 +1455,7 @@ fci_message_2 = ('pytroll://segment/fci_nc file mraspaud@4730366dc313 2023-02-21
 FCI_CONFIG = """patterns:
   fci_nc:
     pattern:
-      "W_XX-EUMETSAT-Darmstadt,IMG+SAT,{platform_name:4s}+FCI-1C-RRAD-FDHSI-FD--CHK-{segment_type}---NC4E_C_EUMT_{processing_time}_GTT_DEV_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}_N_{special_compression}_T_{repeat_cycle_in_day:>04d}_{segment:0>4s}.nc"
+      "W_XX-EUMETSAT-Darmstadt,IMG+SAT,{platform_name:4s}+FCI-1C-RRAD-FDHSI-FD--CHK-{segment_type}--{locality}-NC4E_C_EUMT_{processing_time}_{processor}_{processor_status}_{start_time:%Y%m%d%H%M%S}_{end_time:%Y%m%d%H%M%S}_N_{special_compression}_{service_status}_{repeat_cycle_in_day:>04d}_{segment:0>4s}.nc"
     critical_files:
     wanted_files: :0001-0040
     all_files: :0001-0040
@@ -1503,3 +1503,35 @@ class TestSegmentGathererFCI:
         assert len(slot.output_metadata["dataset"]) == 2
         uids = set(info["uid"] for info in slot.output_metadata["dataset"])
         assert uids == expected_uids
+
+
+fci_remote = ('pytroll://1b/FCI-segment/FDHSI file safusr.t@collecting.host.se 2025-06-26T07:39:40.483302+00:00 v1.2 application/json {"sensor": "fci", "filesystem": {"cls": "fsspec.implementations.sftp:SFTPFileSystem", "protocol": "sftp", "args": [], "host": "receiving_host"}, "uri": "ssh:///local_disk/tellicast/received/TER-1/T01-MTG-1/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY--DIS-NC4E_C_EUMT_20250626073728_IDPFI_OPE_20250626073332_20250626073411_N_JLS_O_0046_0017.nc", "path": "/local_disk/tellicast/received/TER-1/T01-MTG-1/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY--DIS-NC4E_C_EUMT_20250626073728_IDPFI_OPE_20250626073332_20250626073411_N_JLS_O_0046_0017.nc", "uid": "W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY--DIS-NC4E_C_EUMT_20250626073728_IDPFI_OPE_20250626073332_20250626073411_N_JLS_O_0046_0017.nc", "pflag": "W", "location_indicator": "XX-EUMETSAT-Darmstadt", "data_designator": "IMG+SAT", "spacecraft_id": 1, "data_source": "FCI", "coverage": "FD", "subsetting": "", "component1": "CHK", "component3": "", "purpose": "DIS", "format": "NC4E", "oflag": "C", "originator": "EUMT", "processing_time": "2025-06-26T07:37:28", "facility_or_tool": "IDPFI", "environment": "OPE", "start_time": "2025-06-26T07:33:32", "end_time": "2025-06-26T07:34:11", "processing_mode": "N", "special_compression": "JLS", "disposition_mode": "O", "repeat_cycle_in_day": 46, "count_in_repeat_cycle": 17}')  # noqa
+
+
+FCI_CONFIG_WITH_CHECK_ON_START = FCI_CONFIG + "\ncheck_existing_files_after_start: true\n"
+
+
+@patch("fsspec.filesystem")
+def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
+    """Test that remote filesystem info is passed from message when available."""
+    from posttroll.message import Message as Message_p
+    import yaml
+
+    segment_gatherer = SegmentGatherer(yaml.safe_load(FCI_CONFIG_WITH_CHECK_ON_START))
+
+    expected_uids = set()
+
+    for fci_message in [fci_remote]:
+        fci_msg = Message_p(rawstr=fci_message)
+        expected_uids.add(fci_msg.data['uid'])
+        msg = FakeMessage(fci_msg.data)
+        segment_gatherer.process(msg)
+
+    timestamp = '2025-06-26 07:30:00'
+    print(segment_gatherer.slots)
+    assert timestamp in segment_gatherer.slots
+    filesystem.assert_called_once_with("ssh",
+                                       cls="fsspec.implementations.sftp:SFTPFileSystem",
+                                       protocol="sftp",
+                                       args=[],
+                                       host="receiving_host")

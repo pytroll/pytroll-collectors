@@ -898,11 +898,11 @@ class SegmentGatherer(object):
 def _get_existing_files_from_message(message):
     mask = message.pattern.parser.globify({})
     url_parts = urlparse(message.message_data["uri"])
+    storage_options = message.message_data.get("filesystem")
+    return _fsspec_glob(url_parts, mask, storage_options)
 
-    return _fsspec_glob(url_parts, mask)
 
-
-def _fsspec_glob(url_parts, mask):
+def _fsspec_glob(url_parts, mask, storage_options):
     import fsspec
 
     pattern = urlunparse(
@@ -915,8 +915,8 @@ def _fsspec_glob(url_parts, mask):
             ''
         )
     )
-
-    fs_ = fsspec.filesystem(url_parts.scheme)
+    storage_options = storage_options or dict()
+    fs_ = fsspec.filesystem(url_parts.scheme, **storage_options)
     files = fs_.glob(pattern)
     # There might be no scheme in the returned filenames, so add it if scheme is defined
     if url_parts.scheme:
