@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Harvest EUM schedules. Download schedules from EUM and parse to limit gatherer"""
+"""Harvest EUM schedules. Download schedules from EUM and parse to limit gatherer."""
 
 import re
 import os
@@ -94,13 +94,14 @@ def _generate_pass_list_file_name(params, save_basename, eum_base_url):
     else:
         logger.error("sensor not given in params in granule_metadata. Can not continue.")
         return (None, None)
-    eum_url = EUM_BASE_URL + pass_list_file
+    eum_url = eum_base_url + pass_list_file
     save_file = os.path.join(save_basename, pass_list_file)
     logger.debug("Pass list save file, %s", save_file)
     return eum_url, save_file
 
 
 def harvest_schedules(params, save_basename=None, eum_base_url=EUM_BASE_URL):
+    """Harvest schedules."""
     if save_basename is None:
         save_basename = tempfile.gettempdir()
     logger.debug("harvest_schedules params: %s", params)

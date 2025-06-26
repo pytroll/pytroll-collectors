@@ -67,6 +67,7 @@ _granule_metadata = {"platform_name": "Metop-C",
 _granule_metadata_metop_b = {"platform_name": "Metop-B",
                              "sensor": "avhrr"}
 
+
 def granule_metadata(s_min):
     """Return common granule_metadata dictionary."""
     return {**_granule_metadata,
@@ -125,8 +126,20 @@ def europe_collector_schedule_cut_custom_method_failed(europe, schedule_cut=True
     return RegionCollector(europe, schedule_cut=schedule_cut, schedule_cut_method=schedule_cut_method)
 
 
-def _fakeopen(url):
+def _fakeopen_celestrak(url):
     return io.BytesIO(tles)
+
+
+ears_avhrr_pass_predictions = b"""EARS-AVHRR Pass Predictions
+2025/06/19 05:01:28
+regionBeginEumetsat,regionEndEumetsat,Satellite
+2025-06-19 00:20,2025-06-19 00:37,metopc
+2025-06-19 01:10,2025-06-19 01:28,metopb
+"""
+
+
+def _fakeopen_eum(url):
+    return io.BytesIO(ears_avhrr_pass_predictions)
 
 
 def test_init(europe):
@@ -135,7 +148,7 @@ def test_init(europe):
     RegionCollector(europe)
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect(europe_collector, caplog):
     """Test that granules can be collected."""
     with caplog.at_level(logging.DEBUG):
@@ -150,7 +163,7 @@ def test_collect(europe_collector, caplog):
     assert "Granule file://18 is not overlapping euro_ma"
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect_duration(europe):
     """Test with tle_platform_name, without end_time, using call syntax."""
     from pytroll_collectors.region_collector import RegionCollector
@@ -165,7 +178,8 @@ def test_collect_duration(europe):
     alt_europe_collector(granule_metadata)
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+@unittest.mock.patch("pytroll_collectors.harvest_EUM_schedules.urlopen", new=_fakeopen_eum)
 def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
     """Test default schedule cut method."""
     with caplog.at_level(logging.DEBUG):
@@ -180,7 +194,7 @@ def test_collect_check_schedules(europe_collector_schedule_cut, caplog):
     assert "harvest_EUM_schedules.py'>, with type <class 'module'>" in caplog.text
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_custom_method, caplog):
     """Test custom schedule cut method."""
     with caplog.at_level(logging.DEBUG):
@@ -196,7 +210,7 @@ def test_collect_check_schedules_custom_method(europe_collector_schedule_cut_cus
     assert "test_region_collector.py'>, with type <class 'module'>" in caplog.text
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_cut_custom_method_failed, caplog):
     """Test custom schedule cut method failed import."""
     with caplog.at_level(logging.DEBUG):
@@ -208,16 +222,16 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
     assert test_string in caplog.text
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect_missing_tle_from_file(europe_collector, caplog):
-    """Test that granules can be collected, but missing TLE raises and exception"""
+    """Test that granules can be collected, but missing TLE raises and exception."""
     with caplog.at_level(logging.DEBUG):
         for s_min in (0, 3, 6, 9, 12, 15, 18):
             with pytest.raises(KeyError):
                 europe_collector.collect({**granule_metadata_metop_b(s_min)})
 
 
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_adjust_timeout(europe, caplog):
     """Test timeout adjustment."""
     from pytroll_collectors.region_collector import RegionCollector
@@ -241,7 +255,7 @@ def test_adjust_timeout(europe, caplog):
 
 
 @pytest.mark.skip(reason="test never finishes")
-@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen)
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_faulty_end_time(europe_collector, caplog):
     """Test adapting if end_time before start_time."""
     granule_metadata = {

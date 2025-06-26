@@ -66,7 +66,7 @@ class Status(Enum):
     SLOT_OBSOLETE_TIMEOUT = 4
 
 
-DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor")
+DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor", "filesystem", "path")
 REMOVE_TAGS = {'path', 'segment'}
 
 
@@ -397,7 +397,12 @@ class Slot:
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
         if message.type == 'file':
-            metadata['dataset'].append({'uri': msg_data['uri'], 'uid': msg_data['uid']})
+            mda = {'uri': msg_data['uri'], 'uid': msg_data['uid']}
+            if "filesystem" in msg_data:
+                mda["filesystem"] = msg_data["filesystem"]
+            if "path" in msg_data:
+                mda["path"] = msg_data["path"]
+            metadata['dataset'].append(mda)
         elif message.type == 'dataset':
             metadata['dataset'].extend(message.message_data['dataset'])
         else:
@@ -898,11 +903,11 @@ class SegmentGatherer(object):
 def _get_existing_files_from_message(message):
     mask = message.pattern.parser.globify({})
     url_parts = urlparse(message.message_data["uri"])
+    storage_options = message.message_data.get("filesystem")
+    return _fsspec_glob(url_parts, mask, storage_options)
 
-    return _fsspec_glob(url_parts, mask)
 
-
-def _fsspec_glob(url_parts, mask):
+def _fsspec_glob(url_parts, mask, storage_options):
     import fsspec
 
     pattern = urlunparse(
@@ -915,8 +920,8 @@ def _fsspec_glob(url_parts, mask):
             ''
         )
     )
-
-    fs_ = fsspec.filesystem(url_parts.scheme)
+    storage_options = storage_options or dict()
+    fs_ = fsspec.filesystem(url_parts.scheme, **storage_options)
     files = fs_.glob(pattern)
     # There might be no scheme in the returned filenames, so add it if scheme is defined
     if url_parts.scheme:

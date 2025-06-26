@@ -28,10 +28,7 @@ from datetime import timedelta, datetime
 
 from pyresample import parse_area_file
 
-try:
-    from trollsched.satpass import Pass
-except ImportError:
-    Pass = None
+from trollsched.satpass import Pass
 
 import logging
 
