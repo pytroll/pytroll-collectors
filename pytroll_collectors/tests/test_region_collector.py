@@ -139,7 +139,7 @@ regionBeginEumetsat,regionEndEumetsat,Satellite
 
 
 def _fakeopen_eum(url):
-    return io.StringIO(ears_avhrr_pass_predictions)
+    return io.BytesIO(ears_avhrr_pass_predictions)
 
 
 def test_init(europe):
