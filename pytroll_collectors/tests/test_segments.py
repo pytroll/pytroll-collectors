@@ -1530,8 +1530,14 @@ def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
     timestamp = '2025-06-26 07:30:00'
     print(segment_gatherer.slots)
     assert timestamp in segment_gatherer.slots
-    filesystem.assert_called_once_with("ssh",
-                                       cls="fsspec.implementations.sftp:SFTPFileSystem",
-                                       protocol="sftp",
-                                       args=[],
-                                       host="receiving_host")
+    storage_options = dict(cls="fsspec.implementations.sftp:SFTPFileSystem",
+                           protocol="sftp",
+                           args=[],
+                           host="receiving_host")
+    filesystem.assert_called_once_with("ssh", **storage_options)
+
+    assert segment_gatherer.slots[timestamp].output_metadata["dataset"][0]["filesystem"] == storage_options
+    assert "filesystem" not in segment_gatherer.slots[timestamp].output_metadata
+    path = "/local_disk/tellicast/received/TER-1/T01-MTG-1/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY--DIS-NC4E_C_EUMT_20250626073728_IDPFI_OPE_20250626073332_20250626073411_N_JLS_O_0046_0017.nc"  # noqa
+    assert segment_gatherer.slots[timestamp].output_metadata["dataset"][0]["path"] == path
+    assert "path" not in segment_gatherer.slots[timestamp].output_metadata
