@@ -1,3 +1,16 @@
+## Version 0.18.0 (2025/06/26)
+
+
+### Pull Requests Merged
+
+#### Features added
+
+* [PR 162](https://github.com/pytroll/pytroll-collectors/pull/162) - Ensure filesystem is passed for remote file checks
+* [PR 154](https://github.com/pytroll/pytroll-collectors/pull/154) - Handle sensor list in topic
+
+In this release 2 pull requests were closed.
+
+
 ###############################################################################
 ## Version 0.17.0 (2024/11/13)
 
