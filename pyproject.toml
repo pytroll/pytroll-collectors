@@ -70,3 +70,7 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "pytroll_collectors/version.py"
+
+[tool.coverage.run]
+relative_files = true
+omit = ["pytroll_collectors/version.py"]
