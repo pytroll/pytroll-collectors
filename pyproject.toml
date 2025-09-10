@@ -59,9 +59,6 @@ trollstalker = [
 [project.urls]
 Homepage = "https://github.com/pytroll/pytroll-collectors"
 
-[tool.hatch.version]
-path = "pytroll_collectors/__init__.py"
-
 [tool.hatch.build.targets.sdist]
 include = [
     "/pytroll_collectors",
