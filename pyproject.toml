@@ -7,7 +7,7 @@ name = "pytroll-collectors"
 dynamic = ["version"]
 description = "Pytroll data collectors"
 readme = "README.md"
-license = ""
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
 authors = [
     { name = "Martin Raspaud", email = "martin.raspaud@smhi.se" },
