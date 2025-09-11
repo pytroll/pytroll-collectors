@@ -66,6 +66,17 @@ test = [
     "pytest-cov>=7.0.0",
 ]
 
+[project.scripts]
+"cat.py" = "pytroll_collectors.scripts.cat:main"
+"s3stalker_daemon.py" = "pytroll_collectors.scripts.s3stalker_daemon:main"
+"segment_gatherer.py" = "pytroll_collectors.scripts.segment_gatherer:main"
+"s3stalker.py" = "pytroll_collectors.scripts.s3stalker:main"
+"geographic_gatherer.py" = "pytroll_collectors.scripts.geographic_gatherer:main"
+"scisys_receiver.py" = "pytroll_collectors.scripts.scisys_receiver:main"
+"trollstalker.py" = "pytroll_collectors.scripts.trollstalker:main"
+"trollstalker2.py" = "pytroll_collectors.scripts.trollstalker2:main"
+"zipcollector_runner.py" = "pytroll_collectors.scripts.zipcollector_runner:main"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/pytroll_collectors",

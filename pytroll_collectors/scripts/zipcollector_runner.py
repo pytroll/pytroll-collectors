@@ -243,8 +243,7 @@ def zipcollector_live_runner(options):
                     file_reg.pop(keys[0])
 
 
-if __name__ == "__main__":
-
+def main():
     (service_name, config_filename) = get_arguments()
 
     OPTIONS = get_config(config_filename, service_name, ENV_MODE)
@@ -282,3 +281,7 @@ if __name__ == "__main__":
     logger = logging.getLogger('zipcollector_runner')
 
     zipcollector_live_runner(OPTIONS)
+
+
+if __name__ == "__main__":
+    main()
