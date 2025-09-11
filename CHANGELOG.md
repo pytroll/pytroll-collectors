@@ -1,3 +1,15 @@
+## Version 0.20.0 (2025/09/11)
+
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 165](https://github.com/pytroll/pytroll-collectors/pull/165) - Port scripts to pyproject.toml
+
+In this release 1 pull request was closed.
+
+
 ## Version 0.19.0 (2025/09/11)
 
 
