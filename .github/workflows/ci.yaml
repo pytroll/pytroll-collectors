@@ -65,7 +65,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           flags: unittests
-          file: ./coverage.xml
+          files: ./coverage.xml
           env_vars: OS,PYTHON_VERSION,UNSTABLE
           fail_ci_if_error: false
 
