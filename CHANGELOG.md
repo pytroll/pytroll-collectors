@@ -1,3 +1,15 @@
+## Version 0.19.0 (2025/09/11)
+
+
+### Pull Requests Merged
+
+#### Features added
+
+* [PR 164](https://github.com/pytroll/pytroll-collectors/pull/164) - Switch to hatchling
+
+In this release 1 pull request was closed.
+
+
 ## Version 0.18.0 (2025/06/26)
 
 
