@@ -39,7 +39,7 @@ all = [
 geographic_gatherer = [
     "pyresample",
     "pytroll-schedule",
-    "watchdog",
+    "watchdog!=4.0.0",
 ]
 s3_segment_gatherer = [
     "fsspec",
@@ -57,6 +57,14 @@ trollstalker = [
 
 [project.urls]
 Homepage = "https://github.com/pytroll/pytroll-collectors"
+
+[dependency-groups]
+test = [
+    "freezegun>=1.5.5",
+    "paramiko>=4.0.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
