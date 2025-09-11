@@ -21,5 +21,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """The place where everything starts :)."""
-from . import _version
-__version__ = _version.get_versions()['version']
+try:
+    from pytroll_collectors.version import version  # noqa
+except ModuleNotFoundError as err:  # pragma: no cover
+    err.add_note("This could mean you didn't install 'pytroll_collectors' properly.")
+    err.add_note("Try reinstalling ('pip install').")
+    raise

@@ -12,7 +12,7 @@ jobs:
       fail-fast: true
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
         experimental: [false]
         include:
           - python-version: "3.12"
@@ -29,15 +29,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v5
 
-      - name: Setup Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          miniconda-version: "latest"
           python-version: ${{ matrix.python-version }}
-          mamba-version: "*"
-          channels: conda-forge,defaults
-          environment-file: continuous_integration/environment.yaml
-          activate-environment: test-environment
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group test
+          python -m pip install -e .[all]
 
       - name: Install unstable dependencies
         if: matrix.experimental == true
@@ -52,10 +53,6 @@ jobs:
           git+https://github.com/pytroll/pytroll-schedule \
           git+https://github.com/pytroll/trollsift;
 
-      - name: Install pytroll-collectors
-        run: |
-          pip install --no-deps -e .
-
       - name: Run unit tests
         shell: bash -l {0}
         run: |
@@ -65,7 +62,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           flags: unittests
-          file: ./coverage.xml
+          files: ./coverage.xml
           env_vars: OS,PYTHON_VERSION,UNSTABLE
           fail_ci_if_error: false
 
