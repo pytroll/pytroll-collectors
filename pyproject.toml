@@ -34,7 +34,6 @@ all = [
     "python-dateutil",
     "pytroll-schedule",
     "s3fs",
-    "watchdog",
     "watchdog!=4.0.0",
 ]
 geographic_gatherer = [
