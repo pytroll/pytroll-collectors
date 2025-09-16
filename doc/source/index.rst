@@ -342,7 +342,7 @@ patterns
         (Can also be defined globally)
 
 timeliness
-    Time in seconds from the first arrived file until timeout.  When timeout is
+    Time in minutes from the first arrived file until timeout.  When timeout is
     reached, all collected files (meaning all files that match the ``all_files`` pattern)
     are broadcast in a posttroll message.
 
