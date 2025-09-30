@@ -74,8 +74,9 @@ def fix_start_end_time(mda):
                                               mda["end_time"].time())
         del mda["end_date"]
 
-    while mda["start_time"] > mda["end_time"]:
-        mda["end_time"] += dt.timedelta(days=1)
+    if "end_time" in mda:
+        while mda["start_time"] > mda["end_time"]:
+            mda["end_time"] += dt.timedelta(days=1)
 
     if "duration" in mda:
         del mda["duration"]
