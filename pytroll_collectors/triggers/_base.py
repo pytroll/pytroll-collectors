@@ -24,13 +24,15 @@
 
 """Base classes and helper functions for region_collectors."""
 
-from datetime import datetime, timedelta
+import datetime as dt
 import logging
 from threading import Thread, Event
 import os
 
 from trollsift import compose, Parser
 from posttroll import message
+
+from pytroll_collectors.utils import fix_start_end_time
 
 logger = logging.getLogger(__name__)
 
@@ -39,31 +41,6 @@ def total_seconds(tdef):
     """Calculate total time in seconds."""
     return ((tdef.microseconds +
              (tdef.seconds + tdef.days * 24 * 3600) * 10 ** 6) / 10.0 ** 6)
-
-
-def fix_start_end_time(mda):
-    """Make start and end time coherent."""
-    if "duration" in mda and "end_time" not in mda:
-        mda["end_time"] = (mda["start_time"]
-                           + timedelta(seconds=int(mda["duration"])))
-    if "start_date" in mda:
-        mda["start_time"] = datetime.combine(mda["start_date"].date(),
-                                             mda["start_time"].time())
-        if "end_date" not in mda:
-            mda["end_date"] = mda["start_date"]
-        del mda["start_date"]
-    if "end_date" in mda:
-        mda["end_time"] = datetime.combine(mda["end_date"].date(),
-                                           mda["end_time"].time())
-        del mda["end_date"]
-
-    while mda["start_time"] > mda["end_time"]:
-        mda["end_time"] += timedelta(days=1)
-
-    if "duration" in mda:
-        del mda["duration"]
-
-    return mda
 
 
 class Trigger:
@@ -198,7 +175,7 @@ class FileTrigger(Trigger, Thread):
 
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
-                if next_timeout[1] and (next_timeout[1] < datetime.utcnow()):
+                if next_timeout[1] and (next_timeout[1] < dt.datetime.utcnow()):
                     logger.debug("Timeout detected, terminating collector")
                     logger.debug("Area: %s, timeout: %s",
                                  next_timeout[0].region,
@@ -214,7 +191,7 @@ class FileTrigger(Trigger, Thread):
                 else:
                     logger.debug("Waiting %s seconds until timeout",
                                  str(total_seconds(next_timeout[1] -
-                                                   datetime.utcnow())))
+                                                   dt.datetime.utcnow())))
                     logger.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
                     if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
                         # If this option is given:
@@ -223,7 +200,7 @@ class FileTrigger(Trigger, Thread):
                         # but don't clean up the collection as new files will be added until timeout
                         self.publish_collection(next_timeout[0].finish_without_reset())
                     self.new_file.wait(total_seconds(next_timeout[1] -
-                                                     datetime.utcnow()))
+                                                     dt.datetime.utcnow()))
                     self.new_file.clear()
             else:
                 self.new_file.wait()
