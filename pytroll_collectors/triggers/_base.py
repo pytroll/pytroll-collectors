@@ -200,7 +200,7 @@ class FileTrigger(Trigger, Thread):
                         # but don't clean up the collection as new files will be added until timeout
                         self.publish_collection(next_timeout[0].finish_without_reset())
                     self.new_file.wait(total_seconds(next_timeout[1] -
-                                                     dt.datetime.utcnow()))
+                                                     dt.datetime.now(dt.timezone.utc)))
                     self.new_file.clear()
             else:
                 self.new_file.wait()
