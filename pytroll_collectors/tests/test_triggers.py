@@ -56,7 +56,7 @@ class TestPostTrollTrigger:
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri3'})]
 
         collector = Mock()
-        collector.timeout = dt.datetime.utcnow() + dt.timedelta(seconds=.2)
+        collector.timeout = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=.2)
         collector.return_value = None
 
         def finish():
