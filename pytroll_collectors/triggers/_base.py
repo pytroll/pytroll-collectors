@@ -191,7 +191,7 @@ class FileTrigger(Trigger, Thread):
                 else:
                     logger.debug("Waiting %s seconds until timeout",
                                  str(total_seconds(next_timeout[1] -
-                                                   dt.datetime.utcnow())))
+                                                   dt.datetime.now(dt.timezone.utc))))
                     logger.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
                     if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
                         # If this option is given:
