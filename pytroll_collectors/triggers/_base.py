@@ -175,7 +175,7 @@ class FileTrigger(Trigger, Thread):
 
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
-                if next_timeout[1] and (next_timeout[1] < dt.datetime.utcnow()):
+                if next_timeout[1] and (next_timeout[1] < dt.datetime.now(dt.timezone.utc)):
                     logger.debug("Timeout detected, terminating collector")
                     logger.debug("Area: %s, timeout: %s",
                                  next_timeout[0].region,
