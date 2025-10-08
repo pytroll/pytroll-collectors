@@ -24,7 +24,7 @@
 """Unittests for triggers."""
 
 import time
-from datetime import datetime, timedelta
+import datetime as dt
 
 from unittest.mock import patch, Mock, call
 import pytest
@@ -56,7 +56,7 @@ class TestPostTrollTrigger:
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri3'})]
 
         collector = Mock()
-        collector.timeout = datetime.utcnow() + timedelta(seconds=.2)
+        collector.timeout = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=.2)
         collector.return_value = None
 
         def finish():
@@ -82,10 +82,10 @@ class TestPostTrollTrigger:
         publisher = Mock()
         ptt = PostTrollTrigger(None, None, None, publisher, duration=60)
 
-        msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': datetime(2020, 1, 21, 11, 27)}))
+        msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': dt.datetime(2020, 1, 21, 11, 27)}))
 
         assert "end_time" in msg_data
-        assert msg_data["end_time"] == datetime(2020, 1, 21, 11, 28)
+        assert msg_data["end_time"] == dt.datetime(2020, 1, 21, 11, 28)
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
     def test_inbound_connection_is_used(self, nssub):
@@ -232,9 +232,9 @@ class TestFileTrigger:
         res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
 
         assert res == {"name": "somefile",
-                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'end_time': dt.datetime(2022, 5, 12, 15, 45),
                        'filename': 'somefile_20220512T1544_20220512T1545.data',
-                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'start_time': dt.datetime(2022, 5, 12, 15, 44),
                        'uri': 'somefile_20220512T1544_20220512T1545.data'
                        }
 
@@ -258,9 +258,9 @@ class TestFileTrigger:
         res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
 
         assert res == {"name": "somefile",
-                       'end_time': datetime(2022, 5, 12, 15, 45),
+                       'end_time': dt.datetime(2022, 5, 12, 15, 45),
                        'filename': 'somefile_20220512T1544_20220512T1545.data',
-                       'start_time': datetime(2022, 5, 12, 15, 44),
+                       'start_time': dt.datetime(2022, 5, 12, 15, 44),
                        'uri': 'somefile_20220512T1544_20220512T1545.data',
                        'key1': "value1"
                        }
@@ -281,12 +281,12 @@ class TestFileTrigger:
         trigger = FileTrigger(collectors, dict(config.items("section1")), publisher, publish_topic=None,
                               publish_message_after_each_reception=False)
         trigger._process_metadata({'sensor': 'avhrr', 'platform_name': 'Metop-B',
-                                   'start_time': datetime(2022, 9, 1, 10, 22, 3),
+                                   'start_time': dt.datetime(2022, 9, 1, 10, 22, 3),
                                    'orbit_number': '51653',
                                    'uri': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
                                    'uid': 'AVHRR_C_EUMP_20220901102203_51653_eps_o_amv_l2d.bin',
                                    'origin': '157.249.16.188:9062',
-                                   'end_time': datetime(2022, 9, 1, 10, 25, 3)})
+                                   'end_time': dt.datetime(2022, 9, 1, 10, 25, 3)})
         assert "Found no TLE entry for 'METOP-B' to simulate" in caplog.text
 
     @patch('pytroll_collectors.triggers._base.Trigger.publish_collection')

@@ -52,6 +52,7 @@ from urllib.parse import urlparse, urlunparse
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
 from pytroll_collectors.utils import create_publisher_config_dict
+from pytroll_collectors.utils import fix_start_end_time
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -164,10 +165,10 @@ class Message:
         self.pattern = pattern
         self._drop_scheme = drop_scheme
         posttroll_message = self._handle_scheme(posttroll_message)
-        self.message_data = posttroll_message.data
+        self.message_data = fix_start_end_time(posttroll_message.data)
         self.type = posttroll_message.type
         self._posttroll_message = posttroll_message
-        self.metadata = pattern.parser.parse(self.message_data)
+        self.metadata = fix_start_end_time(pattern.parser.parse(self.message_data))
         self._time_name = self.pattern.time_name
         self.adjust_time_by_flooring()
 

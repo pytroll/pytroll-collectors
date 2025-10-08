@@ -50,6 +50,8 @@ CONFIG_INI_NO_SEG = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
 CONFIG_INI_HIMAWARI = ini_to_dict(os.path.join(THIS_DIR, "data/segments.ini"),
                                   "himawari-8")
 CONFIG_NWCSAF_GEO = ini_to_dict(os.path.join(THIS_DIR, "data/segments_nwcsaf_geo.ini"), "nwcsaf_geo")
+CONFIG_NOAA20 = read_yaml(os.path.join(THIS_DIR, "data/segments_noaa20.yaml"))
+
 LOGGING_ERROR = logging.ERROR
 
 fake_config = {
@@ -116,7 +118,18 @@ class TestSegmentGatherer:
         self.mda_msg0deg_file_scheme = {"segment": "EPI", "uid": "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_shortname": "MSG3", "start_time": dt.datetime(2016, 11, 28, 11, 0, 0), "nominal_time": dt.datetime(  # noqa
             2016, 11, 28, 11, 0, 0), "uri": "file:///home/lahtinep/data/satellite/geo/msg/H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__", "platform_name": "Meteosat-10", "channel_name": "", "path": "", "sensor": ["seviri"], "hrit_format": "MSG3"}  # noqa
 
-        self.mda_nwcsaf_geo = {"product": "CRR-Ph", "sensor": "nwc_saf_geo", "platform_name": "Meteosat-11", "start_time": dt.datetime(2023, 2, 14, 13, 0, 0), "uri": "file:///data/S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc", "uid": "S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc"}  # noqa
+        self.mda_nwcsaf_geo = {"product": "CRR-Ph", "sensor": "nwc_saf_geo", "platform_name": "Meteosat-11",
+                               "start_time": dt.datetime(2023, 2, 14, 13, 0, 0),
+                               "uri": "file:///data/S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc",
+                               "uid": "S_NWC_CRR-Ph_MSG4_MSG-N-VISIR_20230214T130000Z.nc"}  # noqa
+
+        self.mda_noaa20 = {"sensor": "viirs", "platform_name": "NOAA-20", "segment": "SVM13",
+                           "platform_short_name": "j01", "start_time": dt.datetime(2025, 9, 24, 10, 5, 47),
+                           "start_decimal": 6, "end_time": dt.datetime(1900, 1, 1, 10, 19, 58),
+                           "end_decimal": 5, "orbit_number": 40677,
+                           "proctime": dt.datetime(2025, 9, 24, 3, 13, 28, 998280),
+                           "uri": "/data/SVM13_j01_d20250924_t1005476_e1019585_b40677_c20250924103132899828_cspp_dev.h5",  # noqa
+                           "uid": "SVM13_j01_d20250924_t1005476_e1019585_b40677_c20250924103132899828_cspp_dev.h5"}
 
         self.msg0deg = SegmentGatherer(CONFIG_SINGLE)
         self.msg0deg_north = SegmentGatherer(CONFIG_SINGLE_NORTH)
@@ -126,6 +139,7 @@ class TestSegmentGatherer:
         self.goes_ini = SegmentGatherer(CONFIG_INI_NO_SEG)
         self.himawari_ini = SegmentGatherer(CONFIG_INI_HIMAWARI)
         self.nwcsaf_geo = SegmentGatherer(CONFIG_NWCSAF_GEO)
+        self.noaa20 = SegmentGatherer(CONFIG_NOAA20)
 
     def test_init(self):
         """Test init."""
@@ -263,6 +277,15 @@ class TestSegmentGatherer:
         slot.update_timeout()
         diff = slot['timeout'] - now
         np.testing.assert_almost_equal(diff.total_seconds(), 10.0, decimal=3)
+
+    def test_fix_end_time(self):
+        """Test that end time is fixed so that it is after start time."""
+        import numpy as np
+
+        mda = self.mda_noaa20.copy()
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.noaa20._patterns["viirs"])
+        assert message.metadata["end_time"] == dt.datetime(2025, 9, 24, 10, 19, 58)
 
     def test_slot_is_ready(self):
         """Test if a slot is ready."""

@@ -30,7 +30,8 @@ import warnings
 
 from posttroll.subscriber import create_subscriber_from_dict_config
 
-from ._base import FileTrigger, fix_start_end_time
+from ._base import FileTrigger
+from pytroll_collectors.utils import fix_start_end_time
 
 logger = logging.getLogger(__name__)
 

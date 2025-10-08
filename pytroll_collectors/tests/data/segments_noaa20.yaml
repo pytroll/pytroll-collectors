@@ -1,0 +1,23 @@
+patterns:
+  viirs:
+    pattern:
+      "{segment}_{platform_short_name}_d{start_time:%Y%m%d_t%H%M%S}{start_decimal:1d}_e{end_time:%H%M%S}{end_decimal:1d}_b{orbit_number:5d}_c{proctime:s}_cspp_dev.h5"
+    critical_files:
+      ":GITCO,:GMTCO,:GDNBO"
+    wanted_files:
+      ":SVM01,:SVM02,:SVM03,:SVM04,:SVM05,:SVM06,:SVM07,:SVM08,:SVM09,:SVM10,:SVM11,:SVM12,:SVM13,:SVM14,:SVM15,:SVM16,:GMTCO,:SVI01,:SVI02,:SVI03,:SVI04,:SVI05,:GITCO,:SVDNB,:GDNBO"
+    all_files:
+      ":SVM01,:SVM02,:SVM03,:SVM04,:SVM05,:SVM06,:SVM07,:SVM08,:SVM09,:SVM10,:SVM11,:SVM12,:SVM13,:SVM14,:SVM15,:SVM16,:GMTCO,:SVI01,:SVI02,:SVI03,:SVI04,:SVI05,:GITCO,:SVDNB,:GDNBO"
+    variable_tags:
+      - proctime
+
+timeliness:
+  1200
+time_name:
+  start_time
+
+posttroll:
+  topics:
+    - /sogs/noaa-20/L1
+  publish_topic:
+    /sogs/noaa-20/L1/segments
