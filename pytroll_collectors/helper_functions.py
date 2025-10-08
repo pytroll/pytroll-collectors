@@ -150,8 +150,14 @@ def get_local_ips():
     """Get the local ips."""
     import netifaces
 
-    inet_addrs = [netifaces.ifaddresses(iface).get(netifaces.AF_INET)
-                  for iface in netifaces.interfaces()]
+    inet_addrs = []
+    for iface in netifaces.interfaces():
+        try:
+            addr = netifaces.ifaddresses(iface).get(netifaces.AF_INET)
+        except ValueError:
+            pass
+        inet_addrs.append(addr)
+
     ips = []
     for addr in inet_addrs:
         if addr is not None:
