@@ -21,7 +21,6 @@ dependencies:
   - freezegun
   - paramiko
   - responses
-  - netifaces
   - watchdog!=4.0.0
   - s3fs
   - pyinotify
@@ -36,3 +35,4 @@ dependencies:
     - trollsift
     - posttroll
     - pytroll-schedule
+    - netifaces-plus

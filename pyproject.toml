@@ -29,7 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 all = [
     "fsspec",
-    "netifaces",
+    "netifaces-plus",
     "pyresample",
     "python-dateutil",
     "pytroll-schedule",
@@ -49,7 +49,7 @@ s3stalker = [
     "s3fs",
 ]
 scisys_receiver = [
-    "netifaces",
+    "netifaces-plus",
 ]
 trollstalker = [
     "watchdog!=4.0.0",
