@@ -1,5 +1,0 @@
-linters:
-  flake8:
-    python: 3
-    fixer: true
-    max-line-length: 120

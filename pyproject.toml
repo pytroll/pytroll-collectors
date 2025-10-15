@@ -7,7 +7,7 @@ name = "pytroll-collectors"
 dynamic = ["version"]
 description = "Pytroll data collectors"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
