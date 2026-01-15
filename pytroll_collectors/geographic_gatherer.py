@@ -5,6 +5,7 @@ import signal
 import time
 
 from configparser import NoOptionError, ConfigParser
+from warnings import warn
 from trollsift import Parser
 
 from pytroll_collectors.region_collector import create_collectors_from_config_dict
@@ -163,7 +164,7 @@ class TriggerFactory:
             publish_topic=publish_topic)
 
     def _get_publish_topic(self):
-        return self._config_items.get("publish_topic")
+        return self._config_items["publish_topic"]
 
     def _get_posttroll_trigger(self, collectors):
         logger.debug("Using posttroll for %s", self.section)
@@ -191,7 +192,12 @@ class TriggerFactory:
             publish_message_after_each_reception=publish_message_after_each_reception)
 
     def _get_subscribe_nameserver(self):
-        return self._config_items.get("nameserver")
+        try:
+            return self._config_items["subscription_nameserver"]
+        except KeyError:
+            warn(DeprecationWarning("'nameserver' config option is deprecated, please use "
+                                    "'subscription_nameserver' instead."))
+            return self._config_items.get("nameserver")
 
     def _get_duration(self):
         try:
