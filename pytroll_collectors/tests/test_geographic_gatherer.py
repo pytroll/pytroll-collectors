@@ -426,7 +426,7 @@ class TestGeographicGathererWithPosttrollTrigger:
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
         with pytest.warns(DeprecationWarning) as warning:
             _ = GeographicGatherer(opts)
-        assert "subscription_nameserver" in str(warning)
+        assert "subscription_nameserver" in str(warning[0].message)
 
     @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
     def test_posttroll_trigger_passes_inbound_info(self, posttroll_trigger_class, tmp_config_file):
