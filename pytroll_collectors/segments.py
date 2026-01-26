@@ -458,9 +458,11 @@ class Slot:
                 status[key] = Status.SLOT_READY
 
         # Determine overall status
-        return self.get_collection_status(status, self['timeout'])
+        return self.get_collection_status(
+                status, self['timeout'],
+                self[key]["critical_files"] - self[key]["received_files"])
 
-    def get_collection_status(self, status, timeout):
+    def get_collection_status(self, status, timeout, missing_critical=None):
         """Determine the overall status of the collection."""
         if len(status) == 0:
             return Status.SLOT_NOT_READY
@@ -488,8 +490,9 @@ class Slot:
 
             logger.warning("Timeout occured and required files "
                            "were not present, data discarded for "
-                           "slot %s.",
-                           self.timestamp)
+                           "slot %s. "
+                           "Missing critical files: %s.",
+                           self.timestamp, missing_critical)
             return Status.SLOT_OBSOLETE_TIMEOUT
 
         if Status.SLOT_NOT_READY in status_values:
