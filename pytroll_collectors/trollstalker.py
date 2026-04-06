@@ -203,8 +203,9 @@ def parse_args(command_args):
     parser.add_argument("--log-config",
                         dest="log_config",
                         default=None,
-                        help="Path to logging configuration file (YAML preferred).",
-    )
+                        help="Path to logging configuration file (YAML preferred).")
+    parser.add_argument("-v", "--verbose", help="print debug messages too",
+                        action="store_true")
     parser.add_argument("-c", "--configuration_file",
                         type=str,
                         help="Name of the config.ini configuration file")

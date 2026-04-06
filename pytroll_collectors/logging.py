@@ -16,10 +16,10 @@ def _setup_legacy_logging(opts, name):
     """Set up logging using the existing pytroll-collectors behaviour."""
     handlers = []
 
-    if opts.log:
+    if opts.log_config:
         handlers.append(
             logging.handlers.TimedRotatingFileHandler(
-                opts.log,
+                opts.log_config,
                 "midnight",
                 backupCount=7,
             )
