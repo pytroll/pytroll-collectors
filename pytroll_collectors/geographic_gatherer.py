@@ -12,6 +12,7 @@ from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
 from pytroll_collectors.utils import create_publisher_config_dict
+from pytroll_collectors.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,10 @@ def arg_parse(args=None):
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--log-config",
+                        dest="log_config",
+                        default=None,
+                        help="Path to logging configuration file (YAML preferred).")
     parser.add_argument("-l", "--log",
                         help="File to log to (defaults to stdout)",
                         default=None)
