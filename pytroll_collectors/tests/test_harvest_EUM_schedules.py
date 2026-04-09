@@ -153,5 +153,7 @@ class TestHarvestSchedules(unittest.TestCase):
         params = {'granule_metadata': self.granule_metadata,
                   'planned_granule_times': planned_granule_times}
         min_times, max_times = _parse_schedules(params, fake_test_pass_file.split(b'\n'))
-        self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37))
-        self.assertEqual(max_times, datetime.datetime(2019, 12, 16, 14, 5))
+        self.assertEqual(min_times, datetime.datetime(2019, 12, 16, 13, 37,
+                                                      tzinfo=datetime.timezone.utc))
+        self.assertEqual(max_times, datetime.datetime(2019, 12, 16, 14, 5,
+                                                      tzinfo=datetime.timezone.utc))

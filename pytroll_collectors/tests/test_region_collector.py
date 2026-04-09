@@ -133,10 +133,10 @@ def test_collect(europe_collector, caplog):
             europe_collector.collect({**granule_metadata(s_min)})
 
     assert "Granule file://0 is overlapping region euro_ma by fraction" in caplog.text
-    assert "Added new overlapping granule Metop-C (2021-04-11 10:00:00) to area euro_ma" in caplog.text
+    assert "Added new overlapping granule Metop-C (2021-04-11 10:00:00+00:00) to area euro_ma" in caplog.text
     assert "Collection finished for Metop-C area euro_ma" in caplog.text
     for n in (3, 6, 9, 12, 15):
-        assert f"Added expected granule Metop-C (2021-04-11 10:{n:>02d}:00) to area euro_ma" in caplog.text
+        assert f"Added expected granule Metop-C (2021-04-11 10:{n:>02d}:00+00:00) to area euro_ma" in caplog.text
     assert "Granule file://18 is not overlapping euro_ma"
 
 

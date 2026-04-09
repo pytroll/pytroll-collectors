@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2012 - 2021 Pytroll developers
+# Copyright (c) 2012 - 2021, 2026 Pytroll developers
 #
 # Author(s):
 #
@@ -33,8 +33,10 @@ from trollsift import compose, Parser
 from posttroll import message
 
 from pytroll_collectors.utils import fix_start_end_time
+from pytroll_collectors.utils import ensure_utc_aware
 
 logger = logging.getLogger(__name__)
+
 
 
 def total_seconds(tdef):
@@ -175,11 +177,13 @@ class FileTrigger(Trigger, Thread):
 
             if timeouts:
                 next_timeout = min(timeouts, key=(lambda x: x[1]))
-                if next_timeout[1] and (next_timeout[1] < dt.datetime.now(dt.timezone.utc)):
+                now = dt.datetime.now(dt.timezone.utc)
+                next_utc_aware_timeout = ensure_utc_aware(next_timeout[1])
+                if next_utc_aware_timeout and (next_utc_aware_timeout < now):
                     logger.debug("Timeout detected, terminating collector")
                     logger.debug("Area: %s, timeout: %s",
                                  next_timeout[0].region,
-                                 str(next_timeout[1]))
+                                 str(next_utc_aware_timeout))
                     if self.publish_message_after_each_reception:
                         # If this options is given:
                         # Dont send message as it is assumed this was send
@@ -190,7 +194,7 @@ class FileTrigger(Trigger, Thread):
                         self.publish_collection(next_timeout[0].finish())
                 else:
                     logger.debug("Waiting %s seconds until timeout",
-                                 str(total_seconds(next_timeout[1] -
+                                 str(total_seconds(next_utc_aware_timeout -
                                                    dt.datetime.now(dt.timezone.utc))))
                     logger.debug("Is last file added: {}".format(next_timeout[0].is_last_file_added()))
                     if self.publish_message_after_each_reception and next_timeout[0].is_last_file_added():
@@ -199,8 +203,7 @@ class FileTrigger(Trigger, Thread):
                         # and added to the collection
                         # but don't clean up the collection as new files will be added until timeout
                         self.publish_collection(next_timeout[0].finish_without_reset())
-                    self.new_file.wait(total_seconds(next_timeout[1] -
-                                                     dt.datetime.now(dt.timezone.utc)))
+                    self.new_file.wait(total_seconds(next_utc_aware_timeout - now))
                     self.new_file.clear()
             else:
                 self.new_file.wait()

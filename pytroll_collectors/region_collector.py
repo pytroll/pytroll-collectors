@@ -1,12 +1,14 @@
 """Region collector."""
+
 import os
+import datetime as dt
 from datetime import timedelta, datetime
-
 from pyresample import parse_area_file
-
 from trollsched.satpass import Pass
 
 import logging
+
+from pytroll_collectors.utils import ensure_utc_aware
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +58,19 @@ class RegionCollector(object):
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
+        granule_metadata = _ensure_granule_metadata_utc_aware(granule_metadata)
         try:
             return self.collect(granule_metadata)
         except TypeError:
             raise ImportError("Pytroll-schedule is needed to run RegionCollector")
 
+
     def collect(self, granule_metadata):
         """Do the collection."""
         # Check if input data is being waited for
+        granule_metadata = _ensure_granule_metadata_utc_aware(granule_metadata)
 
+        # Check if input data is being waited for
         start_time = granule_metadata['start_time']
         self._set_end_time(granule_metadata)
 
@@ -137,17 +143,19 @@ class RegionCollector(object):
 
     def _adjust_timeout(self):
         try:
-            new_timeout = (max(self.planned_granule_times -
-                               self.granule_times) +
-                           self.granule_duration +
-                           self.timeliness)
+            new_timeout = (
+                max(self.planned_granule_times - self.granule_times)
+                + self.granule_duration
+                + self.timeliness
+            )
+            new_timeout = ensure_utc_aware(new_timeout)
         except ValueError:
-            logger.error("Calculation of new timeout failed, "
-                         "keeping previous timeout.")
+            logger.error("Calculation of new timeout failed, keeping previous timeout.")
             logger.debug("Planned: %s", self.planned_granule_times)
             logger.debug("Received: %s", self.granule_times)
             return
-        if new_timeout < self.timeout:
+
+        if self.timeout is None or new_timeout < self.timeout:
             self.timeout = new_timeout
             logger.info("Adjusted timeout: %s", self.timeout.isoformat())
 
@@ -269,14 +277,32 @@ class RegionCollector(object):
                         self.planned_granule_times.remove(pgt)
 
 
+def _ensure_granule_metadata_utc_aware(granule_metadata):
+    """Make sure the granule metadata dict contains utc-aware datetimes."""
+    if "start_time" in granule_metadata:
+        granule_metadata["start_time"] = ensure_utc_aware(granule_metadata["start_time"])
+    if "end_time" in granule_metadata:
+        granule_metadata["end_time"] = ensure_utc_aware(granule_metadata["end_time"])
+
+    return granule_metadata
+
 def _adjust_end_time(end_time, start_time):
+    """Adjust the end_time given the start_time."""
+    end_time = ensure_utc_aware(end_time)
+    start_time = ensure_utc_aware(start_time)
+
     if start_time > end_time:
         old_end_time = end_time
         end_date = start_time.date()
         if end_time.time() < start_time.time():
             end_date += timedelta(days=1)
-        end_time = datetime.combine(end_date, end_time.time())
-        logger.debug('Adjusted end time from %s to %s.', old_end_time, end_time)
+        end_time = datetime.combine(
+            end_date,
+            end_time.time(),
+            tzinfo=dt.timezone.utc,
+        )
+        logger.debug("Adjusted end time from %s to %s.", old_end_time, end_time)
+
     return end_time
 
 
