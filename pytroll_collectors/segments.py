@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2015 - 2021 Pytroll developers
+# Copyright (c) 2015 - 2021, 2026 Pytroll developers
 #
 # Author(s): Panu Lahtinen
 #
@@ -53,6 +53,7 @@ from pytroll_collectors.utils import check_nameserver_options
 from pytroll_collectors.utils import create_started_publisher_from_config
 from pytroll_collectors.utils import create_publisher_config_dict
 from pytroll_collectors.utils import fix_start_end_time
+from pytroll_collectors.utils import ensure_utc_aware
 
 logger = logging.getLogger("segment_gatherer")
 
@@ -168,7 +169,9 @@ class Message:
         self.message_data = fix_start_end_time(posttroll_message.data)
         self.type = posttroll_message.type
         self._posttroll_message = posttroll_message
-        self.metadata = fix_start_end_time(pattern.parser.parse(self.message_data))
+        mda_fixed = fix_start_end_time(pattern.parser.parse(self.message_data))
+        self.metadata = _ensure_mda_utc_aware(mda_fixed)
+
         self._time_name = self.pattern.time_name
         self.adjust_time_by_flooring()
 
@@ -232,7 +235,7 @@ class Slot:
         self._timeliness = timeliness
         self._num_files_premature_publish = num_files_premature_publish
         self._pattern_keys = patterns.keys()
-        self.output_metadata = metadata.copy()
+        self.output_metadata = _ensure_mda_utc_aware(metadata)
         self['timeout'] = None
         # Critical files that are required, otherwise production will fail.
         # If there are no critical files, empty set([]) is used.
@@ -801,7 +804,7 @@ class SegmentGatherer(object):
                              message.id_time.strftime("%H:%M"))
                 return
 
-        slot_time = self._find_time_slot(message.id_time)
+        slot_time = self._find_time_slot(ensure_utc_aware(message.id_time))
 
         # Init metadata etc if this is the first file
         if slot_time not in self.slots:
@@ -1042,13 +1045,22 @@ def ini_to_dict(fname, section):
     return conf
 
 
+def _ensure_mda_utc_aware(mda):
+    """Ensure metadata items of type datetime objects are utc aware."""
+    mda = {
+        key: ensure_utc_aware(val) if isinstance(val, dt.datetime) else val
+        for key, val in mda.items()
+    }
+    return mda
+
 def filter_metadata(mda, msg_data, keep_parsed_keys=None, local_keep_parsed_keys=None):
-    """Copy metada from filename and message to a combined dictionary."""
+    """Copy metadata from filename and message to a combined dictionary."""
     if keep_parsed_keys is None:
         keep_parsed_keys = []
     if local_keep_parsed_keys is None:
         local_keep_parsed_keys = []
     metadata = {}
+
     # Use values parsed from the filename as basis
     for key in mda:
         if key not in DO_NOT_COPY_KEYS:

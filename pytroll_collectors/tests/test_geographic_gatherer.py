@@ -542,8 +542,10 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
         input_messages = []
         expected_files = []
         for minute in range(38, 57):
-            expected_file = {"start_time": dt.datetime(2022, 5, 18, 9, minute, 0),
-                             "end_time": dt.datetime(2022, 5, 18, 9, minute + 1, 0),
+            expected_file = {"start_time": dt.datetime(2022, 5, 18, 9, minute, 0,
+                                                       tzinfo=dt.timezone.utc),
+                             "end_time": dt.datetime(2022, 5, 18, 9, minute + 1, 0,
+                                                     tzinfo=dt.timezone.utc),
                              "uri": f"/EARS/avhrr_20220518_09{minute}00_noaa19.hrp.bz2",
                              "uid": f"avhrr_20220518_09{minute}00_noaa19.hrp.bz2"}
             expected_files.append(expected_file)
@@ -559,8 +561,8 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
         gatherer = GeographicGatherer(opts)
         try:
             time.sleep(.2)
-            data = {"start_time": dt.datetime(2022, 5, 18, 9, 43, 0),
-                    "end_time": dt.datetime(2022, 5, 18, 9, 55, 00),
+            data = {"start_time": dt.datetime(2022, 5, 18, 9, 43, 0, tzinfo=dt.timezone.utc),
+                    "end_time": dt.datetime(2022, 5, 18, 9, 55, 00, tzinfo=dt.timezone.utc),
                     "collection_area_id": "euron1",
                     "collection": expected_files
                     }

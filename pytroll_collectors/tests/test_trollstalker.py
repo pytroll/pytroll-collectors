@@ -58,6 +58,7 @@ def test_trollstalker(messages_from_observer, dir_to_watch):
     with open(trigger_file, "w") as fd:
         fd.write("hej")
     time.sleep(LAG_SECONDS)
+
     message = messages_from_observer[0]
     assert message.startswith("pytroll://HRPT/l1b/dev/mystation file ")
     message = Message(rawstr=message)
