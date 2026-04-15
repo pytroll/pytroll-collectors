@@ -232,7 +232,7 @@ def main():
     if 'publish_port' in config:
         publish_port = int(config['publish_port'])
 
-    sub_nameserver = 'localhost'
+    sub_nameserver = False # When False, the subscriber will not try to find a nameserver!
     if 'subscriber_nameserver' in config:
         sub_nameserver = config['subscriber_nameserver']
 
