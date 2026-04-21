@@ -193,6 +193,15 @@ class RegionCollector(object):
             # Check whether schedule should be used
             self._check_schedule(granule_metadata)
 
+            if not self.planned_granule_times:
+                logger.warning("No planned granules remain for %s over %s after schedule cut. "
+                               "Resetting collection.",
+                               _get_platform_name(granule_metadata),
+                               self.region.description)
+                self.cleanup()
+                self.last_file_added = False
+                return
+
             logger.debug("Planned granules for %s over %s: %s",
                          _get_platform_name(granule_metadata),
                          self.region.description,
