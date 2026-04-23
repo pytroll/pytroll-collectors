@@ -506,7 +506,19 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
             gatherer.stop()
 
 
-def test_sigterm(tmp_config_file, tmp_config_parser):
+def _run_gatherer(filename, section):
+    from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+    opts = arg_parse(["-c", section, "-p", "40002", "-n", "false", "-i", "localhost:12345",
+                     filename])
+    # We don't need the triggers here. They also interfere with completing the test (the test never exits)
+    with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"):
+        gatherer = GeographicGatherer(opts)
+        gatherer.run()
+
+
+@pytest.mark.parametrize("section", ["minimal_config", "posttroll_section"])
+def test_sigterm(tmp_config_file, tmp_config_parser, section):
     """Test that SIGTERM signal is handled."""
     import os
     import signal
@@ -518,39 +530,8 @@ def test_sigterm(tmp_config_file, tmp_config_parser):
     with open(tmp_config_file, mode="w") as fp:
         tmp_config_parser.write(fp)
 
-    opts = arg_parse(["-c", "minimal_config", "-p", "40000", "-n", "false", "-i", "localhost:12345",
-                     str(tmp_config_file)])
-    # We don't need the triggers here. They also interfere with completing the test (the test never exits)
-    with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"):
-        gatherer = GeographicGatherer(opts)
-    proc = Process(target=gatherer.run)
-    proc.start()
-    time.sleep(1)
-    os.kill(proc.pid, signal.SIGTERM)
-    proc.join()
-
-    assert proc.exitcode == 0
-
-
-def test_sigterm_with_collection(tmp_config_file, tmp_config_parser):
-    """Test that SIGTERM signal is handled when there is collection ongoing."""
-    import os
-    import signal
-    import time
-    from multiprocessing import Process
-
-    from pytroll_collectors.geographic_gatherer import GeographicGatherer
-
-    with open(tmp_config_file, mode="w") as fp:
-        tmp_config_parser.write(fp)
-
-    opts = arg_parse(["-c", "posttroll_section", "-p", "40000", "-n", "false", "-i", "localhost:12345",
-                     str(tmp_config_file)])
-    # Use a fake trigger that initially sets some granules and after a while clears them
-    with patch("pytroll_collectors.geographic_gatherer.PostTrollTrigger",
-               new=FakeTriggerWithGranules):
-        gatherer = GeographicGatherer(opts)
-    proc = Process(target=gatherer.run)
+    filename = str(tmp_config_file)
+    proc = Process(target=_run_gatherer, args=[filename, section])
     proc.start()
     time.sleep(1)
     os.kill(proc.pid, signal.SIGTERM)

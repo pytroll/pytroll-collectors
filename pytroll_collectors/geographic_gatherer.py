@@ -1,5 +1,6 @@
 """Geographic segment gathering."""
 
+from multiprocessing import Event
 import logging
 import signal
 import time
@@ -33,7 +34,7 @@ class GeographicGatherer:
         self.triggers = []
         self.return_status = 0
 
-        self._sigterm_caught = False
+        self._sigterm_caught = Event()
 
         self._clean_config()
         self._setup_publisher()
@@ -101,11 +102,11 @@ class GeographicGatherer:
 
     def _handle_sigterm(self, signum, frame):
         logger.info("Caught SIGTERM, shutting down when all collections are finished.")
-        self._sigterm_caught = True
+        self._sigterm_caught.set()
 
     def _keep_running(self):
         keep_running = True
-        if self._sigterm_caught:
+        if self._sigterm_caught.is_set():
             keep_running = self._trigger_collectors_have_granules()
         return keep_running
 
