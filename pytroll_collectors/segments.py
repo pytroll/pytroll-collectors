@@ -189,11 +189,10 @@ class Message:
         if group_by_minutes is None:
             return
         time_item = metadata[time_name]
-        minutes = time_item.minute
-        floor_minutes = int(minutes / group_by_minutes) * group_by_minutes
-        time_item = dt.datetime(time_item.year, time_item.month,
-                                time_item.day, time_item.hour, floor_minutes, 0)
-        metadata[time_name] = time_item
+        seconds_this_year = (time_item - dt.datetime(time_item.year, 1, 1)).total_seconds()
+        group_by_seconds = dt.timedelta(minutes=group_by_minutes).total_seconds()
+        rounded_seconds = seconds_this_year - (seconds_this_year % group_by_seconds)
+        metadata[time_name] = dt.datetime(time_item.year, 1, 1) + dt.timedelta(seconds=rounded_seconds)
 
     def _handle_scheme(self, posttroll_message):
         message_data = posttroll_message.data.copy()
@@ -244,8 +243,7 @@ class Slot:
             self.output_metadata.pop('dataset', None)
         for (key, pattern) in patterns.items():
             if len(patterns) > 1:
-                self.output_metadata['collection'][key] = \
-                    {'dataset': [], 'sensor': []}
+                self.output_metadata['collection'][key] = {'dataset': [], 'sensor': []}
             self[key] = self.create_slot_pattern(pattern)
 
         self.update_timeout()
@@ -333,12 +331,11 @@ class Slot:
                 fname = parser.globify(meta)
 
                 result.add(fname)
-
         return result
 
     def update_timeout(self):
         """Update the timeout."""
-        timeout = dt.datetime.utcnow() + self._timeliness
+        timeout = dt.datetime.now(dt.timezone.utc) + self._timeliness
         self['timeout'] = timeout
         logger.info("Setting timeout to %s for slot %s.",
                     str(timeout), self.timestamp)
@@ -361,7 +358,7 @@ class Slot:
         timeout = self['timeout']
         if len(slot_pattern['critical_files']) > 0 and \
            slot_pattern['critical_files'].issubset(slot_pattern['received_files']):
-            delay = dt.datetime.utcnow() - (timeout - self._timeliness)
+            delay = dt.datetime.now(dt.timezone.utc) - (timeout - self._timeliness)
             if delay.total_seconds() > 0:
                 slot_pattern['delayed_files'][uid] = delay.total_seconds()
 
@@ -471,7 +468,7 @@ class Slot:
                         "for slot %s.", self.timestamp)
             return Status.SLOT_READY
 
-        if dt.datetime.utcnow() > timeout:
+        if dt.datetime.now(dt.timezone.utc) > timeout:
             if (Status.SLOT_NONCRITICAL_NOT_READY in status_values and
                 (Status.SLOT_READY in status_values or
                     Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):

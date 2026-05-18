@@ -250,7 +250,7 @@ class TestSegmentGatherer:
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
         self.msg0deg._create_slot(message)
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
         slot = self.msg0deg.slots[slot_str]
         slot.update_timeout()
         diff = slot['timeout'] - now
@@ -313,7 +313,7 @@ class TestSegmentGatherer:
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
 
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
         future = now + dt.timedelta(minutes=1)
         past = now - dt.timedelta(minutes=1)
 
@@ -1243,6 +1243,42 @@ class TestSegmentGathererCollections:
         assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
 
 
+    def test_end_time_correct_group_by_fractional_minutes(self):
+        """Test that end_time is correct in message."""
+        config = fake_config.copy()
+        config["group_by_minutes"] = 2.5
+        config["patterns"]["oak"]["wanted_files"] = ":001-005"
+        config["patterns"]["oak"]["all_files"] = ":001-005"
+
+        sg = SegmentGatherer(config)
+
+        segments = [(1, 0, 0), (2, 0, 30), (3, 1, 0), (4, 1, 30), (5, 2, 0),
+                    (1, 2, 30), (2, 3, 0), (3, 3, 30), (4, 4, 0), (5, 4, 30),
+                    (None, 5, 0),
+                    ]
+        rawstrs = []
+        for i, (seg, mm, ss) in enumerate(segments):
+            if seg is None:
+                break
+            end_mm = segments[i+1][1]
+            end_ss = segments[i+1][2]
+            rawstrs.append(
+                "pytroll://tree/oak file pytroll@forest "
+                f"1980-01-01T13:{end_mm:02d}:{end_ss:02d}.000000 v1.01 application/json "
+                f'{{"platform_name": "forest", '
+                f'"start_time": "1980-01-01T13:{mm:02d}:{ss:02d}", '
+                f'"end_time": "1980-01-01T13:{end_mm:02d}:{end_ss:02d}", '
+                f'"uri": "/data/oak-s1980010113{mm:02d}{ss:02d}-e1980010113{end_mm:02d}{end_ss:02d}-s00{seg:d}.tree", '
+                f'"uid": "oak-s1980010113{mm:02d}{ss:02d}-e1980010113{end_mm:02d}{end_ss:02d}-s00{seg:d}.tree", '
+                '"sensor": "Thaumetopoea processionea"}')
+        messages = [posttroll.message.Message(rawstr=rawstr) for rawstr in rawstrs]
+        for msg in messages:
+            sg.process(msg)
+        assert len(sg.slots) == 2
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 2, 30)
+
+
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
                 '2020-10-16T08:01:59.035595 v1.01 application/json {"module": "ppsCmask", "pps_version": "v2018", '
                 '"platform_name": "NOAA-20", "orbit": 15081, "sensor": "viirs", "start_time": '
@@ -1529,7 +1565,6 @@ def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
         segment_gatherer.process(msg)
 
     timestamp = '2025-06-26 07:30:00'
-    print(segment_gatherer.slots)
     assert timestamp in segment_gatherer.slots
     storage_options = dict(cls="fsspec.implementations.sftp:SFTPFileSystem",
                            protocol="sftp",
