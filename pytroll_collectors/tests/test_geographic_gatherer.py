@@ -66,6 +66,7 @@ def tmp_config_parser():
         'timeliness': '30',
         'service': 'service_a',
         'topics': 'topic_a',
+        'publish_topic': '/topic',
     }
     config['posttroll_section'] = {
         'timeliness': '20',
@@ -89,8 +90,41 @@ def tmp_config_parser():
         'publish_topic': '/topic',
         'watcher': 'Observer',
     }
+
     return config
 
+
+@pytest.fixture
+def faulty_config_file(tmp_path, faulty_config_parser):
+    """Return the path to the config file."""
+    fname = tmp_path / "config.ini"
+    with open(fname, mode="w") as fp:
+        faulty_config_parser.write(fp)
+    return fname
+
+
+@pytest.fixture
+def faulty_config_parser():
+    """Create a config parser for the geographic gatherer."""
+    config = ConfigParser(interpolation=None)
+    config['DEFAULT'] = {
+        'regions': "euro4 euron1",
+        'area_definition_file': AREA_DEFINITION_FILE}
+    config["missing_publish_topic_section"] = {
+        'timeliness': '5',
+        'pattern': 'pattern',
+        'watcher': 'Observer',
+    }
+    config['legacy_section'] = {
+        'timeliness': '5',
+        'pattern': 'pattern',
+        'publish_topic': '/topic',
+        "nameserver": "localhost",
+        "service": "",
+        "topics": "",
+    }
+
+    return config
 
 @patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
 @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
@@ -314,6 +348,33 @@ class TestGeographicGatherer:
             GeographicGatherer(opts)
 
 
+@patch('pytroll_collectors.geographic_gatherer.WatchDogTrigger', new=FakeWatchDogTrigger)
+@patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger', new=FakePostTrollTrigger)
+@patch('pytroll_collectors.utils.create_publisher_from_dict_config', new=fake_create_publisher_from_dict_config)
+@patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config', new=fake_sub_factory)
+class TestGeographicGathererWithFaultyConfig:
+    """Test the top-level geographic gathering."""
+
+    @pytest.fixture(autouse=True)
+    def setup_method(self, faulty_config_file, faulty_config_parser):
+        """Set up things."""
+        fake_create_publisher_from_dict_config.reset_mock()
+        fake_sub_factory.reset_mock()
+
+    def test_init_no_publish_topic(self, faulty_config_file):
+        """Test that GeographicGatherer gives a meaningful error message if publish_topic is not defined."""
+        import pytest
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        config = ConfigParser(interpolation=None)
+        # Make sure to work also when the environment has SATPY_CONFIG_PATH defined
+        section = "missing_publish_topic_section"
+        opts = arg_parse(["-c", section, str(faulty_config_file)])
+
+        with pytest.raises(KeyError) as err:
+            _ = GeographicGatherer(opts)
+        assert "'publish_topic'" in str(err.value)
+
+
 def assert_create_publisher_from_dict_config(sections, port, nameservers):
     """Check that publisher creator has been called correctly."""
     expected = {
@@ -353,6 +414,19 @@ class TestGeographicGathererWithPosttrollTrigger:
         opts = arg_parse(["-c", section, "-i", "myhost:9999", str(tmp_config_file)])
 
         assert opts.inbound_connection == ["myhost:9999"]
+
+
+    @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
+    def test_posttroll_simple_nameserver_is_deprecated(self, posttroll_trigger_class, faulty_config_file):
+        """Test that the host info is passed on to the posttroll trigger."""
+        section = 'legacy_section'
+        host_info = "myhost:9999"
+        opts = arg_parse(["-c", section, "-i", host_info, str(faulty_config_file)])
+
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+        with pytest.warns(DeprecationWarning) as warning:
+            _ = GeographicGatherer(opts)
+        assert "subscription_nameserver" in str(warning[0].message)
 
     @patch('pytroll_collectors.geographic_gatherer.PostTrollTrigger')
     def test_posttroll_trigger_passes_inbound_info(self, posttroll_trigger_class, tmp_config_file):

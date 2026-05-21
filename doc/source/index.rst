@@ -163,6 +163,10 @@ regions
     A whitespace separated list of names corresponding to areas for
     which granules are gathered.
 
+area_definition_file
+    The file containing area definitions that are specified in the `regions` section. If this is not specified, it will
+    look into $SATPY_CONFIG_PATH/areas.yaml if $SATPY_CONFIG_PATH is defined.
+
 All other sections have the following mandatory fields:
 
 pattern
@@ -175,7 +179,7 @@ topics
     having arrived.
 
 publish_topic
-    Defines what posttroll topic shall be used to publish the news of all the
+    Defines what posttroll topic shall be used to publish the info of all the
     files that have been gathered.
 
 timeliness
@@ -220,6 +224,13 @@ inbound_connection
     The list of addresses to get the messages from when using posttroll. Addresses are given as `host:port`format.
     One of the addresses can be given as just `host`, in which case it is interpreted as a nameserver to query addresses
     from. If omitted, the default behaviour is to use `localhost` as a nameserver.
+
+subscription_nameserver
+    The nameserver the subsription should listen to. To deactive nameserver for subscription, set it to false. In that
+    case, you also need to specify inbound_connection. Was formerly called "nameserver".
+
+port
+    The port to subscribe to. Only used if nameserver is set to false.
 
 .. literalinclude:: ../../examples/geographic_gatherer_config.ini_template
    :language: ini
@@ -280,7 +291,7 @@ patterns
         Each item must contain exactly one colon (``:``).  The part before the
         colon is a string describing the channel. The channel string may be
         empty, such as in cases where the filename does not contain a channel
-        label. 
+        label.
         The part after the colon is a list of segments seperated by a hyphen-minus
         character (``-``). If this list contains more than one segment, each item must
         be parseable as a base-10 integer, and it will be interpreted as a range
@@ -288,7 +299,7 @@ patterns
         are matched against the ``segment`` as extracted from the filename using
         the ``pattern`` defined above. If the filename pattern has no segments or
         channels, they are matched against the entire filename, with ``variable_tags``
-        (see below) replaced by wildcards.  
+        (see below) replaced by wildcards.
 
     wanted_files
         Describes files that are wanted, but not critical.  If one or more
@@ -366,7 +377,7 @@ num_files_premature_publish
     although there are still some missing files. After publishing such
     event, the segment gatherer still waits for further file messages
     for this timeslot.
-    
+
 providing_server
     Optional.  Affects posttroll listening in a multicast environment.  In a
     multicast environment, messages may come in from different servers.  By
