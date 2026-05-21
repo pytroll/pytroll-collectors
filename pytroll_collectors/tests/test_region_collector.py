@@ -200,6 +200,23 @@ def test_collect_check_schedules_custom_method_failed(europe_collector_schedule_
 
 
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_collect_schedule_cut_removes_all_planned_granules(europe_collector_schedule_cut_custom_method, caplog):
+    """Test collector does not crash if schedule cut removes all planned granules."""
+    # Return a very narrow window that excludes all predicted granule times.
+    with unittest.mock.patch("pytroll_collectors.tests.test_region_collector.harvest_schedules",
+                             return_value=(datetime.datetime(1900, 1, 1, 0, 0),
+                                           datetime.datetime(1900, 1, 1, 0, 0))):
+        with caplog.at_level(logging.DEBUG):
+            assert europe_collector_schedule_cut_custom_method.collect({**granule_metadata(0)}) is None
+
+    assert "No planned granules remain" in caplog.text
+    assert europe_collector_schedule_cut_custom_method.planned_granule_times == set()
+    assert europe_collector_schedule_cut_custom_method.granule_times == set()
+    assert europe_collector_schedule_cut_custom_method.granules == []
+    assert europe_collector_schedule_cut_custom_method.timeout is None
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_collect_missing_tle_from_file(europe_collector, caplog):
     """Test that granules can be collected, but missing TLE raises and exception."""
     with caplog.at_level(logging.DEBUG):
