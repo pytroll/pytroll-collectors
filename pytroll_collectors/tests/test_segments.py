@@ -11,6 +11,7 @@ import pytest
 import posttroll.message
 from pytroll_collectors.helper_functions import read_yaml
 from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Message, DO_NOT_COPY_KEYS
+from pytroll_collectors.utils import ensure_utc_aware
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
@@ -144,12 +145,16 @@ class TestSegmentGatherer:
         message = Message(fake_message, self.msg0deg._patterns['msg'])
         self.msg0deg._create_slot(message)
 
-        slot_str = str(mda["start_time"])
+        slot_str = str(ensure_utc_aware(mda["start_time"]))
         assert list(self.msg0deg.slots.keys())[0] == slot_str
         slot = self.msg0deg.slots[slot_str]
+
         for key in mda:
             if key not in DO_NOT_COPY_KEYS:
+                if key in ['nominal_time', 'start_time']:
+                    mda[key] = ensure_utc_aware(mda[key])
                 assert slot.output_metadata[key] == mda[key]
+
         assert slot['timeout'] is not None
         assert slot['msg']['is_critical_set'] == CONFIG_SINGLE['patterns']['msg']['is_critical_set']
         assert 'critical_files' in slot['msg']
@@ -188,13 +193,15 @@ class TestSegmentGatherer:
         assert "H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in fname_set
         assert "H-000-MSG3__-MSG3________-_________-EPI______-201611281100-__" in fname_set
 
+
     @staticmethod
     def _get_filenames(segment_gatherer, mda, section, segment_list):
         fake_message = FakeMessage(mda)
         message = Message(fake_message, segment_gatherer._patterns[section])
         segment_gatherer._create_slot(message)
         parser = segment_gatherer._patterns[section].parser
-        slot_str = str(mda["start_time"])
+        slot_str = str(ensure_utc_aware(mda["start_time"]))
+
         slot = segment_gatherer.slots[slot_str]
         return slot.compose_filenames(parser, segment_list)
 
@@ -246,7 +253,7 @@ class TestSegmentGatherer:
         import numpy as np
 
         mda = self.mda_msg0deg.copy()
-        slot_str = str(mda["start_time"])
+        slot_str = str(ensure_utc_aware(mda["start_time"]))
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
         self.msg0deg._create_slot(message)
@@ -263,12 +270,12 @@ class TestSegmentGatherer:
         mda = self.mda_noaa20.copy()
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.noaa20._patterns["viirs"])
-        assert message.metadata["end_time"] == dt.datetime(2025, 9, 24, 10, 19, 58)
+        assert message.metadata["end_time"] == dt.datetime(2025, 9, 24, 10, 19, 58, tzinfo=dt.timezone.utc)
 
     def test_slot_is_ready(self):
         """Test if a slot is ready."""
         mda = self.mda_msg0deg.copy()
-        slot_str = str(mda["start_time"])
+        slot_str = str(ensure_utc_aware(mda["start_time"]))
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
         self.msg0deg._create_slot(message)
@@ -311,7 +318,7 @@ class TestSegmentGatherer:
     def test_get_collection_status(self):
         """Test getting the collection status."""
         mda = self.mda_msg0deg.copy()
-        slot_str = str(mda["start_time"])
+        slot_str = str(ensure_utc_aware(mda["start_time"]))
 
         now = dt.datetime.now(dt.timezone.utc)
         future = now + dt.timedelta(minutes=1)
@@ -454,7 +461,7 @@ class TestSegmentGatherer:
         col = SegmentGatherer(CONFIG_SINGLE)
         col._config['all_files_are_local'] = True
         col.process(msg)
-        slot = col.slots[str(mda['start_time'])]
+        slot = col.slots[str(ensure_utc_aware(mda["start_time"]))]
         uri = slot.output_metadata['dataset'][0]['uri']
         assert uri == expected_uri
 
@@ -531,7 +538,8 @@ class TestSegmentGatherer:
         fake_message = FakeMessage(self.mda_msg0deg.copy())
         message = Message(fake_message, col._patterns['msg'])
         col._create_slot(message)
-        time_slot = str(msg_data['msg']['start_time'])
+        time_slot = str(ensure_utc_aware(msg_data['msg']['start_time']))
+
         i = 0
         for key in CONFIG_DOUBLE['patterns']:
             message = Message(FakeMessage(msg_data[key]), col._patterns[key])
@@ -553,7 +561,7 @@ class TestSegmentGatherer:
         fake_message = FakeMessage(self.mda_hrpt.copy())
         message = Message(fake_message, col._patterns['hrpt'])
         col._create_slot(message)
-        time_slot = str(msg_data['hrpt']['start_time'])
+        time_slot = str(ensure_utc_aware(msg_data['hrpt']['start_time']))
         i = 0
         for key in CONFIG_NO_SEG['patterns']:
             message = Message(FakeMessage(msg_data[key]), col._patterns[key])
@@ -1108,7 +1116,7 @@ class TestSegmentGathererCollections:
         viirs_msg = Message_p(rawstr=viirs_message)
 
         self.collection_gatherer.process(viirs_msg)
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         assert slot.output_metadata['collection']['viirs']['dataset'] == viirs_msg.data['dataset']
         assert "dataset" not in slot.output_metadata
 
@@ -1149,9 +1157,9 @@ class TestSegmentGathererCollections:
         with caplog.at_level(logging.DEBUG):
             self.collection_gatherer.process(viirs_msg)
             self.collection_gatherer.process(pps_msg)
-        assert "Found existing time slot at 2020-10-13 05:17:21.200000, using that" in caplog.text
+        assert "Found existing time slot at 2020-10-13 05:17:21.200000+00:00, using that" in caplog.text
 
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         assert slot.get_status() == Status.SLOT_READY
 
     def test_collection_is_published(self):
@@ -1163,7 +1171,7 @@ class TestSegmentGathererCollections:
         self.collection_gatherer.process(viirs_msg)
         self.collection_gatherer.process(pps_msg)
 
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         self.collection_gatherer._publisher = MagicMock()
         self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
         self.collection_gatherer.triage_slots()
@@ -1181,7 +1189,7 @@ class TestSegmentGathererCollections:
         self.collection_gatherer._timeliness = dt.timedelta(seconds=0)
         self.collection_gatherer.process(viirs_msg)
 
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         assert slot.get_status() == Status.SLOT_READY
 
     def test_collection_is_published_when_timeout_expired(self):
@@ -1192,7 +1200,7 @@ class TestSegmentGathererCollections:
         self.collection_gatherer._timeliness = dt.timedelta(seconds=0)
         self.collection_gatherer.process(viirs_msg)
 
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         self.collection_gatherer._publisher = MagicMock()
         self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
         self.collection_gatherer.triage_slots()
@@ -1211,7 +1219,7 @@ class TestSegmentGathererCollections:
         self.collection_gatherer.process(viirs_msg)
         self.collection_gatherer.process(pps_msg)
 
-        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000']
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         self.collection_gatherer._bundle_datasets = True
         self.collection_gatherer._publisher = MagicMock()
         self.collection_gatherer._subject = self.collection_gatherer._config['posttroll']['publish_topic']
@@ -1236,12 +1244,15 @@ class TestSegmentGathererCollections:
                    f's00{i:d}.tree", "uid": "oak-s19800101130{i:d}00-e19800101130{i+1:d}00-s00{i:d}.tree", '
                    '"sensor": "Thaumetopoea processionea"}')
                 for i in range(3)]
+
         for msg in messages:
             sg.process(msg)
-        assert len(sg.slots) == 1
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
 
+        assert len(sg.slots) == 1
+        assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0,
+                                                                                                  tzinfo=dt.timezone.utc)
+        assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0,
+                                                                                                tzinfo=dt.timezone.utc)
 
     def test_end_time_correct_group_by_fractional_minutes(self):
         """Test that end_time is correct in message."""
@@ -1275,8 +1286,11 @@ class TestSegmentGathererCollections:
         for msg in messages:
             sg.process(msg)
         assert len(sg.slots) == 2
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 2, 30)
+
+        start_time = sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["start_time"]
+        end_time = sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["end_time"]
+        assert start_time == dt.datetime(1980, 1, 1, 13, 0, 0, tzinfo=dt.timezone.utc)
+        assert end_time == dt.datetime(1980, 1, 1, 13, 2, 30, tzinfo=dt.timezone.utc)
 
 
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
@@ -1346,7 +1360,7 @@ class TestMessage:
         fake_message = FakeMessage(pps_message_data)
         self.collection_gatherer = SegmentGatherer(CONFIG_COLLECTIONS)
         message = self.collection_gatherer.message_from_posttroll(fake_message)
-        assert message.id_time == dt.datetime(2020, 9, 11, 12, 5, 8, 400000)
+        assert message.id_time == dt.datetime(2020, 9, 11, 12, 5, 8, 400000, tzinfo=dt.timezone.utc)
 
     def test_get_unique_id_from_file_message(self):
         """Test getting a unique id from a message."""
@@ -1533,7 +1547,7 @@ class TestSegmentGathererFCI:
             msg = FakeMessage(fci_msg.data)
             segment_gatherer.process(msg)
 
-        timestamp = '2017-09-20 13:40:00'
+        timestamp = '2017-09-20 13:40:00+00:00'
         assert timestamp in segment_gatherer.slots
         slot = segment_gatherer.slots[timestamp]
         assert len(slot["fci_nc"]["received_files"]) == 2
@@ -1564,7 +1578,7 @@ def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
         msg = FakeMessage(fci_msg.data)
         segment_gatherer.process(msg)
 
-    timestamp = '2025-06-26 07:30:00'
+    timestamp = '2025-06-26 07:30:00+00:00'
     assert timestamp in segment_gatherer.slots
     storage_options = dict(cls="fsspec.implementations.sftp:SFTPFileSystem",
                            protocol="sftp",

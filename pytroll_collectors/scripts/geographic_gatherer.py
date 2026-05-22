@@ -9,13 +9,12 @@ from pytroll_collectors.geographic_gatherer import GeographicGatherer, arg_parse
 from pytroll_collectors.logging import setup_logging
 
 
-def main():
-    """Run the gatherer."""
-    opts = arg_parse()
-
+def main(args=None):
+    """Run the geographic gatherer."""
+    opts = arg_parse(args)
     logger = setup_logging(opts, "geographic_gatherer")
 
-    print("Setting timezone to UTC")
+    logger.info("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 
@@ -27,6 +26,5 @@ def main():
     return status
 
 
-if __name__ == '__main__':
-    status = main()
-    sys.exit(status)
+if __name__ == "__main__":
+    raise SystemExit(main())

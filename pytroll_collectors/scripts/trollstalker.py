@@ -3,10 +3,12 @@
 ./trollstalker.py -c /path/to/trollstalker_config.ini -C noaa_hrpt
 """
 
-import logging.config
-
+from pytroll_collectors.logging import setup_logging
+from pytroll_collectors.trollstalker import parse_args
 from pytroll_collectors.trollstalker import main
 
+
 if __name__ == "__main__":
-    logger = logging.getLogger("trollstalker")
+    opts = parse_args(args)
+    logger = setup_logging(opts, "trollstalker")
     main()

@@ -13,6 +13,10 @@ from pytroll_collectors.logging import setup_logging
 def arg_parse(args=None):
     """Handle input arguments."""
     parser = argparse.ArgumentParser()
+    parser.add_argument("--log-config",
+                        dest="log_config",
+                        default=None,
+                        help="Path to logging configuration file (YAML preferred).")
     parser.add_argument("-l", "--log",
                         help="File to log to (defaults to stdout)",
                         default=None)

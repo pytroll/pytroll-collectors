@@ -14,6 +14,7 @@ from watchdog.events import FileSystemEventHandler
 from posttroll.message import Message
 from posttroll.publisher import create_publisher_from_dict_config
 from pytroll_collectors import helper_functions
+from pytroll_collectors.logging import setup_logging
 from trollsift import Parser, compose
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ def stop_observer(observer):
 def get_settings(command_args):
     """Get the trollstalker settings."""
     args = parse_args(command_args)
+    logger = setup_logging(args, __name__)
 
     # Parse commandline arguments.  If args are given, they override
     # the configuration file.
@@ -142,26 +144,12 @@ def get_settings(command_args):
 
         custom_vars = parse_vars(config)
 
-        try:
-            log_config = config["stalker_log_config"]
-        except KeyError:
-            try:
-                loglevel = getattr(logging, config["loglevel"])
-                if loglevel == "":
-                    raise AttributeError
-            except AttributeError:
-                loglevel = logging.DEBUG
-            logger.setLevel(loglevel)
-
-            strhndl = logging.StreamHandler()
-            strhndl.setLevel(loglevel)
-            log_format = "[%(asctime)s %(levelname)-8s %(name)s] %(message)s"
-            formatter = logging.Formatter(log_format)
-
-            strhndl.setFormatter(formatter)
-            logger.addHandler(strhndl)
+        log_config = config.get("log_config") or config.get("stalker_log_config")
+        if log_config:
+            args.log_config = log_config
         else:
-            logging.config.fileConfig(log_config)
+            args.log_config = None
+            args.verbose = config.get("loglevel", "INFO").upper() == "DEBUG"
 
     if event_names:
         warnings.warn("Event names is deprecated and is now ignored. Files are detected on write close and moving in.",
@@ -212,6 +200,12 @@ def parse_args(command_args):
                         type=str,
                         default=None,
                         help="Topic of the sent messages")
+    parser.add_argument("--log-config",
+                        dest="log_config",
+                        default=None,
+                        help="Path to logging configuration file (YAML preferred).")
+    parser.add_argument("-v", "--verbose", help="print debug messages too",
+                        action="store_true")
     parser.add_argument("-c", "--configuration_file",
                         type=str,
                         help="Name of the config.ini configuration file")

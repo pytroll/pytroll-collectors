@@ -5,6 +5,8 @@ import pytest
 import datetime
 import unittest.mock
 import io
+import datetime as dt
+
 
 yaml_europe = """
 euro_ma:
@@ -133,10 +135,10 @@ def test_collect(europe_collector, caplog):
             europe_collector.collect({**granule_metadata(s_min)})
 
     assert "Granule file://0 is overlapping region euro_ma by fraction" in caplog.text
-    assert "Added new overlapping granule Metop-C (2021-04-11 10:00:00) to area euro_ma" in caplog.text
+    assert "Added new overlapping granule Metop-C (2021-04-11 10:00:00+00:00) to area euro_ma" in caplog.text
     assert "Collection finished for Metop-C area euro_ma" in caplog.text
     for n in (3, 6, 9, 12, 15):
-        assert f"Added expected granule Metop-C (2021-04-11 10:{n:>02d}:00) to area euro_ma" in caplog.text
+        assert f"Added expected granule Metop-C (2021-04-11 10:{n:>02d}:00+00:00) to area euro_ma" in caplog.text
     assert "Granule file://18 is not overlapping euro_ma"
 
 
@@ -204,8 +206,8 @@ def test_collect_schedule_cut_removes_all_planned_granules(europe_collector_sche
     """Test collector does not crash if schedule cut removes all planned granules."""
     # Return a very narrow window that excludes all predicted granule times.
     with unittest.mock.patch("pytroll_collectors.tests.test_region_collector.harvest_schedules",
-                             return_value=(datetime.datetime(1900, 1, 1, 0, 0),
-                                           datetime.datetime(1900, 1, 1, 0, 0))):
+                             return_value=(datetime.datetime(1900, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+                                           datetime.datetime(1900, 1, 1, 0, 0, tzinfo=dt.timezone.utc))):
         with caplog.at_level(logging.DEBUG):
             assert europe_collector_schedule_cut_custom_method.collect({**granule_metadata(0)}) is None
 

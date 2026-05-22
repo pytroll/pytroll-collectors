@@ -3,10 +3,13 @@
 import re
 import os
 import tempfile
-from datetime import datetime, timedelta
+import datetime as dt
+
 from urllib.request import urlopen
 from urllib.error import HTTPError
 import logging
+
+from pytroll_collectors.utils import ensure_utc_aware
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +31,9 @@ sensor_translate = {'avhrr/3': 'avhrr',
 
 
 def _parse_schedules(params, passes):  # Adam.Dybbroe <a000680@c14526.ad.smhi.se>
-    planned_pass_start_time = min(params['planned_granule_times'])
-    planned_pass_end_time = max(params['planned_granule_times'])
+    """Parse the satellite pass schedule."""
+    planned_pass_start_time = ensure_utc_aware(min(params['planned_granule_times']))
+    planned_pass_end_time = ensure_utc_aware(max(params['planned_granule_times']))
     planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
 
     aos_los = re.compile(r'(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2}),(.*)')
@@ -39,10 +43,10 @@ def _parse_schedules(params, passes):  # Adam.Dybbroe <a000680@c14526.ad.smhi.se
     for pass_ in passes:
         al = aos_los.match(pass_.decode('utf-8'))
         if al:
-            eum_aos = datetime(int(al.group(1)), int(al.group(2)), int(al.group(3)),
-                               int(al.group(4)), int(al.group(5)))
-            eum_los = datetime(int(al.group(6)), int(al.group(7)), int(al.group(8)),
-                               int(al.group(9)), int(al.group(10)))
+            eum_aos = dt.datetime(int(al.group(1)), int(al.group(2)), int(al.group(3)),
+                                  int(al.group(4)), int(al.group(5)), tzinfo=dt.timezone.utc)
+            eum_los = dt.datetime(int(al.group(6)), int(al.group(7)), int(al.group(8)),
+                                  int(al.group(9)), int(al.group(10)), tzinfo=dt.timezone.utc)
             eum_platform_name = al.group(11)
             platform_name = eum_platform_name_translate.get(eum_platform_name, eum_platform_name)
             if platform_name.upper() != params['granule_metadata']['platform_name'].upper():
@@ -50,7 +54,7 @@ def _parse_schedules(params, passes):  # Adam.Dybbroe <a000680@c14526.ad.smhi.se
                 continue
             planned_pass_mid_time = planned_pass_start_time + (planned_pass_end_time - planned_pass_start_time) / 2
             eum_pass_mid_time = eum_aos + (eum_los - eum_aos) / 2
-            if abs(eum_pass_mid_time - planned_pass_mid_time) < timedelta(seconds=1000):
+            if abs(eum_pass_mid_time - planned_pass_mid_time) < dt.timedelta(seconds=1000):
                 logger.debug("Found pass matching the current planned granule times: %s", str(pass_))
                 min_time = eum_aos
                 max_time = eum_los

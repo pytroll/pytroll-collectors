@@ -25,11 +25,17 @@ class TestPostTrollTrigger:
         """Test timing out."""
         from pytroll_collectors.triggers import PostTrollTrigger
 
-        messages = [FakeMessage({"a": "a", 'start_time': 1, 'end_time': 2, 'collection_area_id': 'area_id',
+        time_tag_start = dt.datetime(2000, 1, 1, 12, 0)
+        one_min = dt.timedelta(seconds=60)
+
+        messages = [FakeMessage({"a": "a", 'start_time': time_tag_start,
+                                 'end_time': time_tag_start + one_min, 'collection_area_id': 'area_id',
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri1'}),
-                    FakeMessage({"b": "b", 'start_time': 2, 'end_time': 3, 'collection_area_id': 'area_id',
+                    FakeMessage({"b": "b", 'start_time': time_tag_start + one_min,
+                                 'end_time': time_tag_start + one_min*2, 'collection_area_id': 'area_id',
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri2'}),
-                    FakeMessage({"c": "c", 'start_time': 3, 'end_time': 4, 'collection_area_id': 'area_id',
+                    FakeMessage({"c": "c", 'start_time': time_tag_start + one_min*2,
+                                 'end_time': time_tag_start + one_min*3, 'collection_area_id': 'area_id',
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri3'})]
 
         collector = Mock()
@@ -62,7 +68,7 @@ class TestPostTrollTrigger:
         msg_data = ptt._get_metadata(FakeMessage({"a": "a", 'start_time': dt.datetime(2020, 1, 21, 11, 27)}))
 
         assert "end_time" in msg_data
-        assert msg_data["end_time"] == dt.datetime(2020, 1, 21, 11, 28)
+        assert msg_data["end_time"] == dt.datetime(2020, 1, 21, 11, 28, tzinfo=dt.timezone.utc)
 
     @patch('pytroll_collectors.triggers._posttroll.create_subscriber_from_dict_config')
     def test_inbound_connection_is_used(self, nssub):
@@ -209,9 +215,9 @@ class TestFileTrigger:
         res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
 
         assert res == {"name": "somefile",
-                       'end_time': dt.datetime(2022, 5, 12, 15, 45),
+                       'end_time': dt.datetime(2022, 5, 12, 15, 45, tzinfo=dt.timezone.utc),
                        'filename': 'somefile_20220512T1544_20220512T1545.data',
-                       'start_time': dt.datetime(2022, 5, 12, 15, 44),
+                       'start_time': dt.datetime(2022, 5, 12, 15, 44, tzinfo=dt.timezone.utc),
                        'uri': 'somefile_20220512T1544_20220512T1545.data'
                        }
 
@@ -235,9 +241,9 @@ class TestFileTrigger:
         res = trigger._get_metadata("somefile_20220512T1544_20220512T1545.data")
 
         assert res == {"name": "somefile",
-                       'end_time': dt.datetime(2022, 5, 12, 15, 45),
+                       'end_time': dt.datetime(2022, 5, 12, 15, 45, tzinfo=dt.timezone.utc),
                        'filename': 'somefile_20220512T1544_20220512T1545.data',
-                       'start_time': dt.datetime(2022, 5, 12, 15, 44),
+                       'start_time': dt.datetime(2022, 5, 12, 15, 44, tzinfo=dt.timezone.utc),
                        'uri': 'somefile_20220512T1544_20220512T1545.data',
                        'key1': "value1"
                        }
