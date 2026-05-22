@@ -14,7 +14,7 @@ def main(args=None):
     opts = arg_parse(args)
     logger = setup_logging(opts, "geographic_gatherer")
 
-    print("Setting timezone to UTC")
+    logger.info("Setting timezone to UTC")
     os.environ["TZ"] = "UTC"
     time.tzset()
 
