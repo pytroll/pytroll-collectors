@@ -1,3 +1,40 @@
+## Version 0.21.0 (2026/05/22)
+
+### Issues Closed
+
+* [Issue 179](https://github.com/pytroll/pytroll-collectors/issues/179) - Using custom schedule cut, first skipped segment leaves an empty sequece ([PR 181](https://github.com/pytroll/pytroll-collectors/pull/181) by [@TAlonglong](https://github.com/TAlonglong))
+* [Issue 174](https://github.com/pytroll/pytroll-collectors/issues/174) - Geographic gatherer configured without publish topic would send messages with empty subject ([PR 175](https://github.com/pytroll/pytroll-collectors/pull/175) by [@mraspaud](https://github.com/mraspaud))
+
+In this release 2 issues were closed.
+
+### Pull Requests Merged
+
+#### Bugs fixed
+
+* [PR 182](https://github.com/pytroll/pytroll-collectors/pull/182) - Fix the sigterm tests
+* [PR 181](https://github.com/pytroll/pytroll-collectors/pull/181) - Handle empty planned_granule_times ([179](https://github.com/pytroll/pytroll-collectors/issues/179))
+* [PR 175](https://github.com/pytroll/pytroll-collectors/pull/175) - Add tests and fix a couple of config items ([174](https://github.com/pytroll/pytroll-collectors/issues/174))
+* [PR 170](https://github.com/pytroll/pytroll-collectors/pull/170) - Switch to `netifaces-plus` and add a workaround to skip unusable network interfaces
+* [PR 167](https://github.com/pytroll/pytroll-collectors/pull/167) - Correct timeliness entry in index.rst
+
+#### Features added
+
+* [PR 181](https://github.com/pytroll/pytroll-collectors/pull/181) - Handle empty planned_granule_times ([179](https://github.com/pytroll/pytroll-collectors/issues/179))
+* [PR 180](https://github.com/pytroll/pytroll-collectors/pull/180) - Allow fractional collection periods in Segment Gatherer
+* [PR 178](https://github.com/pytroll/pytroll-collectors/pull/178) - Start cat runner without requiring a nameserver
+* [PR 177](https://github.com/pytroll/pytroll-collectors/pull/177) - Add `--log-config` support via yaml configuration file
+* [PR 175](https://github.com/pytroll/pytroll-collectors/pull/175) - Add tests and fix a couple of config items ([174](https://github.com/pytroll/pytroll-collectors/issues/174))
+* [PR 172](https://github.com/pytroll/pytroll-collectors/pull/172) - Relicense to Apache v2
+* [PR 170](https://github.com/pytroll/pytroll-collectors/pull/170) - Switch to `netifaces-plus` and add a workaround to skip unusable network interfaces
+* [PR 168](https://github.com/pytroll/pytroll-collectors/pull/168) - Fix end time in segment gatherer
+
+#### Documentation changes
+
+* [PR 175](https://github.com/pytroll/pytroll-collectors/pull/175) - Add tests and fix a couple of config items ([174](https://github.com/pytroll/pytroll-collectors/issues/174))
+
+In this release 14 pull requests were closed.
+
+
 ## Version 0.20.0 (2025/09/11)
 
 
