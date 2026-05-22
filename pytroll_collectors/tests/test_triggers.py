@@ -27,6 +27,7 @@ class TestPostTrollTrigger:
 
         time_tag_start = dt.datetime(2000, 1, 1, 12, 0)
         one_min = dt.timedelta(seconds=60)
+
         messages = [FakeMessage({"a": "a", 'start_time': time_tag_start,
                                  'end_time': time_tag_start + one_min, 'collection_area_id': 'area_id',
                                  'format': 'fmt', 'data_processing_level': 'l1b', 'uri': 'uri1'}),

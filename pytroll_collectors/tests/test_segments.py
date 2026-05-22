@@ -1249,7 +1249,6 @@ class TestSegmentGathererCollections:
             sg.process(msg)
 
         assert len(sg.slots) == 1
-
         assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0,
                                                                                                   tzinfo=dt.timezone.utc)
         assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0,
