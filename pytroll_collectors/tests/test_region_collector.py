@@ -5,6 +5,8 @@ import pytest
 import datetime
 import unittest.mock
 import io
+import datetime as dt
+
 
 yaml_europe = """
 euro_ma:
@@ -204,8 +206,8 @@ def test_collect_schedule_cut_removes_all_planned_granules(europe_collector_sche
     """Test collector does not crash if schedule cut removes all planned granules."""
     # Return a very narrow window that excludes all predicted granule times.
     with unittest.mock.patch("pytroll_collectors.tests.test_region_collector.harvest_schedules",
-                             return_value=(datetime.datetime(1900, 1, 1, 0, 0),
-                                           datetime.datetime(1900, 1, 1, 0, 0))):
+                             return_value=(datetime.datetime(1900, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+                                           datetime.datetime(1900, 1, 1, 0, 0, tzinfo=dt.timezone.utc))):
         with caplog.at_level(logging.DEBUG):
             assert europe_collector_schedule_cut_custom_method.collect({**granule_metadata(0)}) is None
 

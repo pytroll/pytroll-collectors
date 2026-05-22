@@ -1247,12 +1247,13 @@ class TestSegmentGathererCollections:
 
         for msg in messages:
             sg.process(msg)
+
         assert len(sg.slots) == 1
 
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0,
-                                                                                            tzinfo=dt.timezone.utc)
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0,
-                                                                                          tzinfo=dt.timezone.utc)
+        assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0,
+                                                                                                  tzinfo=dt.timezone.utc)
+        assert sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0,
+                                                                                                tzinfo=dt.timezone.utc)
 
     def test_end_time_correct_group_by_fractional_minutes(self):
         """Test that end_time is correct in message."""
@@ -1286,8 +1287,11 @@ class TestSegmentGathererCollections:
         for msg in messages:
             sg.process(msg)
         assert len(sg.slots) == 2
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
-        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 2, 30)
+
+        start_time = sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["start_time"]
+        end_time = sg.slots["1980-01-01 13:00:00+00:00"].output_metadata["end_time"]
+        assert start_time == dt.datetime(1980, 1, 1, 13, 0, 0, tzinfo=dt.timezone.utc)
+        assert end_time == dt.datetime(1980, 1, 1, 13, 2, 30, tzinfo=dt.timezone.utc)
 
 
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
@@ -1544,7 +1548,7 @@ class TestSegmentGathererFCI:
             msg = FakeMessage(fci_msg.data)
             segment_gatherer.process(msg)
 
-        timestamp = '2017-09-20 13:40:00'
+        timestamp = '2017-09-20 13:40:00+00:00'
         assert timestamp in segment_gatherer.slots
         slot = segment_gatherer.slots[timestamp]
         assert len(slot["fci_nc"]["received_files"]) == 2
@@ -1575,7 +1579,7 @@ def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
         msg = FakeMessage(fci_msg.data)
         segment_gatherer.process(msg)
 
-    timestamp = '2025-06-26 07:30:00'
+    timestamp = '2025-06-26 07:30:00+00:00'
     assert timestamp in segment_gatherer.slots
     storage_options = dict(cls="fsspec.implementations.sftp:SFTPFileSystem",
                            protocol="sftp",

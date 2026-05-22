@@ -191,11 +191,13 @@ class Message:
     def _adjust_time_by_flooring(self, metadata, group_by_minutes, time_name):
         if group_by_minutes is None:
             return
+
         time_item = metadata[time_name]
-        seconds_this_year = (time_item - dt.datetime(time_item.year, 1, 1)).total_seconds()
+        seconds_this_year = (time_item - dt.datetime(time_item.year, 1, 1, tzinfo=time_item.tzinfo)).total_seconds()
         group_by_seconds = dt.timedelta(minutes=group_by_minutes).total_seconds()
         rounded_seconds = seconds_this_year - (seconds_this_year % group_by_seconds)
-        metadata[time_name] = dt.datetime(time_item.year, 1, 1) + dt.timedelta(seconds=rounded_seconds)
+        metadata[time_name] = dt.datetime(time_item.year, 1, 1, tzinfo=time_item.tzinfo) + \
+            dt.timedelta(seconds=rounded_seconds)
 
     def _handle_scheme(self, posttroll_message):
         message_data = posttroll_message.data.copy()
