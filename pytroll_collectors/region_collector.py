@@ -338,6 +338,8 @@ def _granule_covers_region(granule_metadata, region):
         coverage_str = f"is overlapping region {region.description:s} by fraction {coverage:.5f}"
         _log_overlap_message(granule_metadata, coverage_str)
         return True
+        coverage_str = f"is not overlapping region {region.description:s}, discarding."
+        _log_overlap_message(granule_metadata, coverage_str)
     return False
 
 
