@@ -72,7 +72,7 @@ class _MessageProcessor(Thread):
                     continue
                 logger.debug(f"Processing message {str(msg)}")
                 self.process(msg)
-                logger("Done processing message. Waiting for the next one.")
+                logger.debug("Done processing message. Waiting for the next one.")
         finally:
             self.stop()
 
