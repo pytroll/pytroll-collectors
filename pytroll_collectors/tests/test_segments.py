@@ -795,6 +795,20 @@ class TestSegmentGatherer:
         # Triage after the kill signal takes 1 s
         assert time.time() - tic > 1.
 
+    def test_informative_logging_missing_files(self, caplog):
+        """Test that logging informs what files/filepatterns are missing."""
+        mda = self.mda_msg0deg.copy()
+        slot_str = str(mda["start_time"])
+        fake_message = FakeMessage(mda)
+        message = Message(fake_message, self.msg0deg._patterns['msg'])
+        self.msg0deg._create_slot(message)
+        slot = self.msg0deg.slots[slot_str]
+        slot["timeout"] = dt.datetime.utcnow()
+        with caplog.at_level(logging.WARNING):
+            slot.get_status()
+        assert "Timeout occured and required files were not present" in caplog.text
+        assert "H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__" in caplog.text
+
 
 def _fake_triage_slots(self):
     """Fake the triage_slots() method.
