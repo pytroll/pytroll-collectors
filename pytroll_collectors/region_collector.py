@@ -333,11 +333,14 @@ def _granule_covers_region(granule_metadata, region):
                         granule_metadata["start_time"],
                         granule_metadata["end_time"],
                         instrument=_get_sensor(granule_metadata))
+    logger.debug("Computing overlap with region of interest.")
     coverage = granule_pass.area_coverage(region)
     if coverage > 0:
         coverage_str = f"is overlapping region {region.description:s} by fraction {coverage:.5f}"
         _log_overlap_message(granule_metadata, coverage_str)
         return True
+    coverage_str = f"is not overlapping region {region.description:s}, discarding."
+    _log_overlap_message(granule_metadata, coverage_str)
     return False
 
 
