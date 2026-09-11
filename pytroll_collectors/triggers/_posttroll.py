@@ -70,7 +70,9 @@ class _MessageProcessor(Thread):
                     continue
                 if msg.type not in ('file', 'collection', 'dataset'):
                     continue
+                logger.debug(f"Processing message {str(msg)}")
                 self.process(msg)
+                logger.debug("Done processing message. Waiting for the next one.")
         finally:
             self.stop()
 
