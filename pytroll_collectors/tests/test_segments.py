@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 import os
 import os.path
+from contextlib import ExitStack
 from unittest.mock import patch, MagicMock, call
 
 import pytest
@@ -14,6 +15,11 @@ from pytroll_collectors.segments import SegmentGatherer, ini_to_dict, Status, Me
 from pytroll_collectors.utils import ensure_utc_aware
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# The child process used in the SIGTERM tests may need to start a fresh
+# interpreter, so give it plenty of time
+READY_TIMEOUT = 60
+JOIN_TIMEOUT = 60
 CONFIG_SINGLE = read_yaml(os.path.join(THIS_DIR, "data/segments_single.yaml"))
 CONFIG_SINGLE_NORTH = read_yaml(os.path.join(THIS_DIR, "data/segments_single_north.yaml"))
 CONFIG_DOUBLE = read_yaml(os.path.join(THIS_DIR, "data/segments_double.yaml"))
@@ -760,16 +766,23 @@ class TestSegmentGatherer:
         """Test that SIGTERM signal is handled."""
         import os
         import signal
-        import time
-        from multiprocessing import Process
 
-        with patch('pytroll_collectors.segments.ListenerContainer'):
-            col = SegmentGatherer(CONFIG_SINGLE)
-            proc = Process(target=col.run)
-            proc.start()
-            time.sleep(1)
-            os.kill(proc.pid, signal.SIGTERM)
-            proc.join()
+        proc, ready = _start_segment_gatherer(_run_segment_gatherer)
+        assert ready.wait(READY_TIMEOUT), "The gatherer did not start handling signals"
+        os.kill(proc.pid, signal.SIGTERM)
+        proc.join(JOIN_TIMEOUT)
+
+        assert proc.exitcode == 0
+
+    def test_sigterm_while_setting_up_messaging(self):
+        """Test that SIGTERM is handled already while the messaging is being set up."""
+        import os
+        import signal
+
+        proc, ready = _start_segment_gatherer(_run_segment_gatherer_with_slow_setup)
+        assert ready.wait(READY_TIMEOUT), "The gatherer did not start handling signals"
+        os.kill(proc.pid, signal.SIGTERM)
+        proc.join(JOIN_TIMEOUT)
 
         assert proc.exitcode == 0
 
@@ -778,22 +791,80 @@ class TestSegmentGatherer:
         import os
         import signal
         import time
-        from multiprocessing import Process
 
-        with patch('pytroll_collectors.segments.ListenerContainer'):
-            with patch('pytroll_collectors.segments.SegmentGatherer.triage_slots',
-                       new=_fake_triage_slots):
-                col = SegmentGatherer(CONFIG_SINGLE)
-                proc = Process(target=col.run)
-                proc.start()
-                time.sleep(1)
-                tic = time.time()
-                os.kill(proc.pid, signal.SIGTERM)
-                proc.join()
+        proc, ready = _start_segment_gatherer(_run_segment_gatherer_with_slots)
+        assert ready.wait(READY_TIMEOUT), "The gatherer is not handling any slots"
+        tic = time.time()
+        os.kill(proc.pid, signal.SIGTERM)
+        proc.join(JOIN_TIMEOUT)
 
         assert proc.exitcode == 0
         # Triage after the kill signal takes 1 s
         assert time.time() - tic > 1.
+
+
+def _start_segment_gatherer(target):
+    """Run a segment gatherer in a child process.
+
+    Returns the process and an event the child sets when the test may send the
+    signal.  Everything the child needs is set up in the child, so that these
+    tests do not depend on the multiprocessing start method.
+    """
+    import multiprocessing
+
+    ready = multiprocessing.Event()
+    proc = multiprocessing.Process(target=target, args=(CONFIG_SINGLE, ready))
+    proc.start()
+    return proc, ready
+
+
+def _run_segment_gatherer(config, ready):
+    """Run a segment gatherer, setting *ready* when it starts handling signals."""
+    original_setup = SegmentGatherer._setup_signal_handling
+
+    def setup_signal_handling(self):
+        original_setup(self)
+        ready.set()
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('pytroll_collectors.segments.ListenerContainer'))
+        stack.enter_context(patch.object(SegmentGatherer, '_setup_signal_handling',
+                                         setup_signal_handling))
+        SegmentGatherer(config).run()
+
+
+def _run_segment_gatherer_with_slots(config, ready):
+    """Run a segment gatherer that has slots, setting *ready* when a slot is being handled."""
+    def triage_slots(self):
+        _fake_triage_slots(self)
+        ready.set()
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('pytroll_collectors.segments.ListenerContainer'))
+        stack.enter_context(patch.object(SegmentGatherer, 'triage_slots', triage_slots))
+        SegmentGatherer(config).run()
+
+
+def _run_segment_gatherer_with_slow_setup(config, ready):
+    """Run a segment gatherer whose messaging setup takes a long time.
+
+    Setting up the messaging can take a long time in real life too, for example
+    when the nameserver is not responding.
+    """
+    import time
+
+    def setup_messaging(self):
+        # The signal may be sent as soon as the setup has started
+        ready.set()
+        for _ in range(600):
+            if self._sigterm_caught:
+                break
+            time.sleep(0.1)
+        self._listener = MagicMock()
+        self._publisher = MagicMock()
+
+    with patch.object(SegmentGatherer, '_setup_messaging', setup_messaging):
+        SegmentGatherer(config).run()
 
 
 def _fake_triage_slots(self):
