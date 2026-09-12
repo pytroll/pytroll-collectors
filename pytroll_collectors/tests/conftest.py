@@ -29,3 +29,19 @@ def fake_yamlconfig_file_for_scisys_receiver(tmp_path):
         fpt.write(TEST_YAML_CONFIG_CONTENT_SCISYS_RECEIVER)
 
     yield file_path
+
+
+@pytest.fixture
+def forking_context():
+    """Get a multiprocessing context that forks the current process.
+
+    The tests that check the SIGTERM handling run an already created collector
+    in a child process, which requires the child to inherit the state (and the
+    mocks) of the parent.  Since Python 3.14 the default start method on Linux
+    is ``forkserver``, which starts a fresh interpreter instead.
+    """
+    import multiprocessing
+
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("The 'fork' start method is not available.")
+    return multiprocessing.get_context("fork")

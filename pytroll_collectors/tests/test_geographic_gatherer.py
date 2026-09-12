@@ -594,20 +594,17 @@ def _run_gatherer(filename, section):
 
 
 @pytest.mark.parametrize("section", ["minimal_config", "posttroll_section"])
-def test_sigterm(tmp_config_file, tmp_config_parser, section):
+def test_sigterm(tmp_config_file, tmp_config_parser, section, forking_context):
     """Test that SIGTERM signal is handled."""
     import os
     import signal
     import time
-    from multiprocessing import Process
-
-    from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
     with open(tmp_config_file, mode="w") as fp:
         tmp_config_parser.write(fp)
 
     filename = str(tmp_config_file)
-    proc = Process(target=_run_gatherer, args=[filename, section])
+    proc = forking_context.Process(target=_run_gatherer, args=[filename, section])
     proc.start()
     time.sleep(1)
     os.kill(proc.pid, signal.SIGTERM)

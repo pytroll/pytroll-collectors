@@ -756,16 +756,15 @@ class TestSegmentGatherer:
             self.msg0deg._setup_listener()
         assert_messaging(None, None, None, 'localhost', None, ListenerContainer)
 
-    def test_sigterm(self):
+    def test_sigterm(self, forking_context):
         """Test that SIGTERM signal is handled."""
         import os
         import signal
         import time
-        from multiprocessing import Process
 
         with patch('pytroll_collectors.segments.ListenerContainer'):
             col = SegmentGatherer(CONFIG_SINGLE)
-            proc = Process(target=col.run)
+            proc = forking_context.Process(target=col.run)
             proc.start()
             time.sleep(1)
             os.kill(proc.pid, signal.SIGTERM)
@@ -773,18 +772,17 @@ class TestSegmentGatherer:
 
         assert proc.exitcode == 0
 
-    def test_sigterm_nonempty_slots(self):
+    def test_sigterm_nonempty_slots(self, forking_context):
         """Test that SIGTERM signal is handled properly when there are active slots present."""
         import os
         import signal
         import time
-        from multiprocessing import Process
 
         with patch('pytroll_collectors.segments.ListenerContainer'):
             with patch('pytroll_collectors.segments.SegmentGatherer.triage_slots',
                        new=_fake_triage_slots):
                 col = SegmentGatherer(CONFIG_SINGLE)
-                proc = Process(target=col.run)
+                proc = forking_context.Process(target=col.run)
                 proc.start()
                 time.sleep(1)
                 tic = time.time()
