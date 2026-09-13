@@ -588,7 +588,10 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
 
 
 def _run_gatherer(filename, section, ready):
-    """Run a gatherer, setting *ready* when it starts handling signals.
+    """Run a gatherer, setting *ready* when it is running.
+
+    The gatherer starts handling signals before it enters the main loop, so
+    when it is running the signal can be sent.
 
     Everything the child process needs is set up here, so that this does not
     depend on the multiprocessing start method.
@@ -598,15 +601,15 @@ def _run_gatherer(filename, section, ready):
     opts = arg_parse(["-c", section, "-p", "40002", "-n", "false", "-i", "localhost:12345",
                      filename])
 
-    original_setup = GeographicGatherer._setup_signal_handling
+    original_keep_running = GeographicGatherer._keep_running
 
-    def setup_signal_handling(self):
-        original_setup(self)
+    def keep_running(self):
         ready.set()
+        return original_keep_running(self)
 
     # We don't need the triggers here. They also interfere with completing the test (the test never exits)
     with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"), \
-            patch.object(GeographicGatherer, "_setup_signal_handling", setup_signal_handling):
+            patch.object(GeographicGatherer, "_keep_running", keep_running):
         gatherer = GeographicGatherer(opts)
         gatherer.run()
 
@@ -667,7 +670,7 @@ def test_sigterm(tmp_config_file, tmp_config_parser, section):
     ready = multiprocessing.Event()
     proc = multiprocessing.Process(target=_run_gatherer, args=[filename, section, ready])
     proc.start()
-    assert ready.wait(READY_TIMEOUT), "The gatherer did not start handling signals"
+    assert ready.wait(READY_TIMEOUT), "The gatherer is not running"
     os.kill(proc.pid, signal.SIGTERM)
     proc.join(JOIN_TIMEOUT)
 

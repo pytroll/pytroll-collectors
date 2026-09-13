@@ -768,7 +768,7 @@ class TestSegmentGatherer:
         import signal
 
         proc, ready = _start_segment_gatherer(_run_segment_gatherer)
-        assert ready.wait(READY_TIMEOUT), "The gatherer did not start handling signals"
+        assert ready.wait(READY_TIMEOUT), "The gatherer is not running"
         os.kill(proc.pid, signal.SIGTERM)
         proc.join(JOIN_TIMEOUT)
 
@@ -819,17 +819,20 @@ def _start_segment_gatherer(target):
 
 
 def _run_segment_gatherer(config, ready):
-    """Run a segment gatherer, setting *ready* when it starts handling signals."""
-    original_setup = SegmentGatherer._setup_signal_handling
+    """Run a segment gatherer, setting *ready* when it is running.
 
-    def setup_signal_handling(self):
-        original_setup(self)
+    The gatherer starts handling signals before it enters the main loop, so
+    when it is running the signal can be sent.
+    """
+    original_keep_running = SegmentGatherer._keep_running
+
+    def keep_running(self):
         ready.set()
+        return original_keep_running(self)
 
     with ExitStack() as stack:
         stack.enter_context(patch('pytroll_collectors.segments.ListenerContainer'))
-        stack.enter_context(patch.object(SegmentGatherer, '_setup_signal_handling',
-                                         setup_signal_handling))
+        stack.enter_context(patch.object(SegmentGatherer, '_keep_running', keep_running))
         SegmentGatherer(config).run()
 
 
