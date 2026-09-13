@@ -91,6 +91,11 @@ version-file = "pytroll_collectors/version.py"
 [tool.coverage.run]
 relative_files = true
 omit = ["pytroll_collectors/version.py"]
+# Some of the tests run collectors in child processes, and terminate them with
+# SIGTERM, so measure those too
+concurrency = ["multiprocessing", "thread"]
+parallel = true
+sigterm = true
 
 [tool.ruff]
 line-length = 120
