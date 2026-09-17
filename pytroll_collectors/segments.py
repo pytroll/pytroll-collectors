@@ -700,8 +700,10 @@ class SegmentGatherer(object):
 
     def run(self):
         """Run SegmentGatherer."""
+        # Handle SIGTERM already while the messaging is being set up, which can
+        # take a long time if the nameserver is not responding
+        self._setup_signal_handling()
         self._setup_messaging()
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
 
         self._loop = True
         while self._keep_running():
@@ -724,6 +726,10 @@ class SegmentGatherer(object):
                 logger.info("New message received: %s", str(msg))
                 self.process(msg)
         self.stop()
+
+    def _setup_signal_handling(self):
+        """Start handling SIGTERM."""
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
 
     def _handle_sigterm(self, signum, frame):
         logging.info("Caught SIGTERM, shutting down when all collections are finished.")

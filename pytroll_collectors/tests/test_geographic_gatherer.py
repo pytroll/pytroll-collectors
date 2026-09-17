@@ -14,6 +14,11 @@ from pytroll_collectors.triggers import PostTrollTrigger, WatchDogTrigger
 AREA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 AREA_DEFINITION_FILE = os.path.join(AREA_CONFIG_PATH, 'areas.yaml')
 
+# The child process used in the SIGTERM test may need to start a fresh
+# interpreter, so give it plenty of time
+READY_TIMEOUT = 60
+JOIN_TIMEOUT = 60
+
 
 class FakeOpts(object):
     """Fake class to mimic commandline options."""
@@ -582,36 +587,92 @@ class TestGeographicGathererWithPosttrollTriggerEndToEnd:
             gatherer.stop()
 
 
-def _run_gatherer(filename, section):
+def _run_gatherer(filename, section, ready):
+    """Run a gatherer, setting *ready* when it is running.
+
+    The gatherer starts handling signals before it enters the main loop, so
+    when it is running the signal can be sent.
+
+    Everything the child process needs is set up here, so that this does not
+    depend on the multiprocessing start method.
+    """
     from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
     opts = arg_parse(["-c", section, "-p", "40002", "-n", "false", "-i", "localhost:12345",
                      filename])
+
+    original_keep_running = GeographicGatherer._keep_running
+
+    def keep_running(self):
+        ready.set()
+        return original_keep_running(self)
+
     # We don't need the triggers here. They also interfere with completing the test (the test never exits)
-    with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"):
+    with patch("pytroll_collectors.geographic_gatherer.TriggerFactory.create"), \
+            patch.object(GeographicGatherer, "_keep_running", keep_running):
         gatherer = GeographicGatherer(opts)
         gatherer.run()
+
+
+def _run_gatherer_with_slow_startup(filename, section, ready):
+    """Run a gatherer that takes a long time to set up its triggers."""
+    import time
+
+    from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+    opts = arg_parse(["-c", section, "-p", "40003", "-n", "false", "-i", "localhost:12345",
+                     filename])
+
+    def setup_triggers(self):
+        # The signal may be sent as soon as the startup has begun
+        ready.set()
+        for _ in range(600):
+            if self._sigterm_caught.is_set():
+                break
+            time.sleep(0.1)
+
+    with patch.object(GeographicGatherer, "_setup_triggers", setup_triggers):
+        gatherer = GeographicGatherer(opts)
+        gatherer.run()
+
+
+def test_sigterm_while_starting_up(tmp_config_file, tmp_config_parser):
+    """Test that SIGTERM is handled already while the gatherer is starting up."""
+    import multiprocessing
+    import os
+    import signal
+
+    with open(tmp_config_file, mode="w") as fp:
+        tmp_config_parser.write(fp)
+
+    ready = multiprocessing.Event()
+    proc = multiprocessing.Process(target=_run_gatherer_with_slow_startup,
+                                   args=[str(tmp_config_file), "minimal_config", ready])
+    proc.start()
+    assert ready.wait(READY_TIMEOUT), "The gatherer did not start handling signals"
+    os.kill(proc.pid, signal.SIGTERM)
+    proc.join(JOIN_TIMEOUT)
+
+    assert proc.exitcode == 0
 
 
 @pytest.mark.parametrize("section", ["minimal_config", "posttroll_section"])
 def test_sigterm(tmp_config_file, tmp_config_parser, section):
     """Test that SIGTERM signal is handled."""
+    import multiprocessing
     import os
     import signal
-    import time
-    from multiprocessing import Process
-
-    from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
     with open(tmp_config_file, mode="w") as fp:
         tmp_config_parser.write(fp)
 
     filename = str(tmp_config_file)
-    proc = Process(target=_run_gatherer, args=[filename, section])
+    ready = multiprocessing.Event()
+    proc = multiprocessing.Process(target=_run_gatherer, args=[filename, section, ready])
     proc.start()
-    time.sleep(1)
+    assert ready.wait(READY_TIMEOUT), "The gatherer is not running"
     os.kill(proc.pid, signal.SIGTERM)
-    proc.join()
+    proc.join(JOIN_TIMEOUT)
 
     assert proc.exitcode == 0
 

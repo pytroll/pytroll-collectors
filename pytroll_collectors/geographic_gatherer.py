@@ -38,6 +38,10 @@ class GeographicGatherer:
 
         self._sigterm_caught = Event()
 
+        # Handle SIGTERM already while the publisher and the triggers are being
+        # set up, which can take a long time if the nameserver is not responding
+        self._setup_signal_handling()
+
         self._clean_config()
         self._setup_publisher()
         try:
@@ -85,7 +89,6 @@ class GeographicGatherer:
 
     def run(self):
         """Run granule triggers."""
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
         try:
             while self._keep_running():
                 time.sleep(1)
@@ -101,6 +104,10 @@ class GeographicGatherer:
             self.stop()
 
         return self.return_status
+
+    def _setup_signal_handling(self):
+        """Start handling SIGTERM."""
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
 
     def _handle_sigterm(self, signum, frame):
         logger.info("Caught SIGTERM, shutting down when all collections are finished.")
