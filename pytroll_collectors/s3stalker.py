@@ -14,11 +14,11 @@ The contents of the yaml configuration file should look like this::
     subject: /segment/2/safe-olci/S3/
 """  # noqa
 import argparse
+import datetime as dt
 import logging
 import posixpath
 import time
 from contextlib import contextmanager
-from datetime import datetime, timedelta
 
 import s3fs
 import yaml
@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def sleeper(duration):
     """Make sure the block takes at least *duration* seconds."""
-    start_time = datetime.utcnow()
+    start_time = dt.datetime.now(tz.UTC)
     yield
-    end_time = datetime.utcnow()
+    end_time = dt.datetime.now(tz.UTC)
     waiting_time = duration - (end_time - start_time).total_seconds()
     logger.debug('waiting time: %f', waiting_time)
     time.sleep(max(waiting_time, 0))
@@ -46,7 +46,7 @@ def sleeper(duration):
 class DatetimeHolder:
     """Holder for the last_fetch datetime."""
 
-    last_fetch = datetime.now(tz.UTC) - timedelta(hours=12)
+    last_fetch = dt.datetime.now(tz.UTC) - dt.timedelta(hours=12)
 
 
 def set_last_fetch(timestamp):
@@ -99,7 +99,7 @@ def _match_files_to_pattern(files, path, pattern):
 def publish_new_files(bucket, config, publisher_ready_time=2.5):
     """Publish files newly arrived in bucket."""
     time_back = config.pop('fetch_back_to')
-    set_last_fetch(datetime.now(tz.UTC) - timedelta(**time_back))
+    set_last_fetch(dt.datetime.now(tz.UTC) - dt.timedelta(**time_back))
     with Publish("s3_stalker") as pub:
         with sleeper(publisher_ready_time):
             messages = create_messages_for_recent_files(bucket, config)

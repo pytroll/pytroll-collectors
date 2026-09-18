@@ -12,11 +12,11 @@ Outputs messages with the following metadata:
 - [instrument, number]
 
 """
+import datetime as dt
 import logging
 import os
 import socket
 import xml.etree.ElementTree as etree
-from datetime import datetime, timedelta
 from time import sleep
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
@@ -52,6 +52,11 @@ SCISYS_NAMES = {'Suomi-NPP': 'NPP',
                 'NOAA-23': 'NOAA 23'}
 
 
+def _strptime_utc(value, fmt):
+    """Parse *value* using *fmt* to a timezone-aware datetime in UTC."""
+    return dt.datetime.strptime(value, fmt).replace(tzinfo=dt.timezone.utc)
+
+
 class TwoMetMessage(object):
     """Interperter for 2met! messages."""
 
@@ -59,7 +64,7 @@ class TwoMetMessage(object):
         """Init the message."""
         self._id = 0
         self._type = ""
-        self._time = datetime.utcnow()
+        self._time = dt.datetime.now(dt.timezone.utc)
         self.body = ''
         if mstring is not None:
             self._decode(mstring.strip())
@@ -71,8 +76,7 @@ class TwoMetMessage(object):
         content = content.rsplit("]", 1)[0]
         dic = dict((item.split("=", 1) for item in content.split(", ", 3)))
         self._id = eval(dic["ID"])
-        self._time = datetime.strptime(
-            eval(dic["time"]), "%d %m %Y - %H:%M:%S")
+        self._time = _strptime_utc(eval(dic["time"]), "%d %m %Y - %H:%M:%S")
         try:
             self.body = eval(dic["body"])
         except SyntaxError:
@@ -86,8 +90,7 @@ class TwoMetMessage(object):
 
         self._id = int(root.get("sequence"))
         self._type = root.get("type")
-        self._time = datetime.strptime(root.get("timestamp"),
-                                       "%Y-%m-%dT%H:%M:%S")
+        self._time = _strptime_utc(root.get("timestamp"), "%Y-%m-%dT%H:%M:%S")
         for child in root:
             if child.tag == "body":
                 self.body = child.text
@@ -156,11 +159,11 @@ class MessageReceiver(object):
         pass_info = {}
         for key, val in info.items():
             pass_info[key.lower()] = val
-        pass_info["start_time"] = datetime.strptime(pass_info["risetime"],
-                                                    "%Y-%m-%d %H:%M:%S")
+        pass_info["start_time"] = _strptime_utc(pass_info["risetime"],
+                                                "%Y-%m-%d %H:%M:%S")
         del pass_info['risetime']
-        pass_info["end_time"] = datetime.strptime(pass_info["falltime"],
-                                                  "%Y-%m-%d %H:%M:%S")
+        pass_info["end_time"] = _strptime_utc(pass_info["falltime"],
+                                              "%Y-%m-%d %H:%M:%S")
         del pass_info['falltime']
 
         if 'orbit number' in pass_info:
@@ -177,7 +180,7 @@ class MessageReceiver(object):
         oldies = []
 
         for key, val in self._received_passes.items():
-            if (datetime.utcnow() - val["start_time"]).days >= days:
+            if (dt.datetime.now(dt.timezone.utc) - val["start_time"]).days >= days:
                 oldies.append(key)
 
         for key in oldies:
@@ -192,7 +195,7 @@ class MessageReceiver(object):
         # load a description of it from a config file instead.
         if filename.endswith(".hmf"):
             risestr, satellite = filename[:-4].split("_", 1)
-            risetime = datetime.strptime(risestr, "%Y%m%d%H%M%S")
+            risetime = _strptime_utc(risestr, "%Y%m%d%H%M%S")
             pname = pass_name(risetime, satellite)
             satellite = satellite.replace("_", "-")
             if satellite in self._excluded_platforms:
@@ -215,7 +218,7 @@ class MessageReceiver(object):
             pds["apid1"] = filename[1:8]
             pds["apid2"] = filename[8:15]
             pds["apid3"] = filename[15:22]
-            pds["time"] = datetime.strptime(filename[22:33], "%y%j%H%M%S")
+            pds["time"] = _strptime_utc(filename[22:33], "%y%j%H%M%S")
             pds["nid"] = filename[33]
             pds["ufn"] = filename[34:36]
             pds["extension"] = filename[36:40]
@@ -291,13 +294,13 @@ class MessageReceiver(object):
                 return None
 
             mda["start_time"] = \
-                datetime.strptime(start_time_items[0] + start_time_items[1],
-                                  "d%Y%m%dt%H%M%S%f")
+                _strptime_utc(start_time_items[0] + start_time_items[1],
+                              "d%Y%m%dt%H%M%S%f")
             end_time = \
-                datetime.strptime(start_time_items[0] + end_time_item,
-                                  "d%Y%m%de%H%M%S%f")
+                _strptime_utc(start_time_items[0] + end_time_item,
+                              "d%Y%m%de%H%M%S%f")
             if mda["start_time"] > end_time:
-                end_time += timedelta(days=1)
+                end_time += dt.timedelta(days=1)
             mda["orbit"] = orbit
 
             # FIXME: swath start and end time is granule dependent.
@@ -337,8 +340,8 @@ class MessageReceiver(object):
                           "M03": "Metop-C"}
 
             satellite = satellites[filename[12:15]]
-            risetime = datetime.strptime(filename[16:31], "%Y%m%d%H%M%SZ")
-            falltime = datetime.strptime(filename[32:47], "%Y%m%d%H%M%SZ")
+            risetime = _strptime_utc(filename[16:31], "%Y%m%d%H%M%SZ")
+            falltime = _strptime_utc(filename[32:47], "%Y%m%d%H%M%SZ")
 
             pname = pass_name(risetime, satellite.upper())
             logger.debug("pname= % s", str(pname))

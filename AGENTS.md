@@ -87,8 +87,8 @@ accepts **both**: yaml through `helper_functions.read_yaml`, or ini through `seg
   `False` both mean "no nameserver".
 - **Time.** Everything is normalised to timezone-aware UTC by `utils.ensure_utc_aware()` and
   `utils.fix_start_end_time()` (which also derives `end_time` from `duration`, merges `start_date`/`end_date`, and
-  rolls `end_time` forward past midnight). Use `dt.datetime.now(dt.timezone.utc)` in new code; the remaining
-  `utcnow()` calls in `s3stalker.py`, `scisys.py` and `scripts/cat.py` are legacy.
+  rolls `end_time` forward past midnight). Use `dt.datetime.now(dt.timezone.utc)` in new code; there are no
+  `utcnow()` calls left. Times parsed from 2met messages are made UTC-aware by `scisys._strptime_utc()`.
 - **Logging.** `logging.setup_logging(opts, name)` is the single entry point for every script. It prefers
   `opts.log_config`, falls back to the legacy `opts.stalker_log_config`, and only then to the old
   `-l`/`--verbose` behaviour. `.yaml`/`.yml` configs go through `dictConfig`, anything else through `fileConfig`.
