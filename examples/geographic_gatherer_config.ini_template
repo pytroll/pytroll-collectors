@@ -95,6 +95,9 @@ type = binary
 platform_name = Metop-B
 sensor = avhrr/3
 timeliness = 100
+# The GDS data can arrive long after they were measured, so count the
+# timeliness from the arrival of the first granule of the collection
+timeliness_from_arrival = true
 variant = GDS
 orbit_type = polar
 publish_topic = /GDS/Metop-B
