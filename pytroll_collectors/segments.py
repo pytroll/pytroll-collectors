@@ -46,6 +46,9 @@ class Status(Enum):
     SLOT_READY = 2
     SLOT_READY_BUT_WAIT_FOR_MORE = 3
     SLOT_OBSOLETE_TIMEOUT = 4
+    # All the critical files have been received, but some of the wanted files
+    # are still missing.  Such a slot is published when the timeout is reached.
+    SLOT_CRITICAL_FILES_READY = 5
 
 
 DO_NOT_COPY_KEYS = ("uid", "uri", "channel_name", "segment", "sensor", "filesystem", "path")
@@ -411,30 +414,32 @@ class Slot:
 
     def get_status(self):
         """Determine if slot is complete."""
-        status = {}
-        num_files = {}
-        for key in self._pattern_keys:
-            # Default
-            status[key] = Status.SLOT_NOT_READY
-            if not self[key]['is_critical_set']:
-                status[key] = Status.SLOT_NONCRITICAL_NOT_READY
-
-            wanted_and_critical_files = self[key][
-                'wanted_files'].union(self[key]['critical_files'])
-            num_wanted_and_critical = len(
-                wanted_and_critical_files & self[key]['received_files'])
-
-            num_files[key] = num_wanted_and_critical
-
-            if num_wanted_and_critical == self[key]['files_till_premature_publish']:
-                self[key]['files_till_premature_publish'] = -1
-                status[key] = Status.SLOT_READY_BUT_WAIT_FOR_MORE
-
-            if wanted_and_critical_files.issubset(self[key]['received_files']):
-                status[key] = Status.SLOT_READY
+        status = {key: self._get_pattern_status(key) for key in self._pattern_keys}
 
         # Determine overall status
         return self.get_collection_status(status, self['timeout'])
+
+    def _get_pattern_status(self, key):
+        """Determine the status of the files collected for a single pattern."""
+        slot_pattern = self[key]
+        received_files = slot_pattern['received_files']
+        wanted_and_critical_files = slot_pattern['wanted_files'].union(slot_pattern['critical_files'])
+
+        if wanted_and_critical_files.issubset(received_files):
+            return Status.SLOT_READY
+
+        num_wanted_and_critical = len(wanted_and_critical_files & received_files)
+        if num_wanted_and_critical == slot_pattern['files_till_premature_publish']:
+            slot_pattern['files_till_premature_publish'] = -1
+            return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+        if not slot_pattern['is_critical_set']:
+            return Status.SLOT_NONCRITICAL_NOT_READY
+
+        if slot_pattern['critical_files'] and slot_pattern['critical_files'].issubset(received_files):
+            return Status.SLOT_CRITICAL_FILES_READY
+
+        return Status.SLOT_NOT_READY
 
     def get_collection_status(self, status, timeout):
         """Determine the overall status of the collection."""
@@ -448,32 +453,41 @@ class Slot:
             return Status.SLOT_READY
 
         if dt.datetime.now(dt.timezone.utc) > timeout:
-            if (Status.SLOT_NONCRITICAL_NOT_READY in status_values and
-                (Status.SLOT_READY in status_values or
-                    Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
-                return Status.SLOT_READY
-            if (Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values and
-                    Status.SLOT_NOT_READY not in status_values):
-                return Status.SLOT_READY
-            if all([val == Status.SLOT_NONCRITICAL_NOT_READY for val in
-                    status_values]):
-                for key in status.keys():
-                    if len(self[key]['received_files']) > 0:
-                        return Status.SLOT_READY
-                return Status.SLOT_OBSOLETE_TIMEOUT
+            return self._get_collection_status_after_timeout(status)
 
+        if (Status.SLOT_NOT_READY in status_values or
+                Status.SLOT_CRITICAL_FILES_READY in status_values):
+            return Status.SLOT_NOT_READY
+        if Status.SLOT_NONCRITICAL_NOT_READY in status_values:
+            return Status.SLOT_NONCRITICAL_NOT_READY
+        if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
+            return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+    def _get_collection_status_after_timeout(self, status):
+        """Determine the status of a collection for which the timeout has been reached."""
+        status_values = list(status.values())
+
+        # A set that is critical for the collection is missing critical files,
+        # so nothing is published
+        if Status.SLOT_NOT_READY in status_values:
             logger.warning("Timeout occured and required files "
                            "were not present, data discarded for "
                            "slot %s.",
                            self.timestamp)
             return Status.SLOT_OBSOLETE_TIMEOUT
 
-        if Status.SLOT_NOT_READY in status_values:
-            return Status.SLOT_NOT_READY
-        if Status.SLOT_NONCRITICAL_NOT_READY in status_values:
-            return Status.SLOT_NONCRITICAL_NOT_READY
-        if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
-            return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+        publishable = (Status.SLOT_READY,
+                       Status.SLOT_CRITICAL_FILES_READY,
+                       Status.SLOT_READY_BUT_WAIT_FOR_MORE)
+        if any(val in publishable for val in status_values):
+            return Status.SLOT_READY
+
+        # Only non-critical sets remain, publish if anything at all was received
+        for key in status.keys():
+            if len(self[key]['received_files']) > 0:
+                return Status.SLOT_READY
+
+        return Status.SLOT_OBSOLETE_TIMEOUT
 
 
 def _drop_scheme_from_dataset_item(item):
@@ -985,7 +999,9 @@ def ini_to_dict(fname, section):
     patterns['critical_files'] = config.get(section, 'critical_files')
     patterns['wanted_files'] = config.get(section, 'wanted_files')
     patterns['all_files'] = config.get(section, 'all_files')
-    patterns['is_critical_set'] = False
+    # The single set of files configured in an ini file is critical for the
+    # collection if the user has listed any critical files
+    patterns['is_critical_set'] = bool(patterns['critical_files'].strip())
     try:
         patterns['variable_tags'] = config.get(section,
                                                'variable_tags').split(',')

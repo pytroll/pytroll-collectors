@@ -329,6 +329,10 @@ patterns
     is_critical_set
         A boolean that marks this set of files as critical for the whole collection. Used for
         example when cloud mask data are required to successfully create a masked image.
+        If the timeout is reached and a critical set is missing some of its ``critical_files``,
+        the whole time slot is discarded.  Missing ``wanted_files`` do not prevent publishing.
+        When the configuration is read from an ini file this is set automatically: the set is
+        critical if, and only if, ``critical_files`` lists any files.
 
     variable_tags
         List of strings for tags that are expected to vary between segments.
@@ -413,7 +417,9 @@ an example: SEVIRI data and NWC SAF GEO products.
 
 Configuration for ``segment_gatherer`` can be either in ini or yaml
 files.  There are several examples in the ``examples/`` directory in
-the pytroll-collectors source tree.
+the pytroll-collectors source tree.  An ini file describes a single set of
+files, which is handled as a critical set whenever ``critical_files`` are
+listed for it.
 
 Example ini config:
 
