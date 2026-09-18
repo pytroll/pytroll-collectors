@@ -385,6 +385,72 @@ def test_collectors_created_from_config_separate_the_platforms(europe, tmp_path)
     assert collector.granule_duration == dt.timedelta(seconds=180)
 
 
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_timeout_is_computed_from_measurement_times_by_default(europe):
+    """Test that the timeout is by default based on the times the data were measured."""
+    from pytroll_collectors.region_collector import RegionCollector
+    collector = RegionCollector(europe, timeliness=dt.timedelta(minutes=90))
+
+    collector.collect({**granule_metadata(0)})
+
+    expected = max(collector.planned_granule_times) + collector.granule_duration + collector.timeliness
+    assert collector.timeout == expected
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_timeout_is_computed_from_arrival_of_first_granule(europe):
+    """Test that the timeout can be measured from the arrival time of the first granule."""
+    from pytroll_collectors.region_collector import RegionCollector
+    timeliness = dt.timedelta(minutes=90)
+    collector = RegionCollector(europe, timeliness=timeliness, timeliness_from_arrival=True)
+
+    before = dt.datetime.now(dt.timezone.utc)
+    collector.collect({**granule_metadata(0)})
+    after = dt.datetime.now(dt.timezone.utc)
+
+    assert before + timeliness <= collector.timeout <= after + timeliness
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_arrival_based_timeout_is_not_adjusted(europe):
+    """Test that the arrival based timeout isn't shortened when more granules are collected."""
+    from pytroll_collectors.region_collector import RegionCollector
+    collector = RegionCollector(europe, timeliness=dt.timedelta(minutes=90), timeliness_from_arrival=True)
+    collector.collect({**granule_metadata(0)})
+    timeout = collector.timeout
+
+    collector.collect({**granule_metadata(3)})
+
+    assert collector.timeout == timeout
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_arrival_time_is_reset_when_collection_is_finished(europe):
+    """Test that the arrival time of the first granule is forgotten when the collection is finished."""
+    from pytroll_collectors.region_collector import RegionCollector
+    collector = RegionCollector(europe, timeliness=dt.timedelta(minutes=90), timeliness_from_arrival=True)
+    collector.collect({**granule_metadata(0)})
+
+    collector.finish()
+
+    assert collector.collection_start_time is None
+
+
+@pytest.mark.parametrize("config_value,expected", [({}, False),
+                                                   ({"timeliness_from_arrival": "true"}, True),
+                                                   ({"timeliness_from_arrival": "True"}, True),
+                                                   ({"timeliness_from_arrival": "false"}, False),
+                                                   ({"timeliness_from_arrival": True}, True)])
+def test_timeliness_from_arrival_from_config(europe, config_value, expected):
+    """Test reading the arrival based timeliness setting from a configuration dictionary."""
+    from pytroll_collectors.region_collector import RegionCollector
+    config_items = {"timeliness": "90", **config_value}
+
+    collector = RegionCollector.from_dict_config(europe, config_items)
+
+    assert collector.timeliness_from_arrival is expected
+
+
 @pytest.mark.skip(reason="test never finishes")
 @unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
 def test_faulty_end_time(europe_collector, caplog):

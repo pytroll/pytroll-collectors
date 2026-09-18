@@ -180,21 +180,15 @@ class Message:
             dt.timedelta(seconds=rounded_seconds)
 
     def _handle_scheme(self, posttroll_message):
+        if not self._drop_scheme:
+            return posttroll_message
         message_data = posttroll_message.data.copy()
-        if self._drop_scheme:
-            url_parts = urlparse(message_data['uri'])
-            uri = urlunparse(
-                (
-                    '',
-                    '',
-                    url_parts.path,
-                    '',
-                    '',
-                    ''
-                )
-            )
-            message_data['uri'] = uri
-            posttroll_message.data = message_data
+        if 'uri' in message_data:
+            message_data['uri'] = _drop_scheme_from_uri(message_data['uri'])
+        if 'dataset' in message_data:
+            message_data['dataset'] = [_drop_scheme_from_dataset_item(item)
+                                       for item in message_data['dataset']]
+        posttroll_message.data = message_data
         return posttroll_message
 
     @property
@@ -480,6 +474,21 @@ class Slot:
             return Status.SLOT_NONCRITICAL_NOT_READY
         if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+
+def _drop_scheme_from_dataset_item(item):
+    """Drop the scheme from the URI of a single item of a dataset message."""
+    if 'uri' not in item:
+        return item
+    item = item.copy()
+    item['uri'] = _drop_scheme_from_uri(item['uri'])
+    return item
+
+
+def _drop_scheme_from_uri(uri):
+    """Drop the transport protocol/scheme and the host name from *uri*."""
+    url_parts = urlparse(uri)
+    return urlunparse(('', '', url_parts.path, '', '', ''))
 
 
 def _create_segment_list(segments):

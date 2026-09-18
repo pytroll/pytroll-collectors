@@ -6,6 +6,7 @@ import os
 import os.path
 from contextlib import ExitStack
 from unittest.mock import patch, MagicMock, call
+from urllib.parse import urlparse
 
 import pytest
 
@@ -1193,6 +1194,21 @@ class TestSegmentGathererCollections:
         slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
         assert slot.output_metadata['collection']['viirs']['dataset'] == viirs_msg.data['dataset']
         assert "dataset" not in slot.output_metadata
+
+    def test_dataset_files_get_added_when_all_files_are_local(self):
+        """Test that the scheme is dropped from dataset messages when the files are local."""
+        from posttroll.message import Message as Message_p
+        viirs_msg = Message_p(rawstr=viirs_message)
+        self.collection_gatherer._config['all_files_are_local'] = True
+
+        self.collection_gatherer.process(viirs_msg)
+
+        slot = self.collection_gatherer.slots['2020-10-13 05:17:21.200000+00:00']
+        dataset = slot.output_metadata['collection']['viirs']['dataset']
+        assert len(dataset) == len(viirs_msg.data['dataset'])
+        for item, original in zip(dataset, viirs_msg.data['dataset']):
+            assert item['uri'] == urlparse(original['uri']).path
+            assert item['uid'] == original['uid']
 
     def test_collection_files_get_added_raises_not_implemented(self):
         """Test gathering a collection raises a not implemented error."""

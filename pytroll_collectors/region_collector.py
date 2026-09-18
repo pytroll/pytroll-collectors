@@ -27,7 +27,8 @@ class RegionCollector(object):
                  timeliness=None,
                  granule_duration=None,
                  schedule_cut=None,
-                 schedule_cut_method=None):
+                 schedule_cut_method=None,
+                 timeliness_from_arrival=False):
         """Initialize the region collector."""
         self.region = region  # area def
         self.granule_times = set()
@@ -39,6 +40,8 @@ class RegionCollector(object):
         self.last_file_added = False
         self.schedule_cut = schedule_cut
         self.schedule_cut_method = schedule_cut_method
+        self.timeliness_from_arrival = timeliness_from_arrival
+        self.collection_start_time = None
 
     @classmethod
     def from_dict_config(cls, region, config_items):
@@ -58,6 +61,9 @@ class RegionCollector(object):
         """Do the collection."""
         # Check if input data is being waited for
         granule_metadata = _ensure_granule_metadata_utc_aware(granule_metadata)
+
+        if not self.granules:
+            self.collection_start_time = dt.datetime.now(dt.timezone.utc)
 
         # Check if input data is being waited for
         start_time = granule_metadata['start_time']
@@ -131,6 +137,10 @@ class RegionCollector(object):
                     self.region.area_id)
 
     def _adjust_timeout(self):
+        if self.timeliness_from_arrival:
+            # The timeout is counted from the arrival of the first granule, so
+            # it doesn't depend on the granules that are still expected
+            return
         try:
             new_timeout = (
                 max(self.planned_granule_times - self.granule_times)
@@ -154,6 +164,7 @@ class RegionCollector(object):
         self.granules = []
         self.planned_granule_times = set()
         self.timeout = None
+        self.collection_start_time = None
 
     def finish(self):
         """Finish collection, add area ID to metadata, cleanup and return granule metadata."""
@@ -203,14 +214,20 @@ class RegionCollector(object):
                          _get_platform_name(granule_metadata),
                          self.region.description,
                          str(sorted(self.planned_granule_times)))
-            self.timeout = (max(self.planned_granule_times) +
-                            self.granule_duration +
-                            self.timeliness)
+            self.timeout = self._compute_timeout()
             logger.info("Planned timeout for %s: %s", self.region.description,
                         self.timeout.isoformat())
         else:
             coverage_str = f"is not overlapping region {self.region.description:s}"
             _log_overlap_message(granule_metadata, coverage_str)
+
+    def _compute_timeout(self):
+        """Compute the time when the collection is terminated even if it isn't complete."""
+        if self.timeliness_from_arrival:
+            return self.collection_start_time + self.timeliness
+        return (max(self.planned_granule_times) +
+                self.granule_duration +
+                self.timeliness)
 
     def _set_granule_duration(self, start_time, end_time):
         if self.granule_duration is None:
@@ -383,7 +400,18 @@ def _collector_settings_from_config_dict(config_items):
         "schedule_cut": config_items.get('schedule_cut'),
         # If you want to provide your own method to provide the schedule cut data
         "schedule_cut_method": config_items.get('schedule_cut_method'),
+        # Measure the timeliness from the arrival of the first granule instead
+        # of the time the data were measured
+        "timeliness_from_arrival": _get_boolean_config_item(config_items, 'timeliness_from_arrival'),
     }
+
+
+def _get_boolean_config_item(config_items, key, default=False):
+    """Get a boolean configuration item, which may be given as a string in an ini file."""
+    value = config_items.get(key, default)
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'yes', 'on')
+    return bool(value)
 
 
 def _ensure_granule_metadata_utc_aware(granule_metadata):
