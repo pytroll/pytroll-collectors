@@ -70,8 +70,8 @@ class TestS3StalkerRunner:
     def setup_method(self):
         """Set up the test case."""
         self.ls_output = deepcopy(ATMS_FILES)
-        start_time = datetime.datetime(2022, 12, 20, 12, 0)
-        now = datetime.datetime.utcnow()
+        start_time = datetime.datetime(2022, 12, 20, 12, 0, tzinfo=UTC)
+        now = datetime.datetime.now(UTC)
         self.delta_sec = (now - start_time).total_seconds()
         self.bucket = 'atms-sdr'
         self.config = S3_STALKER_CONFIG

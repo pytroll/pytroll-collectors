@@ -3,7 +3,7 @@
 """Concatenate granules at low level if needed."""
 
 import logging
-from datetime import datetime, timedelta
+import datetime as dt
 import bz2
 import os.path
 
@@ -71,13 +71,13 @@ if __name__ == '__main__':
                     logger.debug("Starting catting for %s", section)
                     cat = config.get(section, "cat")
                     pattern = config.get(section, "pattern")
-                    mda["proc_time"] = datetime.utcnow()
+                    mda["proc_time"] = dt.datetime.now(dt.timezone.utc)
                     mda["end_time"] = msg.data[-1]["end_time"]
                     try:
                         min_length = config.getint(section, 'min_length')
                     except NoOptionError:
                         min_length = 0
-                    if mda["end_time"] - mda["start_time"] < timedelta(minutes=min_length):
+                    if mda["end_time"] - mda["start_time"] < dt.timedelta(minutes=min_length):
                         logger.info('Pass too short, skipping: %s to %s', str(
                             mda["start_time"]), str(mda["end_time"]))
                         continue

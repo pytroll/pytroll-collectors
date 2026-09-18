@@ -27,23 +27,23 @@ def create_input_dispatch_atms_msg(dirname):
 
 
 VIIRS = {'platform_name': 'Suomi-NPP', 'format': 'RDR',
-         'start_time': datetime.datetime(2013, 2, 18, 9, 8, 10, 300000),
+         'start_time': datetime.datetime(2013, 2, 18, 9, 8, 10, 300000, tzinfo=datetime.timezone.utc),
          'data_processing_level': '0', 'orbit_number': 6796,
          'uri': 'ssh://{hostname}/tmp/RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5'.format(hostname=hostname),  # noqa
          'uid': 'RNSCA-RVIRS_npp_d20130218_t0908103_e0921256_b00001_c20130218092411165000_nfts_drl.h5',
          'sensor': 'viirs',
-         'end_time': datetime.datetime(2013, 2, 18, 9, 21, 25, 600000),
+         'end_time': datetime.datetime(2013, 2, 18, 9, 21, 25, 600000, tzinfo=datetime.timezone.utc),
          'type': 'HDF5', 'variant': 'DR'}
 
 ATMS = {'platform_name': 'Suomi-NPP', 'format': 'RDR', 'start_time':
-        datetime.datetime(2013, 2, 18, 9, 8, 19, 400000),
+        datetime.datetime(2013, 2, 18, 9, 8, 19, 400000, tzinfo=datetime.timezone.utc),
         'data_processing_level': '0', 'orbit_number': 6796, 'uri':
         'ssh://{hostname}/tmp/RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5'.format(  # noqa
             hostname=hostname),
         'uid':
         'RATMS-RNSCA_npp_d20130218_t0908194_e0921055_b00001_c20130218092411244000_nfts_drl.h5',
         'sensor': 'atms',
-        'end_time': datetime.datetime(2013, 2, 18, 9, 21, 5, 500000),
+        'end_time': datetime.datetime(2013, 2, 18, 9, 21, 5, 500000, tzinfo=datetime.timezone.utc),
         'type': 'HDF5', 'variant': 'DR'}
 
 stoprc_terra = '<message timestamp="2014-10-30T21:03:50" sequence="6153" severity="INFO" messageID="0" type="2met.message" sourcePU="SMHI-Linux" sourceSU="POESAcquisition" sourceModule="POES" sourceInstance="1"><body>STOPRC Stop reception: Satellite: TERRA, Orbit number: 79082, Risetime: 2014-10-30 20:49:50, Falltime: 2014-10-30 21:03:50</body></message>'  # noqa
@@ -59,11 +59,11 @@ def create_msg_terra(dirname):
     return {"platform_name": "EOS-Terra", "uri":
             "ssh://{hostname}{path}/P0420064AAAAAAAAAAAAAA14303204950001.PDS".format(hostname=hostname, path=dirname),
             "format": "PDS",
-            "start_time": datetime.datetime(2014, 10, 30, 20, 49, 50),
+            "start_time": datetime.datetime(2014, 10, 30, 20, 49, 50, tzinfo=datetime.timezone.utc),
             "data_processing_level": "0", "orbit_number": 79082, "uid":
             "P0420064AAAAAAAAAAAAAA14303204950001.PDS",
             "sensor": "modis",
-            "end_time": datetime.datetime(2014, 10, 30, 21, 3, 50),
+            "end_time": datetime.datetime(2014, 10, 30, 21, 3, 50, tzinfo=datetime.timezone.utc),
             "type": "binary", 'variant': 'DR'}
 
 
@@ -78,12 +78,12 @@ def create_fildis_n19(dirname):
 def create_msg_n19(dirname):
     """Create message data for NOAA-19 scene."""
     return {"platform_name": "NOAA-19", "format": "HRPT",
-            "start_time": datetime.datetime(2014, 10, 28, 7, 16, 1),
+            "start_time": datetime.datetime(2014, 10, 28, 7, 16, 1, tzinfo=datetime.timezone.utc),
             "data_processing_level": "0", "orbit_number": 29477,
             "uri": "ssh://{hostname}{path}/20141028071601_NOAA_19.hmf".format(hostname=hostname, path=dirname),
             "uid": "20141028071601_NOAA_19.hmf",
             "sensor": ("avhrr/3", "mhs", "amsu-a", "hirs/4"),
-            "end_time": datetime.datetime(2014, 10, 28, 7, 25, 37),
+            "end_time": datetime.datetime(2014, 10, 28, 7, 25, 37, tzinfo=datetime.timezone.utc),
             "type": "binary", 'variant': 'DR'}
 
 
@@ -99,13 +99,13 @@ def create_msg_m01(dirname):
     """Create message data for Metop-B scene."""
     return {"platform_name": "Metop-B",
             "format": "EPS",
-            "start_time": datetime.datetime(2014, 10, 28, 8, 30, 3),
+            "start_time": datetime.datetime(2014, 10, 28, 8, 30, 3, tzinfo=datetime.timezone.utc),
             "data_processing_level": "0",
             "orbit_number": 10948,
             "uri": "ssh://{hostname}{path}/MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z".format(hostname=hostname, path=dirname),  # noqa
             "uid": "MHSx_HRP_00_M01_20141028083003Z_20141028084510Z_N_O_20141028083010Z",
             "sensor": "mhs",
-            "end_time": datetime.datetime(2014, 10, 28, 8, 45, 10),
+            "end_time": datetime.datetime(2014, 10, 28, 8, 45, 10, tzinfo=datetime.timezone.utc),
             "type": "binary", 'variant': 'DR'}
 
 
@@ -124,10 +124,10 @@ def create_msg_npp2(dirname):
     return {"orbit_number": 15591,
             "uid": "RCRIS-RNSCA_npp_d20141031_t0905166_e0905484_b00001_c20141031090623200000_nfts_drl.h5",
             "format": "RDR", "sensor": "cris",
-            "start_time": datetime.datetime(2014, 10, 31, 9, 5, 16, 600000),
+            "start_time": datetime.datetime(2014, 10, 31, 9, 5, 16, 600000, tzinfo=datetime.timezone.utc),
             "uri": "ssh://{hostname}/{path}/RCRIS-RNSCA_npp_d20141031_t0905166_e0905484_b00001_c20141031090623200000_nfts_drl.h5".format(hostname=hostname, path=dirname),  # noqa
             "platform_name": "Suomi-NPP",
-            "end_time": datetime.datetime(2014, 10, 31, 9, 5, 48, 400000),
+            "end_time": datetime.datetime(2014, 10, 31, 9, 5, 48, 400000, tzinfo=datetime.timezone.utc),
             "type": "HDF5", "data_processing_level": "0", 'variant': 'DR'}
 
 
@@ -136,8 +136,8 @@ def create_fildis_m03(dirname):
     return '<message timestamp="2022-12-19T18:57:45" sequence="2581" severity="INFO" messageID="0" type="2met.dispat.suctrn.info" sourcePU="MERLIN" sourceSU="Dispatch" sourceModule="DISPAT" sourceInstance="1"><body>SUCTRN AVHR_HRP_00_M03_20221219184226Z_20221219185738Z_N_O_20221219184230Z -&gt; ftp://{hostname}:21{path}</body></message>'.format(hostname=hostname, path=dirname)  # noqa
 
 
-msg_m03_avhrr = {'start_time': datetime.datetime(2022, 12, 19, 18, 42, 26),
-                 'end_time': datetime.datetime(2022, 12, 19, 18, 57, 38),
+msg_m03_avhrr = {'start_time': datetime.datetime(2022, 12, 19, 18, 42, 26, tzinfo=datetime.timezone.utc),
+                 'end_time': datetime.datetime(2022, 12, 19, 18, 57, 38, tzinfo=datetime.timezone.utc),
                  'orbit_number': 21363,
                  'platform_name': 'Metop-C',
                  'sensor': 'avhrr/3',
@@ -179,6 +179,24 @@ def test_reception_to_send_stop_reception():
     string = TwoMetMessage(input_stoprc)
     to_send = msg_rec.receive(string)
     assert to_send is None
+
+
+def test_twomet_message_time_is_timezone_aware():
+    """Test that the time of a 2met message is timezone aware."""
+    string = TwoMetMessage(input_stoprc)
+
+    assert string._time == datetime.datetime(2013, 2, 18, 9, 21, 35, tzinfo=datetime.timezone.utc)
+
+
+def test_clean_passes():
+    """Test that old passes are cleaned, which requires the collected times to be timezone aware."""
+    msg_rec = MessageReceiver("nimbus")
+    msg_rec.receive(TwoMetMessage(stoprc_terra))
+    assert len(msg_rec._received_passes) == 1
+
+    msg_rec.clean_passes(days=1)
+
+    assert len(msg_rec._received_passes) == 0
 
 
 @pytest.mark.parametrize("sensor, sensor_name", [(VIIRS, 'viirs'),
@@ -273,8 +291,8 @@ def test_create_message_topic_from_message_and_config_pattern(sensor, sensor_nam
 
 def test_no_sensor_list_in_sending_topic():
     """Test that a list of sensors is replaced with string multiple_sensors/."""
-    to_send = {'start_time': datetime.datetime(2024, 4, 23, 5, 34, 4),
-               'end_time': datetime.datetime(2024, 4, 23, 5, 39, 34),
+    to_send = {'start_time': datetime.datetime(2024, 4, 23, 5, 34, 4, tzinfo=datetime.timezone.utc),
+               'end_time': datetime.datetime(2024, 4, 23, 5, 39, 34, tzinfo=datetime.timezone.utc),
                'orbit_number': 78360,
                'platform_name': 'NOAA-19',
                'type': 'binary',

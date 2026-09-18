@@ -1,6 +1,7 @@
 """Cat segments together."""
 
 import argparse
+import datetime as dt
 import logging
 import logging.config
 from configparser import RawConfigParser, NoOptionError
@@ -9,7 +10,6 @@ import threading
 import os
 import tempfile
 from bz2 import BZ2File
-from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from trollsift.parser import compose
@@ -112,7 +112,7 @@ def process_message(msg, config):
     input_files = [urlsplit(item["uri"]).path for item in msg.data["collection"]]
 
     data = msg.data.copy()
-    data["proc_time"] = datetime.utcnow()
+    data["proc_time"] = dt.datetime.now(dt.timezone.utc)
     try:
         aliases = get_aliases(config["aliases"])
     except KeyError:
@@ -125,7 +125,7 @@ def process_message(msg, config):
         min_length = int(config.get('min_length'))
     except NoOptionError:
         min_length = 0
-    if data["end_time"] - data["start_time"] < timedelta(minutes=min_length):
+    if data["end_time"] - data["start_time"] < dt.timedelta(minutes=min_length):
         logger.info('Pass too short, skipping: %s to %s',
                     str(data["start_time"]), str(data["end_time"]))
         return
