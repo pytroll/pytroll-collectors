@@ -321,6 +321,46 @@ class TestSegmentGatherer:
         res = func()
         assert res == Status.SLOT_READY
 
+    def test_ini_config_with_critical_files_is_a_critical_set(self):
+        """Test that a set of files configured in an ini file is critical if critical files are listed."""
+        assert CONFIG_INI['patterns']['msg']['is_critical_set'] is True
+
+    def test_ini_config_without_critical_files_is_not_a_critical_set(self):
+        """Test that a set of files configured in an ini file without critical files isn't critical."""
+        assert CONFIG_INI_NO_SEG['patterns']['goes16']['is_critical_set'] is False
+
+    def test_slot_with_missing_critical_files_is_discarded_at_timeout(self):
+        """Test that a slot missing critical files isn't published when the timeout is reached."""
+        slot = self._create_timed_out_ini_slot([self.mda_msg0deg])
+
+        assert slot.get_status() == Status.SLOT_OBSOLETE_TIMEOUT
+
+    def test_slot_with_all_critical_files_is_published_at_timeout(self):
+        """Test that a slot with all the critical files is published even if wanted files are missing."""
+        mda_pro = self.mda_msg0deg.copy()
+        mda_pro["segment"] = "PRO"
+        mda_pro["uid"] = "H-000-MSG3__-MSG3________-_________-PRO______-201611281100-__"
+
+        slot = self._create_timed_out_ini_slot([self.mda_msg0deg, mda_pro])
+
+        assert slot.get_status() == Status.SLOT_READY
+
+    def test_non_critical_slot_is_published_at_timeout(self):
+        """Test that a set without critical files is published with whatever has been received."""
+        self.goes_ini.process(FakeMessage(self.mda_goes16))
+        slot = list(self.goes_ini.slots.values())[0]
+        slot['timeout'] = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+
+        assert slot.get_status() == Status.SLOT_READY
+
+    def _create_timed_out_ini_slot(self, messages):
+        """Collect *messages* with an ini configured gatherer and time the resulting slot out."""
+        for mda in messages:
+            self.msg_ini.process(FakeMessage(mda))
+        slot = list(self.msg_ini.slots.values())[0]
+        slot['timeout'] = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        return slot
+
     def test_get_collection_status(self):
         """Test getting the collection status."""
         mda = self.mda_msg0deg.copy()
