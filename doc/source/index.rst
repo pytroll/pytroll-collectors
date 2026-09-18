@@ -186,9 +186,16 @@ timeliness
     Defines the maximum allowed age of the granule in minutes (Warning:
     unit different compared to duration).  Collection is stopped
     ``timeliness`` minutes after the expected end time of the last expected
-    granule.
+    granule, unless ``timeliness_from_arrival`` is set.
 
 And the following optional fields:
+
+timeliness_from_arrival
+    Boolean, defaults to ``False``.  If set to ``True``, the ``timeliness`` is
+    counted from the moment the first granule of the collection arrived instead
+    of the time the data were measured.  This is useful for data that arrive
+    long after they were measured, as the collection is then not timed out
+    immediately when the first granule arrives.
 
 service
     The posttroll service name which publishing the messages.
