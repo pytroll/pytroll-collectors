@@ -37,6 +37,9 @@ tles = b"""
 METOP-C
 1 43689U 18087A   21101.60865186  .00000002  00000-0  20894-4 0  9998
 2 43689  98.6928 163.0161 0002296 181.8672 178.2497 14.21491657125954
+METOP-A
+1 29499U 06044A   21101.60865186  .00000002  00000-0  20894-4 0  9991
+2 29499  98.6928 163.0161 0002296 181.8672 178.2497 14.21491657125957
 """
 
 
@@ -44,6 +47,11 @@ _granule_metadata = {"platform_name": "Metop-C",
                      "sensor": "avhrr"}
 
 _granule_metadata_metop_b = {"platform_name": "Metop-B",
+                             "sensor": "avhrr"}
+
+# Metop-A has the same orbital elements as Metop-C in the test TLEs, so the
+# granules of the two satellites cover the region at the very same times
+_granule_metadata_metop_a = {"platform_name": "Metop-A",
                              "sensor": "avhrr"}
 
 
@@ -61,6 +69,14 @@ def granule_metadata_metop_b(s_min):
             "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
             "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
             "uri": f"file://{s_min:d}"}
+
+
+def granule_metadata_metop_a(s_min):
+    """Return common granule_metadata dictionary."""
+    return {**_granule_metadata_metop_a,
+            "start_time": datetime.datetime(2021, 4, 11, 10, s_min, 0),
+            "end_time": datetime.datetime(2021, 4, 11, 10, s_min+3, 0),
+            "uri": f"file://metop_a/{s_min:d}"}
 
 
 def harvest_schedules(params, save_basename=None, eum_base_url=None):
@@ -248,6 +264,125 @@ def test_adjust_timeout(europe, caplog):
                 {**granule_metadata,
                  "start_time": datetime.datetime(2021, 4, 11, 10, 12)})
     assert "Adjusted timeout" in caplog.text
+
+
+@pytest.fixture
+def platform_separating_collector(europe):
+    """Construct a platform separating collector for Central Europe."""
+    from pytroll_collectors.region_collector import PlatformSeparatingCollector
+    return PlatformSeparatingCollector(europe)
+
+
+def _collect_passes_of_two_platforms(collector):
+    """Collect a full pass of both Metop-C and Metop-A, and return the finished collections."""
+    collections = []
+    for s_min in (0, 3, 6, 9, 12, 15, 18):
+        for metadata in (granule_metadata(s_min), granule_metadata_metop_a(s_min)):
+            granules = collector(metadata)
+            if granules:
+                collections.append(granules)
+    return collections
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_granules_of_different_platforms_are_collected_separately(platform_separating_collector):
+    """Test that granules of two satellites measured at the same times aren't collected together."""
+    collections = _collect_passes_of_two_platforms(platform_separating_collector)
+
+    assert len(collections) == 2
+    for granules in collections:
+        assert len({granule["platform_name"] for granule in granules}) == 1
+    assert {granules[0]["platform_name"] for granules in collections} == {"Metop-C", "Metop-A"}
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_granules_of_all_the_ongoing_collections_are_listed(platform_separating_collector):
+    """Test that the granules of all the ongoing collections are available."""
+    platform_separating_collector(granule_metadata(0))
+    platform_separating_collector(granule_metadata_metop_a(0))
+
+    granules = platform_separating_collector.granules
+
+    assert len(granules) == 2
+    assert {granule["platform_name"] for granule in granules} == {"Metop-C", "Metop-A"}
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_timeout_is_the_earliest_timeout_of_the_collections(platform_separating_collector):
+    """Test that the timeout is the earliest timeout of the ongoing collections."""
+    assert platform_separating_collector.timeout is None
+    platform_separating_collector(granule_metadata(0))
+    platform_separating_collector(granule_metadata_metop_a(0))
+    collectors = platform_separating_collector._collectors
+    collectors["Metop-A"].timeout = collectors["Metop-C"].timeout - dt.timedelta(minutes=10)
+
+    assert platform_separating_collector.timeout == collectors["Metop-A"].timeout
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_finish_terminates_the_collection_that_times_out_first(platform_separating_collector):
+    """Test that finishing returns the granules of the collection that times out first."""
+    platform_separating_collector(granule_metadata(0))
+    platform_separating_collector(granule_metadata_metop_a(0))
+    collectors = platform_separating_collector._collectors
+    collectors["Metop-A"].timeout = collectors["Metop-C"].timeout - dt.timedelta(minutes=10)
+
+    granules = platform_separating_collector.finish()
+
+    assert [granule["platform_name"] for granule in granules] == ["Metop-A"]
+    assert collectors["Metop-A"].timeout is None
+    assert len(collectors["Metop-C"].granules) == 1
+
+
+def test_finish_without_ongoing_collections(platform_separating_collector):
+    """Test that finishing without any ongoing collection returns no granules."""
+    assert platform_separating_collector.finish() == []
+    assert platform_separating_collector.finish_without_reset() == []
+    assert platform_separating_collector.is_last_file_added() is False
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_latest_granule_is_reported_for_the_collection_that_received_it(platform_separating_collector):
+    """Test that the latest granule and collection are those of the platform of the latest granule."""
+    platform_separating_collector(granule_metadata(0))
+    platform_separating_collector(granule_metadata_metop_a(0))
+
+    assert platform_separating_collector.is_last_file_added() is True
+    granules = platform_separating_collector.finish_without_reset()
+    assert [granule["platform_name"] for granule in granules] == ["Metop-A"]
+
+
+@unittest.mock.patch("pyorbital.tlefile.urlopen", new=_fakeopen_celestrak)
+def test_cleanup_clears_all_the_collections(platform_separating_collector):
+    """Test that all the ongoing collections are cleared."""
+    platform_separating_collector(granule_metadata(0))
+    platform_separating_collector(granule_metadata_metop_a(0))
+
+    platform_separating_collector.cleanup()
+
+    assert platform_separating_collector.granules == []
+    assert platform_separating_collector.timeout is None
+
+
+def test_collectors_created_from_config_separate_the_platforms(europe, tmp_path):
+    """Test that the collectors created from a configuration dictionary separate the platforms."""
+    from pytroll_collectors.region_collector import PlatformSeparatingCollector
+    from pytroll_collectors.region_collector import create_collectors_from_config_dict
+    area_file = tmp_path / "areas.yaml"
+    area_file.write_text(yaml_europe)
+    config_items = {"regions": "euro_ma",
+                    "area_definition_file": str(area_file),
+                    "timeliness": "15",
+                    "duration": "180"}
+
+    collectors = create_collectors_from_config_dict(config_items)
+
+    assert len(collectors) == 1
+    collector = collectors[0]
+    assert isinstance(collector, PlatformSeparatingCollector)
+    assert collector.region == europe
+    assert collector.timeliness == dt.timedelta(minutes=15)
+    assert collector.granule_duration == dt.timedelta(seconds=180)
 
 
 @pytest.mark.skip(reason="test never finishes")
