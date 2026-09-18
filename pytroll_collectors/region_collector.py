@@ -46,22 +46,7 @@ class RegionCollector(object):
     @classmethod
     def from_dict_config(cls, region, config_items):
         """Create a instance of the class using a configuration dictionary to get the parameters."""
-        timeliness = timedelta(minutes=int(config_items["timeliness"]))
-
-        try:
-            duration = timedelta(seconds=float(config_items["duration"]))
-        except KeyError:
-            duration = None
-        # Parse schedule cut if configured. Mainly for EARS data.
-        schedule_cut = config_items.get('schedule_cut')
-        # If you want to provide your own method to provide the schedule cut data
-        schedule_cut_method = config_items.get('schedule_cut_method')
-        # Measure the timeliness from the arrival of the first granule instead
-        # of the time the data were measured
-        timeliness_from_arrival = _get_boolean_config_item(config_items, 'timeliness_from_arrival')
-
-        return cls(region, timeliness, duration, schedule_cut, schedule_cut_method,
-                   timeliness_from_arrival=timeliness_from_arrival)
+        return cls(region, **_collector_settings_from_config_dict(config_items))
 
     def __call__(self, granule_metadata):
         """Perform the collection on the granule."""
@@ -307,6 +292,120 @@ class RegionCollector(object):
                         self.planned_granule_times.remove(pgt)
 
 
+class PlatformSeparatingCollector:
+    """Collect the granules of each platform separately.
+
+    Granules of two satellites can have nearly identical start times, so a
+    single `RegionCollector` gathering a pass of one satellite easily picks up
+    granules of another one.  This collector holds a `RegionCollector` of its
+    own for every platform it sees, so that the granules of different
+    satellites never end up in the same collection.
+
+    The collectors are created with the given *timeliness*, *granule_duration*
+    and any other keyword arguments accepted by `RegionCollector`.
+    """
+
+    def __init__(self, region, timeliness=None, granule_duration=None, **collector_kwargs):
+        """Initialize the collector."""
+        self.region = region
+        self.timeliness = timeliness or timedelta(seconds=600)
+        self.granule_duration = granule_duration
+        self._collector_kwargs = collector_kwargs
+        self._collectors = {}
+        self._latest_collector = None
+
+    @classmethod
+    def from_dict_config(cls, region, config_items):
+        """Create a instance of the class using a configuration dictionary to get the parameters."""
+        return cls(region, **_collector_settings_from_config_dict(config_items))
+
+    def __call__(self, granule_metadata):
+        """Collect the granule with the collector of its platform."""
+        collector = self._get_collector(_get_platform_name(granule_metadata))
+        self._latest_collector = collector
+        return collector(granule_metadata)
+
+    def _get_collector(self, platform_name):
+        """Get the collector for *platform_name*, creating it if it doesn't exist yet."""
+        try:
+            return self._collectors[platform_name]
+        except KeyError:
+            logger.debug("Starting to collect %s over %s", platform_name, self.region.area_id)
+            collector = RegionCollector(self.region, self.timeliness, self.granule_duration,
+                                        **self._collector_kwargs)
+            self._collectors[platform_name] = collector
+            return collector
+
+    @property
+    def granules(self):
+        """Return the granules of all the ongoing collections."""
+        return [granule
+                for collector in self._collectors.values()
+                for granule in collector.granules]
+
+    @property
+    def timeout(self):
+        """Return the earliest timeout of the ongoing collections."""
+        timeouts = [collector.timeout for collector in self._collectors.values()
+                    if collector.timeout is not None]
+        if not timeouts:
+            return None
+        return min(timeouts)
+
+    def finish(self):
+        """Finish the collection that times out first, and return its granules."""
+        collector = self._collector_timing_out_first()
+        if collector is None:
+            return []
+        return collector.finish()
+
+    def finish_without_reset(self):
+        """Return the granules of the collection that received the latest granule."""
+        if self._latest_collector is None:
+            return []
+        return self._latest_collector.finish_without_reset()
+
+    def is_last_file_added(self):
+        """Return if the latest granule was added to a collection."""
+        if self._latest_collector is None:
+            return False
+        return self._latest_collector.is_last_file_added()
+
+    def cleanup(self):
+        """Clear all the ongoing collections."""
+        for collector in self._collectors.values():
+            collector.cleanup()
+
+    def _collector_timing_out_first(self):
+        collectors = [collector for collector in self._collectors.values()
+                      if collector.timeout is not None]
+        if not collectors:
+            return None
+        return min(collectors, key=(lambda collector: collector.timeout))
+
+
+def _collector_settings_from_config_dict(config_items):
+    """Collect the region collector settings from a configuration dictionary."""
+    timeliness = timedelta(minutes=int(config_items["timeliness"]))
+
+    try:
+        duration = timedelta(seconds=float(config_items["duration"]))
+    except KeyError:
+        duration = None
+
+    return {
+        "timeliness": timeliness,
+        "granule_duration": duration,
+        # Parse schedule cut if configured. Mainly for EARS data.
+        "schedule_cut": config_items.get('schedule_cut'),
+        # If you want to provide your own method to provide the schedule cut data
+        "schedule_cut_method": config_items.get('schedule_cut_method'),
+        # Measure the timeliness from the arrival of the first granule instead
+        # of the time the data were measured
+        "timeliness_from_arrival": _get_boolean_config_item(config_items, 'timeliness_from_arrival'),
+    }
+
+
 def _get_boolean_config_item(config_items, key, default=False):
     """Get a boolean configuration item, which may be given as a string in an ini file."""
     value = config_items.get(key, default)
@@ -402,8 +501,12 @@ def get_regions_from_config_dict(config_items):
 
 
 def create_collectors_from_config_dict(config_items):
-    """Create region collectors for a configuration dictionary."""
+    """Create region collectors for a configuration dictionary.
+
+    The granules of each platform are collected separately, see
+    `PlatformSeparatingCollector`.
+    """
     regions = get_regions_from_config_dict(config_items)
 
-    return [RegionCollector.from_dict_config(region, config_items)
+    return [PlatformSeparatingCollector.from_dict_config(region, config_items)
             for region in regions]

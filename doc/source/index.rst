@@ -167,6 +167,10 @@ area_definition_file
     The file containing area definitions that are specified in the `regions` section. If this is not specified, it will
     look into $SATPY_CONFIG_PATH/areas.yaml if $SATPY_CONFIG_PATH is defined.
 
+The granules of each satellite are collected separately, so granules of two
+satellites measured at nearly the same times are never gathered in the same
+collection.
+
 All other sections have the following mandatory fields:
 
 pattern
