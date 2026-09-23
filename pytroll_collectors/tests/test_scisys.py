@@ -4,7 +4,6 @@
 # Test cases.
 
 import datetime
-from unittest import TestCase
 import pytest
 from copy import deepcopy
 
@@ -198,7 +197,7 @@ def test_twomet_message(sensor, sensor_name, tmp_path):
     sensor_cpy.pop('orbit_number')
     to_send.pop('uri')
 
-    TestCase().assertDictEqual(to_send, sensor_cpy)
+    assert to_send == sensor_cpy
 
 
 def test_twomet_messages_npp_with_start_reception(tmp_path):
@@ -214,7 +213,7 @@ def test_twomet_messages_npp_with_start_reception(tmp_path):
 
     string = TwoMetMessage(create_fildis_npp2(tmp_path))
     to_send = msg_rec.receive(string)
-    TestCase().assertDictEqual(to_send, create_msg_npp2(tmp_path))
+    assert to_send == create_msg_npp2(tmp_path)
 
 
 @pytest.mark.parametrize("platform_name", ['EOS-Terra',
@@ -232,7 +231,7 @@ def test_twomet_messages_with_stop_reception_message(platform_name, tmp_path):
     create_empty_file(filename)
     string = TwoMetMessage(INPUT_DISPATCH[platform_name](tmp_path))
     to_send = msg_rec.receive(string)
-    TestCase().assertDictEqual(to_send, CREATE_MESSAGES[platform_name](tmp_path))
+    assert to_send == CREATE_MESSAGES[platform_name](tmp_path)
 
 
 @pytest.mark.parametrize("sensor, sensor_name, topic_pattern, topic_result",
