@@ -1,4 +1,4 @@
-"""Fixtures for unittests."""
+"""Fixtures for the tests."""
 
 import pytest
 
