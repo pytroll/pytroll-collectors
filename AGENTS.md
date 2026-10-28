@@ -52,7 +52,10 @@ matched to a pattern is pluggable via the `Parser` ABC: `UIDParser` (trollsift f
 **`region_collector.py` + `geographic_gatherer.py` — RegionCollector (area-coverage based).** Uses pyresample area
 definitions plus pytroll-schedule/pyorbital `Pass` objects to predict which granule times will cover the region
 (`_predict_pass_granules`), then collects until `planned_granule_times` is a subset of the received
-`granule_times` or the timeout fires. Missing TLEs surface as `KeyError` from pyorbital and are deliberately
+`granule_times` or the timeout fires. One `RegionCollector` handles a single satellite at a time, so
+`create_collectors_from_config_dict()` wraps them in a `PlatformSeparatingCollector` per region, which holds a
+collector per platform and exposes the collector API the triggers use (`timeout`, `granules`, `finish()`,
+`finish_without_reset()`, `is_last_file_added()`). Missing TLEs surface as `KeyError` from pyorbital and are deliberately
 caught one level up, in the trigger.
 
 ### Trigger layer (`triggers/`) — geographic gatherer only
